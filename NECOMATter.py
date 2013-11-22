@@ -1,0 +1,315 @@
+#!/usr/bin/python
+# coding: UTF-8
+
+# ユーザにツイートさせるようなtwitterもどきの事をさせる時の
+# DB を叩くフロントエンドクラスです
+
+
+import logging
+import time
+import hashlib
+import random
+from py2neo import neo4j, cypher
+
+
+class NECOMATter():
+    def __init__(self, url=None):
+        if url is None:
+            url = "http://localhost:7474"
+        self.gdb = neo4j.GraphDatabaseService(url + "/db/data/")
+        self.UserIndex = None
+        self.TweetIndex = None
+        self.SessionExpireSecond = 60*60*24*7
+        # Cypher transactions are not supported by this server version
+        # と言われたのでとりあえずの所はtransaction は封印します
+        #self.CypherSession = cypher.Session(url)
+
+    # ユーザ用のインデックスを取得します
+    def GetUserIndex(self):
+        if self.UserIndex is None:
+            self.UserIndex = self.gdb.get_or_create_index(neo4j.Node, "user")
+        return self.UserIndex
+
+    # tweet用のインデックスを取得します
+    def GetTweetIndex(self):
+        if self.TweetIndex is None:
+            self.TweetIndex = self.gdb.get_or_create_index(neo4j.Node, "tweet")
+        return self.TweetIndex
+
+    # ユーザのノードを取得します。
+    # 何か問題があった場合はNone を返します。
+    def GetUserNode(self, user_name):
+        user_index = self.GetUserIndex()
+        # 取得する
+        user_list = user_index.get("name", user_name)
+        if len(user_list) != 1:
+            if len(user_list) == 0:
+                return None
+            else:
+                logging.warning("user %s have multiple node: %s" % (user_name, str(user_list)))
+                return None
+        return user_list[0]
+
+    # ユーザにtweet させます。Tweetに成功したら、tweet_node を返します
+    def Tweet(self, user_node, tweet_string):
+        if user_node is None:
+            logging.error("Tweet owner is not defined.")
+            return None
+        tweet_index = self.GetTweetIndex()
+        tweet_node = tweet_index.create("text", tweet_string, {
+            "text": tweet_string,
+            "time": time.time()
+            })
+        # user_node がtweet したということで、path をtweet_node から繋げます
+        tweet_node.create_path("TWEET", user_node)
+        return tweet_node
+
+    # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
+    def GetUserTweet(self, user_node, limit=None, skip=None):
+        if user_node is None:
+            logging.error("User is undefined.")
+            return []
+        # ユーザのID を取得します
+        user_id = user_node._id
+        # クエリを作ります
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH (tweet) -[:TWEET]-> (user) "
+        query += "RETURN tweet.text, tweet.time "
+        query += "ORDER BY tweet.time DESC "
+        if skip is not None:
+            query += "SKIP %d " % skip
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+        """ # good old code. not used cypher
+        relationship_list = user_node.match_incoming(rel_type="TWEET", limit=limit)
+        result_node_list = []
+        for relationship in relationship_list:
+            result_node_list.append(relationship.start_node)
+        return result_node_list
+        """
+
+    # tweet_node を{"text": 本文, "time": 日付文字列, "user": ユーザ名} の形式の辞書にします
+    def ConvertTweetNodeToHumanReadableDictionary(self, tweet_node):
+        if tweet_node is None:
+            logging.error("tweet_node is None")
+            return None
+        result_dic = {}
+        result_dic['text'] = tweet_node['text']
+        result_dic['time'] = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet_node['time']))
+        return result_dic
+
+    # ユーザのtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
+    def GetUserTweetFormated(self, user_name, limit=None, skip=None):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User %s is undefined." % user_name)
+            return []
+        tweet_list = self.GetUserTweet(user_node, limit, skip)
+        if tweet_list is None:
+            logging.error("can not get tweet list.")
+            return []
+        result_list = []
+        for tweet in tweet_list:
+            result_list.append({'text': tweet[0],
+                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1]))})
+        return result_list
+
+    # ユーザのタイムラインを取得します。
+    # 取得されるのは text, time, name のリストです。
+    def GetUserTimeline(self, user_node, limit=None, skip=None):
+        if user_node is None:
+            logging.error("User is undefined.")
+            return []
+        user_id = user_node._id
+        # クエリを作ります
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH (tweet) -[:TWEET]-> (target) <-[:FOLLOW]- (user) "
+        query += "RETURN tweet.text, tweet.time, target.name "
+        query += "ORDER BY tweet.time DESC "
+        if skip is not None:
+            query += "SKIP %d " % skip
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # ユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user": ユーザ名}のリストにして返します
+    def GetUserTimelineFormated(self, user_name, limit=None, skip=None):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User %s is undefined." % user_name)
+            return []
+        tweet_list = self.GetUserTimeline(user_node, limit, skip)
+        if tweet_list is None:
+            logging.error("can not get tweet list.")
+            return []
+        result_list = []
+        for tweet in tweet_list:
+            result_list.append({'text': tweet[0],
+                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
+                "user": tweet[2]})
+        return result_list
+
+    # ユーザ名とセッションキーから、そのセッションが有効かどうかを判定します。
+    def CheckUserSessionKeyIsValid(self, user_name, session_key):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.warning("User %s is undefined." % user_name)
+            return False
+        if session_key != user_node['session_key'] or session_key is None:
+            return False
+        expire_time = user_node['session_expire_time']
+        now_time = time.time()
+        if expire_time > now_time:
+            logging.info("session expired.")
+            return False
+        return True
+
+    # ユーザセッションを新規作成して返します
+    def UpdateUserSessionKey(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.warning("User %s is undefined." % user_name)
+            return None
+        # 怪しくセッションキー文字列を生成します
+        session_key = self.GetPasswordHash(user_name,
+            str(time.time() + random.randint(0, 100000000)))
+        user_node['session_key'] = session_key
+        user_node['session_expire_time'] = time.time() + self.SessionExpireSecond
+        return session_key
+
+    # DBに登録されるパスワードのハッシュ値を取得します
+    def GetPasswordHash(self, user_name, password):
+        if isinstance(user_name, unicode):
+            user_name = user_name.encode('utf-8')
+        if isinstance(password, unicode):
+            password = password.encode('utf-8')
+        return hashlib.sha256("%s/%s" % (password, user_name)).hexdigest()
+
+    # ユーザのパスワードを確認します
+    def CheckUserPasswordIsValid(self, user_name, password):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.warning("User %s is undefined." % user_name)
+            return False
+        if self.GetPasswordHash(user_name, password) != user_node['password_hash']:
+            return False
+        return True
+
+    # ユーザのパスワードを更新します
+    def UpdateUserPassword(self, user_name, old_password, new_password):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.warning("User %s is undefined." % user_name)
+            return False
+        if not self.CheckUserPasswordIsValid(user_name, old_password):
+            logging.warning("User %s password authenticate failed." % user_name)
+            return False
+        user_node['password_hash'] = self.GetPasswordHash(user_name, new_password)
+        user_node['session_expire_time'] = 0.0
+        return True
+
+    # ユーザを登録します
+    def AddUser(self, user_name, password):
+        user_node = self.GetUserNode(user_name)
+        if user_node is not None:
+            logging.warning("User %s is already registerd." % user_name)
+            return False
+        user_index = self.GetUserIndex()
+        hash_value = self.GetPasswordHash(user_name, password)
+        user_node = user_index.create("name", user_name, {
+            "name": user_name, "password_hash": hash_value
+        })
+        # 自分をフォローしていないと自分のタイムラインに自分が出ません
+        self.FollowUserByNode(user_node, user_node)
+        return True
+
+    # follower がtarget をフォローしているかどうかを確認します
+    def IsFollowed(self, follower_user_node, target_user_node):
+        if follower_user_node is None or target_user_node is None:
+            logging.error("follower_user_node or target_user_node is None")
+            return False
+        result = self.gdb.match(start_node=follower_user_node,
+                rel_type="FOLLOW",
+                end_node=target_user_node)
+        if result is None:
+            logging.error("fatal error. match() return None.")
+            return False
+        is_followed = False
+        for obj in result:
+            is_followed = True
+        return is_followed
+
+    # ユーザをフォローします
+    def FollowUserByNode(self, follower_user_node, target_user_node):
+        if follower_user_node is None or target_user_node is None:
+            logging.error("follower_user_node or target_user_node is None")
+            return False
+        if self.IsFollowed(follower_user_node, target_user_node):
+            logging.warning("already followed.")
+            return True
+        if follower_user_node is None or target_user_node is None:
+            logging.error("follower_user_node or target_user_node is None")
+            return False
+        relationship = self.gdb.create((follower_user_node, "FOLLOW", target_user_node))
+        if relationship is None:
+            return False
+        return True
+
+    # ユーザをフォローします
+    def FollowUserByName(self, follower_user_name, target_user_name):
+        follower_user_node = self.GetUserNode(follower_user_name)
+        target_user_node = self.GetUserNode(target_user_name)
+        return self.FollowUserByNode(follower_user_node, target_user_node)
+
+    # ユーザをフォローしていたらフォローを外します
+    def UnFollowUserByNode(self, follower_user_node, target_user_node):
+        if follower_user_node is None or target_user_node is None:
+            logging.error("follower_user_node or target_user_node is None")
+            return False
+        result = self.gdb.match(start_node=follower_user_node, rel_type="FOLLOW", end_node=target_user_node)
+        if result is None:
+            logging.error("fatal error. match() return None.")
+            return False
+        for relationship in result:
+            self.gdb.delete(relationship)
+        return True
+
+    # ユーザをフォローしていたらフォローを外します
+    def UnFollowUserByName(self, follower_user_name, target_user_name):
+        follower_user_node = self.GetUserNode(follower_user_name)
+        target_user_node = self.GetUserNode(target_user_name)
+        return self.UnFollowUserByNode(follower_user_node, target_user_node)
+
+    # ユーザ名のリストを取得します
+    def GetUserNameList(self):
+        user_index = self.gdb.get_or_create_index(neo4j.Node, "user")
+        query_result = user_index.query("name:*")
+        user_name_list = []
+        for user_node in query_result:
+            if "name" in user_node:
+                user_name_list.append(user_node["name"])
+        return user_name_list
+
+    # 対象のユーザがフォローしているユーザ名のリストを取得します
+    def GetUserFollowedUserNameList(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("user %s is not registered." % user_name)
+            return []
+        user_id = user_node._id
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH (target) <-[:FOLLOW]- (user) "
+        query += "RETURN target.name "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        followed_user_name_list = []
+        for name in result_list:
+            followed_user_name_list.append(name[0])
+        return followed_user_name_list
+
+

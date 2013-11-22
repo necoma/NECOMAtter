@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block body %}
+<script>
+$(document).ready(function(){
+		$.getJSON('/user_name_list.json',
+			{},
+			function(user_name_list, textStatus){
+				var html = "";
+				for(var i = 0, len = user_name_list.length; i < len; i++){
+					user_name = user_name_list[i];
+					html += '<a href="/user/' + user_name + '">' + user_name + '</a> ';
+				}
+				$('#UserList').html(html);
+			}
+			);
+		}
+);
+</script>
+  <h1>NECOMATter</h1>
+  {% if 'user_name' not in session or 'session_key' not in session %}
+    <p><a href="{{ url_for('signinPage') }}">sign in</a></p>
+    <p><a href="{{ url_for('signupPage') }}">sign up</a></p>
+  {% else %}
+  <p><a href="/timeline/{{ session['user_name'] }}">{{ session['user_name']}} timeline</a></p>
+  {% endif %}
+  User List: <span id="UserList">now loading...</span>
+  <hr>
+  <div class="memo">
+	  <h3>実装状況？メモ。</h3>
+	  なんとなくできていること
+	  <ul>
+	          <li>ユーザの概念</li>
+	          <li>tweet する・見る</li>
+		  <li><a href="/static/rest_interfaces.html">REST API のドキュメント</a></li>
+	          <li>フォローの概念(timeline)</li>
+          </ul>
+          まだできていないこと(できるようにしようと思っている)
+          <ul>
+		  <li>unit test</li>
+	          <li>REST interfaces</li>
+	          <li>タグの概念(タグ検索できない←コレが重要のハズ)</li>
+		  <li>REST friendly なユーザ管理
+		  (現状は Flask session(タダのcookie) によるなんちゃってサインインなのでRESTと食合せが悪い)</li>
+	          <li>streaming taimeline (twitter のstreaming API みたいに、タイムラインをリアルタイムに取得できるようにしたいなぁ)</li>
+          </ul>
+	  できないこと(とりあえずは必要ないと思っている)
+	  <ul>
+		  <li>ユーザアイコン</li>
+		  <li>ユーザプロフィール</li>
+		  <li>@</li>
+		  <li>d</li>
+		  <li>鍵付きアカウント</li>
+	  </ul>
+  </div>
+  <div class="memo">
+	  <h3>memo link</h3>
+	  <ul>
+		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=necoma.git;a=summary">git</a></li>
+		  <li><a href="http://ns3-dev.sekiya-lab.info/ganglia/">ganglia</a></li>
+		  <li><a href="http://hadoop-master.sekiya-lab.info:8088/cluster">hadoop cluster</a></li>
+		  <li><a href="http://docs.neo4j.org/refcard/1.9/">Cypher query language for Neo4j</a></li>
+		  <li><a href="http://docs.neo4j.org/chunked/stable/data-modeling-examples.html">Neo4j data modeling examples</a></li>
+		  <li><a href="http://book.py2neo.org/en/latest/">Py2neo Python library for Neo4j</a></li>
+	  </ul>
+  </div>
+{% endblock %}

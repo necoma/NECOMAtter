@@ -1,0 +1,63 @@
+<html>
+<head><title>NECOMATter REST interface</title>
+<link rel="stylesheet" type="text/css" href="/static/NECOMATter.css">
+</head>
+<body>
+<div class="REST_manual">
+<h2>NECOMATter REST interface manual</h2>
+
+<h3 class="REST_service">get User tweets</h3>
+<div class="REST_url">URL: /user/[user_name].json</div>
+<div class="REST_method">method: GET</div>
+<div class="REST_description">get user tweets.</div>
+<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string}, ...]</div>
+
+<h3 class="REST_service">get User timeline</h3>
+<div class="REST_url">URL: /timeline/[user_name].json</div>
+<div class="REST_method">method: GET</div>
+<div class="REST_description">get user timeline.</div>
+<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "user": user name}, ...]</div>
+
+<h3 class="REST_service">get User list</h3>
+<div class="REST_url">URL: /user_name_list.json</div>
+<div class="REST_method">method: GET</div>
+<div class="REST_description">get all user name list.</div>
+<div class="REST_data_format">result data format: [user name, ...]</div>
+
+<h3 class="REST_service">post tweet</h3>
+<div class="REST_url">URL: /post.json</div>
+<div class="REST_method">method: POST</div>
+<div class="REST_description">post new tweet. (required sign in)</div>
+<div class="REST_data_format">post data format: {"text": tweet text }</div>
+<div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
+
+<h3 class="REST_service">follow user</h3>
+<div class="REST_url">URL: /follow.json</div>
+<div class="REST_method">method: POST</div>
+<div class="REST_description">follow user (required sign in)</div>
+<div class="REST_data_format">post data format: {"user_name": target user name}</div>
+<div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
+
+<h3 class="REST_service">unfollow user</h3>
+<div class="REST_url">URL: /unfollow.json</div>
+<div class="REST_method">method: DELETE</div>
+<div class="REST_description">unfollow user (required sign in)</div>
+<div class="REST_data_format">post data format: {"user_name": target user name}</div>
+<div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
+
+<h3 class="REST_service">unfollow user(altanative for DELETE method unsupported client)</h3>
+<div class="REST_url">URL: /unfollow.json</div>
+<div class="REST_method">method: POST</div>
+<div class="REST_description">unfollow user (required sign in)</div>
+<div class="REST_data_format">post data format: {"user_name": target user name}</div>
+<div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
+
+<h3 class="REST_service">get followed user name list</h3>
+<div class="REST_url">URL: /user/[user_name]/followed_user_name_list.json</div>
+<div class="REST_method">method: GET</div>
+<div class="REST_description">I acquire the list of the user where [user_name] does follow.</div>
+<div class="REST_data_format">result data format: ['user_name', ...]</div>
+
+</div>
+</body>
+</html>

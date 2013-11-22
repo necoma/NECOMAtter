@@ -1,0 +1,28 @@
+<!doctype html>
+<head>
+<title>NECOMATter</title>
+<link rel="stylesheet" type="text/css" href="/static/NECOMATter.css">
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script src="/static/NECOMATter.js"></script>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+</head>
+<body>
+<a href="/">NECOMATter</a>
+{% if 'user_name' in session and 'session_key' in session %}
+&nbsp;sign in on "{{ session['user_name'] }}"&nbsp;<a href="/signout">sign out</a>
+{% endif %}
+{% block body %}{% endblock %}
+<hr>
+<a href="/">NECOMATer</a>(<a href="http://www.necoma-project.jp/">NECOMA Project</a>)
+Powered by <a href="http://www.python.org/">Python</a>, <a href="http://www.neo4j.org/">Neo4j</a>.
+illustration from <a href="http://yaplog.jp/rochirico/archive/566">ROBIN</a>
+</body>
+
