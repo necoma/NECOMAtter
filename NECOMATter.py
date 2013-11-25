@@ -9,6 +9,7 @@ import logging
 import time
 import hashlib
 import random
+from xml.sax.saxutils import *
 from py2neo import neo4j, cypher
 
 
@@ -16,6 +17,7 @@ class NECOMATter():
     def __init__(self, url=None):
         if url is None:
             url = "http://localhost:7474"
+        self.db_url = url
         self.gdb = neo4j.GraphDatabaseService(url + "/db/data/")
         self.UserIndex = None
         self.TweetIndex = None
@@ -23,6 +25,10 @@ class NECOMATter():
         # Cypher transactions are not supported by this server version
         # と言われたのでとりあえずの所はtransaction は封印します
         #self.CypherSession = cypher.Session(url)
+
+    # HTML でXSSさせないようなエスケープをします。
+    def EscapeForXSS(self, text):
+        return escape(text)
 
     # ユーザ用のインデックスを取得します
     def GetUserIndex(self):
@@ -56,8 +62,8 @@ class NECOMATter():
             logging.error("Tweet owner is not defined.")
             return None
         tweet_index = self.GetTweetIndex()
-        tweet_node = tweet_index.create("text", tweet_string, {
-            "text": tweet_string,
+        tweet_node = tweet_index.create("text", self.EscapeForXSS(tweet_string), {
+            "text": self.EscapeForXSS(tweet_string), 
             "time": time.time()
             })
         # user_node がtweet したということで、path をtweet_node から繋げます
@@ -65,7 +71,7 @@ class NECOMATter():
         return tweet_node
 
     # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
-    def GetUserTweet(self, user_node, limit=None, skip=None):
+    def GetUserTweet(self, user_node, limit=None, since_time=None):
         if user_node is None:
             logging.error("User is undefined.")
             return []
@@ -75,10 +81,10 @@ class NECOMATter():
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (tweet) -[:TWEET]-> (user) "
-        query += "RETURN tweet.text, tweet.time "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "RETURN tweet.text, tweet.time, user.name "
         query += "ORDER BY tweet.time DESC "
-        if skip is not None:
-            query += "SKIP %d " % skip
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
@@ -102,24 +108,26 @@ class NECOMATter():
         return result_dic
 
     # ユーザのtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
-    def GetUserTweetFormated(self, user_name, limit=None, skip=None):
+    def GetUserTweetFormated(self, user_name, limit=None, since_time=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("User %s is undefined." % user_name)
             return []
-        tweet_list = self.GetUserTweet(user_node, limit, skip)
+        tweet_list = self.GetUserTweet(user_node, limit=limit, since_time=since_time)
         if tweet_list is None:
             logging.error("can not get tweet list.")
             return []
         result_list = []
         for tweet in tweet_list:
             result_list.append({'text': tweet[0],
-                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1]))})
+                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
+                "user": tweet[2],
+                "unix_time": tweet[1]})
         return result_list
 
     # ユーザのタイムラインを取得します。
     # 取得されるのは text, time, name のリストです。
-    def GetUserTimeline(self, user_node, limit=None, skip=None):
+    def GetUserTimeline(self, user_node, limit=None, since_time=None):
         if user_node is None:
             logging.error("User is undefined.")
             return []
@@ -128,22 +136,22 @@ class NECOMATter():
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (tweet) -[:TWEET]-> (target) <-[:FOLLOW]- (user) "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
         query += "RETURN tweet.text, tweet.time, target.name "
         query += "ORDER BY tweet.time DESC "
-        if skip is not None:
-            query += "SKIP %d " % skip
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
     # ユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user": ユーザ名}のリストにして返します
-    def GetUserTimelineFormated(self, user_name, limit=None, skip=None):
+    def GetUserTimelineFormated(self, user_name, limit=None, since_time=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("User %s is undefined." % user_name)
             return []
-        tweet_list = self.GetUserTimeline(user_node, limit, skip)
+        tweet_list = self.GetUserTimeline(user_node, limit, since_time)
         if tweet_list is None:
             logging.error("can not get tweet list.")
             return []
@@ -151,7 +159,8 @@ class NECOMATter():
         for tweet in tweet_list:
             result_list.append({'text': tweet[0],
                 "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
-                "user": tweet[2]})
+                "user": tweet[2],
+                "unix_time": tweet[1]})
         return result_list
 
     # ユーザ名とセッションキーから、そのセッションが有効かどうかを判定します。
@@ -215,6 +224,12 @@ class NECOMATter():
 
     # ユーザを登録します
     def AddUser(self, user_name, password):
+        # ユーザ名はいちいちエスケープするのがめんどくさいので
+        # 登録時にエスケープされないことを確認するだけにします(いいのかなぁ)
+        escaped_user_name = self.EscapeForXSS(user_name)
+        if escaped_user_name != user_name:
+            logging.error("User %s has escape string. please user other name" % user_name)
+            return False
         user_node = self.GetUserNode(user_name)
         if user_node is not None:
             logging.warning("User %s is already registerd." % user_name)
@@ -312,4 +327,13 @@ class NECOMATter():
             followed_user_name_list.append(name[0])
         return followed_user_name_list
 
+    # tweetのノードIDから対象のユーザのtweet を取得します。
+    def GetTweetFromID(self, tweet_id):
+        query = ""
+        query += "start tweet = node(%d) " % tweet_id
+        query += "MATCH (user) <-[:TWEET]- (tweet) "
+        query += "RETURN tweet.text, tweet.time, user.name"
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+        
 

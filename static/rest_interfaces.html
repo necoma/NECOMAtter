@@ -10,13 +10,17 @@
 <div class="REST_url">URL: /user/[user_name].json</div>
 <div class="REST_method">method: GET</div>
 <div class="REST_description">get user tweets.</div>
-<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string}, ...]</div>
+<div class="REST_data_format">options limit: It limits the number of a paid value.. since_time: This option intends for the past at appointed time.</div>
+<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "unix_time": unix time[second]}, ...]</div>
+<div class="REST_example_request">example: /user/iimura.json?limit=10&since_time=1385021149.0</div>
 
 <h3 class="REST_service">get User timeline</h3>
 <div class="REST_url">URL: /timeline/[user_name].json</div>
 <div class="REST_method">method: GET</div>
 <div class="REST_description">get user timeline.</div>
-<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "user": user name}, ...]</div>
+<div class="REST_data_format">options limit: It limits the number of a paid value.. since_time: This option intends for the past at appointed time.</div>
+<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "user": user name, "unix_time": unix time[second]}, ...]</div>
+<div class="REST_example_request">example: /timeline/iimura.json?limit=10&since_time=1385021149.0</div>
 
 <h3 class="REST_service">get User list</h3>
 <div class="REST_url">URL: /user_name_list.json</div>

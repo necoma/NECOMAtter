@@ -21,12 +21,23 @@ def topPage():
 
 @app.route('/user/<user_name>.json')
 def userPage_Get_Rest(user_name):
-    tweet_list = world.GetUserTweetFormated(user_name)
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    tweet_list = world.GetUserTweetFormated(user_name, limit=limit, since_time=since_time)
     return json.dumps(tweet_list)
 
 @app.route('/user/<user_name>')
 def userPage_Get(user_name):
-    return render_template('user_page.html', user_name=user_name)
+    return render_template('timeline_page.html', user_name=user_name, do_target="Tweet", request_path="user")
+
+@app.route('/user/<user_name>/<unix_time>')
+def userTweet_Get(user_name, unix_time):
+    
+    return render_template('one_tweet.html', user_name=user_name)
 
 @app.route('/user/<user_name>/followed_user_name_list.json')
 def userFollowedGet(user_name):
@@ -34,12 +45,18 @@ def userFollowedGet(user_name):
 
 @app.route('/timeline/<user_name>.json')
 def timelinePage_Get_Rest(user_name):
-    tweet_list = world.GetUserTimelineFormated(user_name)
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    tweet_list = world.GetUserTimelineFormated(user_name, limit, since_time)
     return json.dumps(tweet_list)
 
 @app.route('/timeline/<user_name>')
 def timelinePage_Get(user_name):
-    return render_template('timeline_page.html', user_name=user_name)
+    return render_template('timeline_page.html', user_name=user_name, do_target="Timeline", request_path="timeline")
 
 @app.route('/post.json', methods=['POST'])
 def postTweet():

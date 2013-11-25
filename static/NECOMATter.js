@@ -26,7 +26,8 @@ function RenderTimelineToHTML(tweet_list){
 		tweet += '</a></span> <span class="tweet_time">';
 		tweet += tweet_list[i]['time'];
 		tweet += '</span"><div class="tweet_body">';
-		tweet += tweet_list[i]['text'];
+		//tweet += tweet_list[i]['text'].replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[\x21-\x7e]+)/gi, "<a href=\"$1\">$1</a>");
+		tweet += tweet_list[i]['text'].replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)/gi, "<a href=\"$1\">$1</a>");
 		tweet += '</div></div>';
 
 		html += tweet;
@@ -64,6 +65,34 @@ function AddTimelineAjax_CreateFunc(user_name, target, func) {
  			$(target).append(RenderTimelineToHTML(data));
 		});
 	};
+}
+
+// resource(/timeline/user.json?...) にアクセスして
+// $(append_to) に対してツイートのHTMLを追加します。
+// success_func が指定されていたらツイートのHTMLを追加する直前に実行します。
+// error_func が指定されていたらエラー時に実行します。
+function StartReadTweets(resource, append_to, limit, since_time, success_func, error_func) {
+	var option = {};
+	if(!(limit === undefined)){
+		option['limit'] = limit;
+	}
+	if(since_time >= 0){
+		option['since_time'] = since_time;
+	}
+	$.ajax({  url: resource
+		, type: 'GET'
+		, dataType: 'json'
+		, data: option
+		}).done(function(data, textStatus, jqxHR){
+			if(success_func){
+				success_func(data, textStatus);
+			}
+			$(append_to).append(RenderTimelineToHTML(data));
+		}).fail(function(jqXHR, textStatus, errorThrown){
+			if(error_func){
+				error_func(textStatus, errorThrown);
+			}
+		});
 }
 
 

@@ -1,11 +1,35 @@
 {% extends "layout.html" %}
-{% block title %}{{ user_name}}'s timeline{% endblock %}
+{% block title %}{{ user_name}}'s {{do_target}}{% endblock %}
 {% block body %}
 <script>
-$(document).ready(AddTimelineAjax_CreateFunc('{{ user_name }}',
-	'#Tweet_text',
-	function() { $('#Tweet_text').html("<div></div>"); }
-	));
+var lastReadUnixTime = -1;
+var readTweetNum = 5;
+function LastReadUnixTimeUpdate(data)
+{
+	if(data.length <= 0){
+		return;
+	}
+	target_tweet = data[data.length - 1];
+	if('unix_time' in target_tweet){
+		lastReadUnixTime = target_tweet['unix_time'];
+	}
+}
+function LoadTweets(func){
+	StartReadTweets('/{{request_path}}/{{user_name}}.json'
+			, "#Tweet_text"
+			, readTweetNum
+			, lastReadUnixTime
+			, function(data) {
+				LastReadUnixTimeUpdate(data);
+				if(func){
+					func(data);
+				}
+			} );
+}
+$(document).ready(
+	function(){
+		LoadTweets(function() { $('#Tweet_text').html("<div></div>"); });
+	});
 {% if 'user_name' in session and 'session_key' in session %}
   {% if session['user_name'] == user_name %}
     $(document).ready(function(){
@@ -47,7 +71,7 @@ function Tweet(){
 	PostTweet('{{ user_name }}', text, function(data){
 		//console.log("tweet post end.");
 		//console.log(data);
-		html = RenderTweetToHTML([data]);
+		html = RenderTimelineToHTML([data]);
 		$('#Tweet_text > div:first').before(html).fadeIn("slow");
 	});
 }
@@ -82,16 +106,45 @@ function UnFollowClicked(user_name){
 			}
 		});
 }
+function ReadMoreButtonClicked(){
+	if($("#ReadMoreButton").attr('disabled')){
+		return;
+	}
+	$("#ReadMoreButton").attr('disabled', true);
+	LoadTweets(function(data){
+		if(data.length >= readTweetNum){
+			$("#ReadMoreButton").removeAttr('disabled');
+		}
+		else
+		{
+			$("#ReadMoreButton").attr('disabled', true);
+		}
+	});
+}
+
+// スクロールして要素が表示されたら勝手にリロードするようにする
+// from http://hennayagyu.com/webhack/javascript/%E3%81%82%E3%82%8B%E8%A6%81%E7%B4%A0%E3%81%8C%E8%A1%A8%E7%A4%BA%E3%81%95%E3%82%8C%E3%81%9F%E3%81%A8%E3%81%8D%E3%81%AB%E5%91%BD%E4%BB%A4%E3%82%92%E5%AE%9F%E8%A1%8C%E3%81%99%E3%82%8Bjavascript-w-jquery-2348
+$(function(){
+	var triggerNode = $("#ReadMoreButton");
+	$(window).scroll(function(){
+		var offset_value = $(triggerNode).offset();
+		var triggerNodePosition = $(triggerNode).offset().top - $(window).height();
+		if( $(window).scrollTop() > triggerNodePosition) {
+			ReadMoreButtonClicked();
+		}
+	});
+});
 </script>
-  <h2>{{ user_name }}'s timeline</h2>
+<h2>{{ user_name }}'s {{do_target}}</h2>
   {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
   <span class="FollowButton"><input id="FollowButton" type="button" value="follow {{user_name}}" onClick="FollowClicked('{{ user_name }}');"></span>
   <span class="UnFollowButton"><input id="UnFollowButton" type="button" value="unfollow {{user_name}}" onClick="UnFollowClicked('{{ user_name }}');"></span>
   <form name="tweet_form" action="javascript:void(0)" onSubmit="Tweet(); return false;" method="POST">
-    <input type="text" id="post_tweet_text" name="tweet"></input>
+    <textarea id="post_tweet_text" name="tweet" rows="8" cols="40"></textarea>
     <input type="submit" value="POST"></input>
   </form><span id="post_alert"></span>
   <div id="Tweet_text">
 	now loading...
   </div>
+  <div><input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();"><div>
 {% endblock %}
