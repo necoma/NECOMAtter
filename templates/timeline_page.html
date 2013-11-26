@@ -2,8 +2,12 @@
 {% block title %}{{ user_name}}'s {{do_target}}{% endblock %}
 {% block body %}
 <script>
+// 最後に読み込んだtweetのUnixTimeを保存しておきます。
+// 負の値の場合は何も読み込んでいない事になるはずです
 var lastReadUnixTime = -1;
+// 一度に読み込むtweetの数を指定します
 var readTweetNum = 5;
+// サーバから読みだしたdataを使って、lastReadUnixTime を更新します
 function LastReadUnixTimeUpdate(data)
 {
 	if(data.length <= 0){
@@ -14,6 +18,7 @@ function LastReadUnixTimeUpdate(data)
 		lastReadUnixTime = target_tweet['unix_time'];
 	}
 }
+// lastReadUnixTime を使って、その続きのtweetを読み込みます。
 function LoadTweets(func){
 	StartReadTweets('/{{request_path}}/{{user_name}}.json'
 			, "#Tweet_text"
@@ -26,11 +31,18 @@ function LoadTweets(func){
 				}
 			} );
 }
+
+// ページの読み込みが終わった時点で起動するfunction をjQueryから呼び出しています。
 $(document).ready(
 	function(){
+		// tweetはページが読み込まれた後に読み込みを開始します。
+		// 最初は now loading... と書いてあるので、読み込みが終わった時点で空文字に上書きします。
 		LoadTweets(function() { $('#Tweet_text').html("<div></div>"); });
 	});
+
+// フォローとアンフォローのボタンは正しくサインインしていて、自分以外のユーザの場合にのみ表示させます
 {% if 'user_name' in session and 'session_key' in session %}
+  // 自分であればフォローなどはしないのでボタンを消します
   {% if session['user_name'] == user_name %}
     $(document).ready(function(){
     	$(".FollowButton").html('');
@@ -53,8 +65,15 @@ $(document).ready(function(){
 			);
 		});
   {% endif %}
+{% else %}
+  // そもそもサインインしていないのであれば、フォローなどのボタンは表示しません。
+  $(document).ready(function(){
+    	$(".FollowButton").html('');
+    	$(".UnFollowButton").html('');
+	});
 {% endif %}
 
+// ツイートさせます。TODO: ツイートに失敗した時などのエラーチェックはしないとユーザは何が起こったかわかりません。
 function Tweet(){
 	user = '{{ user_name }}';
 	text = $("#post_tweet_text").val();
@@ -90,6 +109,7 @@ function FollowClicked(user_name){
 			}
 		});
 }
+
 function UnFollowClicked(user_name){
 	if(!window.confirm('unfollow ' + user_name + '?'))
 	{
@@ -106,6 +126,7 @@ function UnFollowClicked(user_name){
 			}
 		});
 }
+
 function ReadMoreButtonClicked(){
 	if($("#ReadMoreButton").attr('disabled')){
 		return;
@@ -122,7 +143,7 @@ function ReadMoreButtonClicked(){
 	});
 }
 
-// スクロールして要素が表示されたら勝手にリロードするようにする
+// スクロールして要素が表示されたら勝手にリロードするようにします
 // from http://hennayagyu.com/webhack/javascript/%E3%81%82%E3%82%8B%E8%A6%81%E7%B4%A0%E3%81%8C%E8%A1%A8%E7%A4%BA%E3%81%95%E3%82%8C%E3%81%9F%E3%81%A8%E3%81%8D%E3%81%AB%E5%91%BD%E4%BB%A4%E3%82%92%E5%AE%9F%E8%A1%8C%E3%81%99%E3%82%8Bjavascript-w-jquery-2348
 $(function(){
 	var triggerNode = $("#ReadMoreButton");
@@ -137,12 +158,14 @@ $(function(){
 </script>
 <h2>{{ user_name }}'s {{do_target}}</h2>
   {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
-  <span class="FollowButton"><input id="FollowButton" type="button" value="follow {{user_name}}" onClick="FollowClicked('{{ user_name }}');"></span>
-  <span class="UnFollowButton"><input id="UnFollowButton" type="button" value="unfollow {{user_name}}" onClick="UnFollowClicked('{{ user_name }}');"></span>
+  <span class="FollowButton"><input id="FollowButton" type="button" value="follow {{user_name}}" onClick="FollowClicked('{{ user_name }}');" disabled></span>
+  <span class="UnFollowButton"><input id="UnFollowButton" type="button" value="unfollow {{user_name}}" onClick="UnFollowClicked('{{ user_name }}');" disabled></span>
+  {% if 'user_name' in session and 'session_key' in session and session['user_name'] == user_name %}
   <form name="tweet_form" action="javascript:void(0)" onSubmit="Tweet(); return false;" method="POST">
     <textarea id="post_tweet_text" name="tweet" rows="8" cols="40"></textarea>
     <input type="submit" value="POST"></input>
   </form><span id="post_alert"></span>
+  {% endif %}
   <div id="Tweet_text">
 	now loading...
   </div>

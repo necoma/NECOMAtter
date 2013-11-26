@@ -9,6 +9,7 @@ import logging
 import time
 import hashlib
 import random
+import re
 from xml.sax.saxutils import *
 from py2neo import neo4j, cypher
 
@@ -21,6 +22,7 @@ class NECOMATter():
         self.gdb = neo4j.GraphDatabaseService(url + "/db/data/")
         self.UserIndex = None
         self.TweetIndex = None
+        self.TagIndex = None
         self.SessionExpireSecond = 60*60*24*7
         # Cypher transactions are not supported by this server version
         # と言われたのでとりあえずの所はtransaction は封印します
@@ -42,6 +44,12 @@ class NECOMATter():
             self.TweetIndex = self.gdb.get_or_create_index(neo4j.Node, "tweet")
         return self.TweetIndex
 
+    # tag用のインデックスを取得します
+    def GetTagIndex(self):
+        if self.TagIndex is None:
+            self.TagIndex = self.gdb.get_or_create_index(neo4j.Node, "tag")
+        return self.Tag
+
     # ユーザのノードを取得します。
     # 何か問題があった場合はNone を返します。
     def GetUserNode(self, user_name):
@@ -56,18 +64,33 @@ class NECOMATter():
                 return None
         return user_list[0]
 
+    # text からタグのような文字列を取り出してリストにして返します
+    def GetTagListFromText(self, text):
+        return re.findall(r"(#[^ ]+)", text)
+
+    # tweet_node を、text から抽出したタグへと関連付けます
+    def Tweet_LinkToTag(self, tweet_node, text):
+        tag_list = self.GetTagListFromText(text)
+        #tag_index = self.GetTagIndex()
+        for tag in tag_list:
+            tag_node = self.gdb.get_or_create_indexed_node("tag", "tag", tag, {"tag": tag})
+            tweet_node.create_path("TAG", tag_node)
+
     # ユーザにtweet させます。Tweetに成功したら、tweet_node を返します
     def Tweet(self, user_node, tweet_string):
         if user_node is None:
             logging.error("Tweet owner is not defined.")
             return None
         tweet_index = self.GetTweetIndex()
-        tweet_node = tweet_index.create("text", self.EscapeForXSS(tweet_string), {
+        text = self.EscapeForXSS(tweet_string)
+        tweet_node = tweet_index.create("text", text, {
             "text": self.EscapeForXSS(tweet_string), 
             "time": time.time()
             })
         # user_node がtweet したということで、path をtweet_node から繋げます
         tweet_node.create_path("TWEET", user_node)
+        # タグがあればそこに繋ぎます
+        self.Tweet_LinkToTag(tweet_node, text)
         return tweet_node
 
     # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
@@ -332,8 +355,34 @@ class NECOMATter():
         query = ""
         query += "start tweet = node(%d) " % tweet_id
         query += "MATCH (user) <-[:TWEET]- (tweet) "
-        query += "RETURN tweet.text, tweet.time, user.name"
+        query += "RETURN tweet.text, tweet.time, user.name "
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
-        
 
+    # tag からtweet を取得します
+    def GetTweetFromTag(self, tag_string, limit=None, since_time=None):
+        query = ""
+        query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
+        query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "RETURN tweet.text, tweet.time, user.name "
+        query += "ORDER BY tweet.time DESC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # tag のリストを取得します
+    def GetTagList(self, limit=None, since_time=None):
+        query = ""
+        query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
+        query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "RETURN tweet.text, tweet.time, user.name "
+        query += "ORDER BY tweet.time DESC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
