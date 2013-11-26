@@ -50,6 +50,19 @@ class NECOMATter():
             self.TagIndex = self.gdb.get_or_create_index(neo4j.Node, "tag")
         return self.Tag
 
+    # tweet のクエリ結果からフォーマットされた辞書の配列にして返します
+    def FormatTweet(self, tweet_list):
+        if tweet_list is None:
+            logging.warning("can not get tweet list from tag.")
+            return []
+        result_list = []
+        for tweet in tweet_list:
+            result_list.append({'text': tweet[0],
+                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
+                "user": tweet[2],
+                "unix_time": tweet[1]})
+        return result_list
+
     # ユーザのノードを取得します。
     # 何か問題があった場合はNone を返します。
     def GetUserNode(self, user_name):
@@ -137,16 +150,7 @@ class NECOMATter():
             logging.error("User %s is undefined." % user_name)
             return []
         tweet_list = self.GetUserTweet(user_node, limit=limit, since_time=since_time)
-        if tweet_list is None:
-            logging.error("can not get tweet list.")
-            return []
-        result_list = []
-        for tweet in tweet_list:
-            result_list.append({'text': tweet[0],
-                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
-                "user": tweet[2],
-                "unix_time": tweet[1]})
-        return result_list
+        return self.FormatTweet(tweet_list)
 
     # ユーザのタイムラインを取得します。
     # 取得されるのは text, time, name のリストです。
@@ -175,16 +179,7 @@ class NECOMATter():
             logging.error("User %s is undefined." % user_name)
             return []
         tweet_list = self.GetUserTimeline(user_node, limit, since_time)
-        if tweet_list is None:
-            logging.error("can not get tweet list.")
-            return []
-        result_list = []
-        for tweet in tweet_list:
-            result_list.append({'text': tweet[0],
-                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
-                "user": tweet[2],
-                "unix_time": tweet[1]})
-        return result_list
+        return self.FormatTweet(tweet_list)
 
     # ユーザ名とセッションキーから、そのセッションが有効かどうかを判定します。
     def CheckUserSessionKeyIsValid(self, user_name, session_key):
@@ -360,7 +355,7 @@ class NECOMATter():
         return result_list
 
     # tag からtweet を取得します
-    def GetTweetFromTag(self, tag_string, limit=None, since_time=None):
+    def GetTagTweet(self, tag_string, limit=None, since_time=None):
         query = ""
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
         query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
@@ -373,8 +368,14 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
+    # tag から取得したtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
+    def GetTagTweetFormated(self, tag_name, limit=None, since_time=None):
+        tweet_list = self.GetTagTweet(tag_name, limit=limit, since_time=since_time)
+        return self.FormatTweet(tweet_list)
+
     # tag のリストを取得します
     def GetTagList(self, limit=None, since_time=None):
+        # これは作りかけです。(上のをコピペしただけ)
         query = ""
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
         query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 

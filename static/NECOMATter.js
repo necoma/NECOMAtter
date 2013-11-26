@@ -1,19 +1,3 @@
-// /user/<<user_name>>.json から取得したobject をHTMLにします。
-function RenderTweetToHTML(tweet_list){
-	var html = "";
-	for (var i = 0, len = tweet_list.length; i < len; i++){
-		var tweet = "";
-		tweet += '<div class="tweet_column"><span class="tweet_body">';
-		tweet += tweet_list[i]['text'];
-		tweet += '</span><span class="tweet_time">';
-		tweet += tweet_list[i]['time'];
-		tweet += '</span></div>';
-
-		html += tweet;
-	}
-	return html;
-}
-
 // /timeline/<<user_name>>.json から取得したobject をHTMLにします。
 function RenderTimelineToHTML(tweet_list){
 	var html = "";
@@ -26,45 +10,23 @@ function RenderTimelineToHTML(tweet_list){
 		tweet += '</a></span> <span class="tweet_time">';
 		tweet += tweet_list[i]['time'];
 		tweet += '</span"><div class="tweet_body">';
-		//tweet += tweet_list[i]['text'].replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[\x21-\x7e]+)/gi, "<a href=\"$1\">$1</a>");
-		tweet += tweet_list[i]['text'].replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)/gi, "<a href=\"$1\">$1</a>");
+		// 怪しくこの時点で文字列を書き換えます。
+		// ・改行は<br>に
+		// ・URLっぽい文字列はlinkに
+		// ・#タグ ぽい文字列はタグ検索用のURLへのlinkに
+		// します。
+		tweet += tweet_list[i]['text'].replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^ ]+)/gi, function(str){
+				if(str.match(/^#/)){
+					var tag_name = str.replace(/^#/, '');
+					return '<a href="/tag/' + tag_name + '">' + str + '</a>';
+				}
+				return '<a href="' + str + '">' + str + '</a>';
+			});
 		tweet += '</div></div>';
 
 		html += tweet;
 	}
 	return html;
-}
-
-// 動的にtweet page を読み込むためのfunction を返します。
-// user_name: ユーザ名
-// target: 追加される要素の検索式 ('#tweet_text' とかそういう奴)
-function AddTweetAjax_CreateFunc(user_name, target, func) {
-	return function (){
-		$.getJSON('/user/' + user_name + '.json',
-		{},
-		function(data, textStatus){
-			if(func){
-				func();
-			}
- 			$(target).append(RenderTweetToHTML(data));
-		});
-	};
-}
-
-// 動的にtimeline page を読み込むためのfunction を返します。
-// user_name: ユーザ名
-// target: 追加される要素の検索式 ('#tweet_text' とかそういう奴)
-function AddTimelineAjax_CreateFunc(user_name, target, func) {
-	return function (){
-		$.getJSON('/timeline/' + user_name + '.json',
-		{},
-		function(data, textStatus){
-			if(func){
-				func();
-			}
- 			$(target).append(RenderTimelineToHTML(data));
-		});
-	};
 }
 
 // resource(/timeline/user.json?...) にアクセスして

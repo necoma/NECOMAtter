@@ -33,12 +33,12 @@ $(document).ready(function(){
 	          <li>tweet する・見る</li>
 		  <li><a href="/static/rest_interfaces.html">REST API のドキュメント</a></li>
 	          <li>フォローの概念(timeline)</li>
+	          <li>タグの概念</li>
           </ul>
           まだできていないこと(できるようにしようと思っている)
           <ul>
 		  <li>unit test</li>
 	          <li>REST interfaces</li>
-	          <li>タグの概念(タグ検索できない←コレが重要のハズ)</li>
 		  <li>REST friendly なユーザ管理
 		  (現状は Flask session(タダのcookie) によるなんちゃってサインインなのでRESTと食合せが悪い)</li>
 	          <li>streaming taimeline (twitter のstreaming API みたいに、タイムラインをリアルタイムに取得できるようにしたいなぁ)</li>
@@ -64,6 +64,35 @@ $(document).ready(function(){
 		  <li><a href="http://book.py2neo.org/en/latest/">Py2neo</a>: Python library for Neo4j</li>
 		  <li><a href="http://flask.pocoo.org/">Flask</a>: microframework for Python</li>
 		  <li><a href="https://dev.twitter.com/docs/api/1.1">Twitter REST API v1.1 Resources</a></li>
+	  </ul>
+  </div>
+  <div class="memo">
+	  実装時メモ
+	  <ul>
+		  <li>XSS対策
+		  <ul>
+			  <li>Python <a href="http://docs.python.jp/2.7/library/xml.sax.utils.html">xml.sax.utils.escape</a> を使って'&amp;', '&gt;', '&lt;' だけをエスケープしている</li>
+			  <li>ユーザから入力される文字列の扱い
+			  <ul>
+				  <li>ユーザ名: DB登録前にエスケープしてみて結果が変わったら登録させない</li>
+				  <li>tweet: DBに登録前にエスケープしてからDBに登録</li>
+				  <li>パスワード: DBに登録されるのはsha256でhexに変換された後のもの</li>
+			  </ul>
+			  という形になっているのでXSSについては大丈夫？なの？
+			  </li>
+		  </ul>
+		  <li>SQL injection的なものへの対策
+		  <ul>
+			  <li>使っているのは<a href="http://www.neo4j.org/">Neo4j</a>というグラフデータベースの<a href="http://www.neo4j.org/learn/cypher">Cypher</a>というクエリ言語なので、SQL injection的な攻撃ができるはず。</li>
+			  <li>今のところユーザからの入力は'&quot;'で囲われた中に現れるだけのように見えるので、とりあえず'&quot;'は'_'に変換してクエリ文字列を生成するようにしてみた
+		  </ul>
+		  </li>
+		  <li>タグの実装が変？
+		  <ul>
+			  <li>タグはインデックスをはるためにサーバ側で<code>/(#[^ ]+)/g</code>という正規表現で検索してインデックスに登録している。これはPythonで書かれている</li>
+			  <li>クライアント側でも同じように<code>/(#[^ ]+)/g</code> という正規表現で検索してlinkに書き換えている。こちらはJavaScriptで書かれている</li>
+			  <li>なので、これは同じことを二箇所で別の書き方をしている問題にひっかかる</li>
+		  </ul>
 	  </ul>
   </div>
 {% endblock %}

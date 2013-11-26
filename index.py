@@ -58,6 +58,21 @@ def timelinePage_Get_Rest(user_name):
 def timelinePage_Get(user_name):
     return render_template('timeline_page.html', user_name=user_name, do_target="Timeline", request_path="timeline")
 
+@app.route('/tag/<tag_name>')
+def tagPage_Get(tag_name):
+    return render_template('tag_page.html', tag_name=tag_name)
+
+@app.route('/tag/<tag_name>.json')
+def tagPage_Get_Rest(tag_name):
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    tweet_list = world.GetTagTweetFormated("#" + tag_name, limit, since_time)
+    return json.dumps(tweet_list)
+
 @app.route('/post.json', methods=['POST'])
 def postTweet():
     #user_name = request.json['user_name']

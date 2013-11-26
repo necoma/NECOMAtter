@@ -62,6 +62,13 @@
 <div class="REST_description">I acquire the list of the user where [user_name] does follow.</div>
 <div class="REST_data_format">result data format: ['user_name', ...]</div>
 
+<h3 class="REST_service">get tag tweets</h3>
+<div class="REST_url">URL: /tag/[tag_name].json</div>
+<div class="REST_method">method: GET</div>
+<div class="REST_description">get user tweets from tag.</div>
+<div class="REST_data_format">options limit: It limits the number of a paid value.. since_time: This option intends for the past at appointed time.</div>
+<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "unix_time": unix time[second]}, ...]</div>
+<div class="REST_example_request">example: /tag/abc.json?limit=10&since_time=1385021149.0</div>
 </div>
 </body>
 </html>
