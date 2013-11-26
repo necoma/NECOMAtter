@@ -93,3 +93,14 @@ function PostJSON(url, data, success_func, error_func){
 	});
 }
 
+// JOSN でDELETE します。
+function DeleteJSON(url, data, success_func, error_func){
+	$.ajax({ url: url
+		, type: "DELETE"
+		, data: JSON.stringify(data)
+		, contentType: "application/json; charset=utf-8"
+		, dataType: "json"
+		, success: success_func
+		, error: error_func
+	});
+}

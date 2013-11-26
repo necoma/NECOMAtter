@@ -3,7 +3,7 @@
 import sys,os
 import logging
 
-from flask import Flask, flash, redirect, url_for, session, request, jsonify, g, render_template, stream_with_context, Response
+from flask import Flask, flash, redirect, url_for, session, request, jsonify, g, render_template, stream_with_context, Response, abort
 from NECOMATter import NECOMATter
 import time
 import json
@@ -36,7 +36,7 @@ def userPage_Get(user_name):
 
 @app.route('/user/<user_name>/<unix_time>')
 def userTweet_Get(user_name, unix_time):
-    
+    # TODO: ユーザのツイートを個別で見られるページを作る予定……    
     return render_template('one_tweet.html', user_name=user_name)
 
 @app.route('/user/<user_name>/followed_user_name_list.json')
@@ -72,6 +72,33 @@ def tagPage_Get_Rest(tag_name):
         limit = int(request.values['limit'])
     tweet_list = world.GetTagTweetFormated("#" + tag_name, limit, since_time)
     return json.dumps(tweet_list)
+
+@app.route('/user_setting/')
+def userSettingsPage_Get():
+    user_name = session.get('user_name')
+    if user_name is None or user_name == "":
+        return render_template('user_setting_page.html', error="authenticate required")
+    key_list = world.GetUserAPIKeyListByName(user_name)
+    return render_template('user_setting_page.html', user=user_name, key_list=key_list)
+
+@app.route('/user_setting/key/<key>.json', methods=['DELETE', 'POST'])
+def userSettingsPage_DeleteKey(key):
+    user_name = session.get('user_name')
+    if user_name is None or user_name == "":
+        abort(401)
+    if world.DeleteUserAPIKeyByName(user_name, key):
+        return json.dumps({'result': 'ok'})
+    abort(500)
+
+@app.route('/user_setting/create_new_key.json', methods=['POST'])
+def userSettingsPage_CreateNewKey():
+    user_name = session.get('user_name')
+    if user_name is None or user_name == "":
+        abort(401)
+    new_key = world.CreateUserAPIKeyByName(user_name)
+    if new_key is None or 'key' not in new_key:
+        abort(401)
+    return json.dumps({'result': 'ok', 'key': new_key['key']})
 
 @app.route('/post.json', methods=['POST'])
 def postTweet():

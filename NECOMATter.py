@@ -23,6 +23,7 @@ class NECOMATter():
         self.UserIndex = None
         self.TweetIndex = None
         self.TagIndex = None
+        self.APIKeyIndex = None
         self.SessionExpireSecond = 60*60*24*7
         # Cypher transactions are not supported by this server version
         # と言われたのでとりあえずの所はtransaction は封印します
@@ -48,7 +49,13 @@ class NECOMATter():
     def GetTagIndex(self):
         if self.TagIndex is None:
             self.TagIndex = self.gdb.get_or_create_index(neo4j.Node, "tag")
-        return self.Tag
+        return self.TagIndex
+
+    # API Key用のインデックスを取得します
+    def GetAPIKeyIndex(self):
+        if self.APIKeyIndex is None:
+            self.APIKeyIndex = self.gdb.get_or_create_index(neo4j.Node, "api_key")
+        return self.APIKeyIndex
 
     # tweet のクエリ結果からフォーマットされた辞書の配列にして返します
     def FormatTweet(self, tweet_list):
@@ -76,6 +83,22 @@ class NECOMATter():
                 logging.warning("user %s have multiple node: %s" % (user_name, str(user_list)))
                 return None
         return user_list[0]
+
+    # ユーザのAPIKeyノードを取得します。存在しなければ作成します
+    # 何か問題があった場合はNone を返します。
+    def CreateOrGetUserAPIKeyNode(self, key_name):
+        api_index = self.GetAPIKeyIndex()
+        # 取得する
+        api_key_list = api_index.get("key", key_name)
+        if len(api_key_list) == 0:
+            api_node = api_index.create("key", key_name, {
+                "key": key_name
+            })
+            return api_node
+        if len(api_key_list) != 1:
+            logging.warning("API key %s have multiple node: %s" % (key_name, str(user_list)))
+            return None
+        return api_key_list[0]
 
     # text からタグのような文字列を取り出してリストにして返します
     def GetTagListFromText(self, text):
@@ -375,7 +398,6 @@ class NECOMATter():
 
     # tag のリストを取得します
     def GetTagList(self, limit=None, since_time=None):
-        # これは作りかけです。(上のをコピペしただけ)
         query = ""
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
         query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
@@ -387,3 +409,94 @@ class NECOMATter():
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
+
+    # ユーザのAPIキーのリストを取得します(ノード指定版)
+    def GetUserAPIKeyListByNode(self, user_node):
+        if user_node is None:
+            logging.error("user_node is None")
+            return None
+        user_id = user_node._id
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH (key) -[:API_KEY]-> (user) "
+        query += "RETURN key.key "
+        query += "ORDER BY key.time DESC "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # ユーザのAPIキーのリストを取得します(名前指定版)
+    def GetUserAPIKeyListByName(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("user %s is not registerd" % user_name)
+            return []
+        key_list = self.GetUserAPIKeyListByNode(user_node)
+        if key_list is None:
+            logging.error("query failed.")
+            return []
+        result_list = []
+        for key in key_list:
+            result_list.append(key[0])
+        return result_list
+
+    # ユーザがAPIキーを持っているかどうかを確認します
+    def CheckUserAPIKeyByName(self, user_name, key_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("user %s is not registerd" % user_name)
+            return False
+        escaped_key_name = key_name.replace('"', '_')
+        if escaped_key_name != key_name:
+            logging.error("key_name has escape charactor")
+            return False
+        user_id = user_node._id
+        query = ""
+        query += "START user=node(%d) " % user_id
+        query += "MATCH ( key_node ) -[:API_KEY]-> user "# % key_name
+        query += "WHERE key_node.key = '%s' " % key_name
+        query += "RETURN key_node "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) != 1:
+            return False
+        return True
+
+    # ユーザのAPIキーを削除します
+    def DeleteUserAPIKeyByName(self, user_name, key_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("user %s is not registerd" % user_name)
+            return False
+        escaped_key_name = key_name.replace('"', '_')
+        if escaped_key_name != key_name:
+            logging.error("key_name has escape charactor")
+            return False
+        user_id = user_node._id
+        query = ""
+        query += "START user=node(%d) " % user_id
+        query += "MATCH ( key_node ) -[r :API_KEY]-> (user) " #% key_name
+        query += "WHERE key_node.key = '%s' " % key_name
+        query += "DELETE key_node, r" # ノードをdeleteするときは node と リレーションシップを両方deleteする必要があるっぽい
+        result_list, metadata = cypher.execute(self.gdb, query)
+        # 失敗した時にはちゃんとlistが複数になるの？
+        if len(result_list) != 0:
+            return False
+        return True
+
+    # ユーザにAPIキーを追加します
+    def CreateUserAPIKeyByName(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("user %s is not registerd" % user_name)
+            return None
+        # 怪しくAPIキーを生成します
+        key = self.GetPasswordHash(user_name,
+            str(time.time() + random.randint(0, 100000000)))
+        key_node = self.CreateOrGetUserAPIKeyNode(key)
+        key_node['time'] = time.time()
+        relationship = self.gdb.create((key_node, "API_KEY", user_node))
+        if relationship is None:
+            self.gdb.delete(key_node)
+            return None
+        return key_node
+        
+

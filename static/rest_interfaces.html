@@ -32,28 +32,28 @@
 <div class="REST_url">URL: /post.json</div>
 <div class="REST_method">method: POST</div>
 <div class="REST_description">post new tweet. (required sign in)</div>
-<div class="REST_data_format">post data format: {"text": tweet text }</div>
+<div class="REST_data_format">post data format: {"text": tweet text, "api_key": API key }</div>
 <div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
 
 <h3 class="REST_service">follow user</h3>
 <div class="REST_url">URL: /follow.json</div>
 <div class="REST_method">method: POST</div>
 <div class="REST_description">follow user (required sign in)</div>
-<div class="REST_data_format">post data format: {"user_name": target user name}</div>
+<div class="REST_data_format">post data format: {"user_name": target user name, "api_key": API key}</div>
 <div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
 
 <h3 class="REST_service">unfollow user</h3>
 <div class="REST_url">URL: /unfollow.json</div>
 <div class="REST_method">method: DELETE</div>
 <div class="REST_description">unfollow user (required sign in)</div>
-<div class="REST_data_format">post data format: {"user_name": target user name}</div>
+<div class="REST_data_format">post data format: {"user_name": target user name, "api_key": API key}</div>
 <div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
 
 <h3 class="REST_service">unfollow user(altanative for DELETE method unsupported client)</h3>
 <div class="REST_url">URL: /unfollow.json</div>
 <div class="REST_method">method: POST</div>
 <div class="REST_description">unfollow user (required sign in)</div>
-<div class="REST_data_format">post data format: {"user_name": target user name}</div>
+<div class="REST_data_format">post data format: {"user_name": target user name, "api_key": API key}</div>
 <div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
 
 <h3 class="REST_service">get followed user name list</h3>
@@ -69,6 +69,22 @@
 <div class="REST_data_format">options limit: It limits the number of a paid value.. since_time: This option intends for the past at appointed time.</div>
 <div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "unix_time": unix time[second]}, ...]</div>
 <div class="REST_example_request">example: /tag/abc.json?limit=10&since_time=1385021149.0</div>
+
+<h3 class="REST_service">create new API key</h3>
+<div class="REST_url">URL: /user_setting/create_new_key.json</div>
+<div class="REST_method">method: PUT(recomended), POST</div>
+<div class="REST_description">create new API key (required sign in)</div>
+<div class="REST_data_format">no option.</div>
+<div class="REST_data_format">result data format: {"result": 'ok', "key": created api key string}</div>
+
+<h3 class="REST_service">delete user API key</h3>
+<div class="REST_url">URL: /user_setting/key/<api_key>.json</div>
+<div class="REST_method">method: DELETE(recomended), POST</div>
+<div class="REST_description">delete API key (required sign in)</div>
+<div class="REST_data_format">api_key: registerd your API key</div>
+<div class="REST_data_format">result data format: {"result": 'ok'}</div>
+
+
 </div>
 </body>
 </html>
