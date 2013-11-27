@@ -15,6 +15,36 @@ app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'
 
 world = NECOMATter("http://localhost:7474")
 
+# NECOMATter で認証完了しているユーザ名を取得します。
+# 認証完了していない場合にはNoneを返します
+def GetAuthenticatedUserName():
+    user_name = session.get('user_name')
+    session_key = session.get('session_key')
+    if world.CheckUserSessionKeyIsValid(user_name, session_key):
+        return user_name
+    print 'session_key failed', user_name, session_key
+    if ( request.method == 'POST' and
+        request.json is not None and
+        'user' in request.json and
+        'api_key' in request.json and
+        world.CheckUserAPIKeyByName(request.json['user'], request.json['api_key']) ):
+            return request.json['user']
+    print 'request has no valid API key failed'
+    return None
+
+# NECOMATter でのユーザ認証を行うデコレータ。
+# 1) Flask のセッションに入っている user_name が存在するか
+# 2) リクエストの中にjsonでAPI_keyが入っていればそのAPI keyが正しいか
+# をそれぞれ判定して、問題なければ元の関数を呼び出し、駄目であれば abort(401) するようになります
+def NECOMATterAuthRequired(func, fallback_path=None, result_type="text"):
+    def decorated_func(*args, **keyWordArgs):
+        user_name = GetAuthenticatedUserName()
+        if user_name is None:
+            abort(401)
+            return
+        func(*args, **keyWordArgs)
+    return decorated_func 
+
 @app.route('/')
 def topPage():
     return render_template('index.html')
@@ -36,7 +66,7 @@ def userPage_Get(user_name):
 
 @app.route('/user/<user_name>/<unix_time>')
 def userTweet_Get(user_name, unix_time):
-    # TODO: $B%f!<%6$N%D%$!<%H$r8DJL$G8+$i$l$k%Z!<%8$r:n$kM=Dj!D!D(B    
+    # TODO: ユーザのツイートを個別で見られるページを作る予定……    
     return render_template('one_tweet.html', user_name=user_name)
 
 @app.route('/user/<user_name>/followed_user_name_list.json')
@@ -75,16 +105,16 @@ def tagPage_Get_Rest(tag_name):
 
 @app.route('/user_setting/')
 def userSettingsPage_Get():
-    user_name = session.get('user_name')
-    if user_name is None or user_name == "":
+    user_name = GetAuthenticatedUserName()
+    if user_name is None:
         return render_template('user_setting_page.html', error="authenticate required")
     key_list = world.GetUserAPIKeyListByName(user_name)
     return render_template('user_setting_page.html', user=user_name, key_list=key_list)
 
 @app.route('/user_setting/key/<key>.json', methods=['DELETE', 'POST'])
 def userSettingsPage_DeleteKey(key):
-    user_name = session.get('user_name')
-    if user_name is None or user_name == "":
+    user_name = GetAuthenticatedUserName()
+    if user_name is None:
         abort(401)
     if world.DeleteUserAPIKeyByName(user_name, key):
         return json.dumps({'result': 'ok'})
@@ -92,8 +122,8 @@ def userSettingsPage_DeleteKey(key):
 
 @app.route('/user_setting/create_new_key.json', methods=['POST'])
 def userSettingsPage_CreateNewKey():
-    user_name = session.get('user_name')
-    if user_name is None or user_name == "":
+    user_name = GetAuthenticatedUserName()
+    if user_name is None:
         abort(401)
     new_key = world.CreateUserAPIKeyByName(user_name)
     if new_key is None or 'key' not in new_key:
@@ -102,12 +132,13 @@ def userSettingsPage_CreateNewKey():
 
 @app.route('/post.json', methods=['POST'])
 def postTweet():
-    #user_name = request.json['user_name']
-    user_name = session.get('user_name')
+    user_name = GetAuthenticatedUserName()
+    if user_name is None:
+        abort(401)
     text = request.json['text']
     user_node = world.GetUserNode(user_name)
     if user_node is None:
-        return json.dumps({'result': "error", 'description': "user %s is not registerd." % user_name})
+        abort(501)
     tweet_node = world.Tweet(user_node, text)
     tweet_dic = world.ConvertTweetNodeToHumanReadableDictionary(tweet_node)
     tweet_dic.update({'result': 'ok'})
@@ -115,33 +146,32 @@ def postTweet():
 
 @app.route('/follow.json', methods=['POST'])
 def followUser():
-    follower_user_name = session.get('user_name')
+    follower_user_name = GetAuthenticatedUserName()
     if follower_user_name is None:
-        return json.dumps({'result': 'error', 'description': 'sign in required.'})
+        abort(401)
     if request.json is None or 'user_name' not in request.json:
-        return json.dumps({'result': 'error', 'description': 'target user name is not defined. You must set "user_name" field.'})
+        abort(400, {'result': 'error', 'description': 'target user name is not defined. You must set "user_name" field.'})
     target_user_name = request.json['user_name']
     if not world.FollowUserByName(follower_user_name, target_user_name):
-        return json.dumps({'result': 'error', 'description': 'follow failed.'})
+        return abort(500, {'result': 'error', 'description': 'follow failed.'})
     return json.dumps({'result': 'ok'})
 
 @app.route('/unfollow.json', methods=['POST', 'DELETE'])
 def unfollowUser():
-    follower_user_name = session.get('user_name')
+    follower_user_name = GetAuthenticatedUserName()
     if follower_user_name is None:
-        return json.dumps({'result': 'error', 'description': 'sign in required.'})
+        abort(401)
     if request.json is None or 'user_name' not in request.json:
-        return json.dumps({'result': 'error', 'description': 'target user name is not defined. You must set "user_name" field.'})
+        abort(400, {'result': 'error', 'description': 'target user name is not defined. You must set "user_name" field.'})
     target_user_name = request.json['user_name']
     if not world.UnFollowUserByName(follower_user_name, target_user_name):
-        return json.dumps({'result': 'error', 'description': 'unfollow failed.'})
+        abort(500, {'result': 'error', 'description': 'unfollow failed.'})
     return json.dumps({'result': 'ok'})
 
 @app.route('/signup', methods=['GET'])
 def signupPage():
-    user_name = session.get('user_name')
-    session_key = session.get('session_key')
-    if world.CheckUserSessionKeyIsValid(user_name, session_key):
+    user_name = GetAuthenticatedUserName()
+    if user_name is not None:
         return redirect('/user/%s' % user_name)
     return render_template('signup.html')
 
@@ -155,7 +185,7 @@ def signupProcess():
     if world.AddUser(user_name, password):
         session_key = world.UpdateUserSessionKey(user_name)
         if session_key is None:
-            return render_template('signup.html', error="user %s created. but session create failed." % user_name)
+            return render_template('signin.html', error="user %s created. but session create failed." % user_name)
         session['user_name'] = user_name
         session['session_key'] = session_key
         return redirect('/timeline/%s' % user_name)
@@ -163,9 +193,8 @@ def signupProcess():
 
 @app.route('/signin', methods=['GET'])
 def signinPage():
-    user_name = session.get('user_name')
-    session_key = session.get('session_key')
-    if world.CheckUserSessionKeyIsValid(user_name, session_key):
+    user_name = GetAuthenticatedUserName()
+    if user_name is not None:
         return redirect('/user/%s' % user_name)
     return render_template('signin.html')
 

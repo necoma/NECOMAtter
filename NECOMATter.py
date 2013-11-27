@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$K%D%$!<%H$5$;$k$h$&$J(Btwitter$B$b$I$-$N;v$r$5$;$k;~$N(B
-# DB $B$rC!$/%U%m%s%H%(%s%I%/%i%9$G$9(B
+# ユーザにツイートさせるようなtwitterもどきの事をさせる時の
+# DB を叩くフロントエンドクラスです
 
 
 import logging
@@ -26,38 +26,38 @@ class NECOMATter():
         self.APIKeyIndex = None
         self.SessionExpireSecond = 60*60*24*7
         # Cypher transactions are not supported by this server version
-        # $B$H8@$o$l$?$N$G$H$j$"$($:$N=j$O(Btransaction $B$OIu0u$7$^$9(B
+        # と言われたのでとりあえずの所はtransaction は封印します
         #self.CypherSession = cypher.Session(url)
 
-    # HTML $B$G(BXSS$B$5$;$J$$$h$&$J%(%9%1!<%W$r$7$^$9!#(B
+    # HTML でXSSさせないようなエスケープをします。
     def EscapeForXSS(self, text):
         return escape(text)
 
-    # $B%f!<%6MQ$N%$%s%G%C%/%9$r<hF@$7$^$9(B
+    # ユーザ用のインデックスを取得します
     def GetUserIndex(self):
         if self.UserIndex is None:
             self.UserIndex = self.gdb.get_or_create_index(neo4j.Node, "user")
         return self.UserIndex
 
-    # tweet$BMQ$N%$%s%G%C%/%9$r<hF@$7$^$9(B
+    # tweet用のインデックスを取得します
     def GetTweetIndex(self):
         if self.TweetIndex is None:
             self.TweetIndex = self.gdb.get_or_create_index(neo4j.Node, "tweet")
         return self.TweetIndex
 
-    # tag$BMQ$N%$%s%G%C%/%9$r<hF@$7$^$9(B
+    # tag用のインデックスを取得します
     def GetTagIndex(self):
         if self.TagIndex is None:
             self.TagIndex = self.gdb.get_or_create_index(neo4j.Node, "tag")
         return self.TagIndex
 
-    # API Key$BMQ$N%$%s%G%C%/%9$r<hF@$7$^$9(B
+    # API Key用のインデックスを取得します
     def GetAPIKeyIndex(self):
         if self.APIKeyIndex is None:
             self.APIKeyIndex = self.gdb.get_or_create_index(neo4j.Node, "api_key")
         return self.APIKeyIndex
 
-    # tweet $B$N%/%(%j7k2L$+$i%U%)!<%^%C%H$5$l$?<-=q$NG[Ns$K$7$FJV$7$^$9(B
+    # tweet のクエリ結果からフォーマットされた辞書の配列にして返します
     def FormatTweet(self, tweet_list):
         if tweet_list is None:
             logging.warning("can not get tweet list from tag.")
@@ -70,11 +70,11 @@ class NECOMATter():
                 "unix_time": tweet[1]})
         return result_list
 
-    # $B%f!<%6$N%N!<%I$r<hF@$7$^$9!#(B
-    # $B2?$+LdBj$,$"$C$?>l9g$O(BNone $B$rJV$7$^$9!#(B
+    # ユーザのノードを取得します。
+    # 何か問題があった場合はNone を返します。
     def GetUserNode(self, user_name):
         user_index = self.GetUserIndex()
-        # $B<hF@$9$k(B
+        # 取得する
         user_list = user_index.get("name", user_name)
         if len(user_list) != 1:
             if len(user_list) == 0:
@@ -84,11 +84,11 @@ class NECOMATter():
                 return None
         return user_list[0]
 
-    # $B%f!<%6$N(BAPIKey$B%N!<%I$r<hF@$7$^$9!#B8:_$7$J$1$l$P:n@.$7$^$9(B
-    # $B2?$+LdBj$,$"$C$?>l9g$O(BNone $B$rJV$7$^$9!#(B
+    # ユーザのAPIKeyノードを取得します。存在しなければ作成します
+    # 何か問題があった場合はNone を返します。
     def CreateOrGetUserAPIKeyNode(self, key_name):
         api_index = self.GetAPIKeyIndex()
-        # $B<hF@$9$k(B
+        # 取得する
         api_key_list = api_index.get("key", key_name)
         if len(api_key_list) == 0:
             api_node = api_index.create("key", key_name, {
@@ -100,11 +100,11 @@ class NECOMATter():
             return None
         return api_key_list[0]
 
-    # text $B$+$i%?%0$N$h$&$JJ8;zNs$r<h$j=P$7$F%j%9%H$K$7$FJV$7$^$9(B
+    # text からタグのような文字列を取り出してリストにして返します
     def GetTagListFromText(self, text):
         return re.findall(r"(#[^ ]+)", text)
 
-    # tweet_node $B$r!"(Btext $B$+$iCj=P$7$?%?%0$X$H4XO"IU$1$^$9(B
+    # tweet_node を、text から抽出したタグへと関連付けます
     def Tweet_LinkToTag(self, tweet_node, text):
         tag_list = self.GetTagListFromText(text)
         #tag_index = self.GetTagIndex()
@@ -112,7 +112,7 @@ class NECOMATter():
             tag_node = self.gdb.get_or_create_indexed_node("tag", "tag", tag, {"tag": tag})
             tweet_node.create_path("TAG", tag_node)
 
-    # $B%f!<%6$K(Btweet $B$5$;$^$9!#(BTweet$B$K@.8y$7$?$i!"(Btweet_node $B$rJV$7$^$9(B
+    # ユーザにtweet させます。Tweetに成功したら、tweet_node を返します
     def Tweet(self, user_node, tweet_string):
         if user_node is None:
             logging.error("Tweet owner is not defined.")
@@ -123,20 +123,20 @@ class NECOMATter():
             "text": self.EscapeForXSS(tweet_string), 
             "time": time.time()
             })
-        # user_node $B$,(Btweet $B$7$?$H$$$&$3$H$G!"(Bpath $B$r(Btweet_node $B$+$i7R$2$^$9(B
+        # user_node がtweet したということで、path をtweet_node から繋げます
         tweet_node.create_path("TWEET", user_node)
-        # $B%?%0$,$"$l$P$=$3$K7R$.$^$9(B
+        # タグがあればそこに繋ぎます
         self.Tweet_LinkToTag(tweet_node, text)
         return tweet_node
 
-    # $B%f!<%6$N(Btweet $B$r<hF@$7$F!"(B{"text": $BK\J8(B, "time": UnixTime} $B$N%j%9%H$H$7$FJV$7$^$9(B
+    # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
     def GetUserTweet(self, user_node, limit=None, since_time=None):
         if user_node is None:
             logging.error("User is undefined.")
             return []
-        # $B%f!<%6$N(BID $B$r<hF@$7$^$9(B
+        # ユーザのID を取得します
         user_id = user_node._id
-        # $B%/%(%j$r:n$j$^$9(B
+        # クエリを作ります
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (tweet) -[:TWEET]-> (user) "
@@ -156,7 +156,7 @@ class NECOMATter():
         return result_node_list
         """
 
-    # tweet_node $B$r(B{"text": $BK\J8(B, "time": $BF|IUJ8;zNs(B, "user": $B%f!<%6L>(B} $B$N7A<0$N<-=q$K$7$^$9(B
+    # tweet_node を{"text": 本文, "time": 日付文字列, "user": ユーザ名} の形式の辞書にします
     def ConvertTweetNodeToHumanReadableDictionary(self, tweet_node):
         if tweet_node is None:
             logging.error("tweet_node is None")
@@ -166,7 +166,7 @@ class NECOMATter():
         result_dic['time'] = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet_node['time']))
         return result_dic
 
-    # $B%f!<%6$N(Btweet $B$r(B{"text": $BK\J8(B, "time": $BF|IUJ8;zNs(B}$B$N%j%9%H$K$7$FJV$7$^$9(B
+    # ユーザのtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
     def GetUserTweetFormated(self, user_name, limit=None, since_time=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -175,14 +175,14 @@ class NECOMATter():
         tweet_list = self.GetUserTweet(user_node, limit=limit, since_time=since_time)
         return self.FormatTweet(tweet_list)
 
-    # $B%f!<%6$N%?%$%`%i%$%s$r<hF@$7$^$9!#(B
-    # $B<hF@$5$l$k$N$O(B text, time, name $B$N%j%9%H$G$9!#(B
+    # ユーザのタイムラインを取得します。
+    # 取得されるのは text, time, name のリストです。
     def GetUserTimeline(self, user_node, limit=None, since_time=None):
         if user_node is None:
             logging.error("User is undefined.")
             return []
         user_id = user_node._id
-        # $B%/%(%j$r:n$j$^$9(B
+        # クエリを作ります
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (tweet) -[:TWEET]-> (target) <-[:FOLLOW]- (user) "
@@ -195,7 +195,7 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
-    # $B%f!<%6$N%?%$%`%i%$%s(B $B$r(B{"text": $BK\J8(B, "time": $BF|IUJ8;zNs(B, "user": $B%f!<%6L>(B}$B$N%j%9%H$K$7$FJV$7$^$9(B
+    # ユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user": ユーザ名}のリストにして返します
     def GetUserTimelineFormated(self, user_name, limit=None, since_time=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -204,35 +204,36 @@ class NECOMATter():
         tweet_list = self.GetUserTimeline(user_node, limit, since_time)
         return self.FormatTweet(tweet_list)
 
-    # $B%f!<%6L>$H%;%C%7%g%s%-!<$+$i!"$=$N%;%C%7%g%s$,M-8z$+$I$&$+$rH=Dj$7$^$9!#(B
+    # ユーザ名とセッションキーから、そのセッションが有効かどうかを判定します。
     def CheckUserSessionKeyIsValid(self, user_name, session_key):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.warning("User %s is undefined." % user_name)
             return False
         if session_key != user_node['session_key'] or session_key is None:
+            logging.warning("User %s session_key is not same." % user_name)
             return False
         expire_time = user_node['session_expire_time']
         now_time = time.time()
-        if expire_time > now_time:
-            logging.info("session expired.")
+        if expire_time < now_time:
+            logging.info("session expired. %f > %f" % (expire_time, now_time))
             return False
         return True
 
-    # $B%f!<%6%;%C%7%g%s$r?75,:n@.$7$FJV$7$^$9(B
+    # ユーザセッションを新規作成して返します
     def UpdateUserSessionKey(self, user_name):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.warning("User %s is undefined." % user_name)
             return None
-        # $B2x$7$/%;%C%7%g%s%-!<J8;zNs$r@8@.$7$^$9(B
+        # 怪しくセッションキー文字列を生成します
         session_key = self.GetPasswordHash(user_name,
             str(time.time() + random.randint(0, 100000000)))
         user_node['session_key'] = session_key
         user_node['session_expire_time'] = time.time() + self.SessionExpireSecond
         return session_key
 
-    # DB$B$KEPO?$5$l$k%Q%9%o!<%I$N%O%C%7%eCM$r<hF@$7$^$9(B
+    # DBに登録されるパスワードのハッシュ値を取得します
     def GetPasswordHash(self, user_name, password):
         if isinstance(user_name, unicode):
             user_name = user_name.encode('utf-8')
@@ -240,7 +241,7 @@ class NECOMATter():
             password = password.encode('utf-8')
         return hashlib.sha256("%s/%s" % (password, user_name)).hexdigest()
 
-    # $B%f!<%6$N%Q%9%o!<%I$r3NG'$7$^$9(B
+    # ユーザのパスワードを確認します
     def CheckUserPasswordIsValid(self, user_name, password):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -250,7 +251,7 @@ class NECOMATter():
             return False
         return True
 
-    # $B%f!<%6$N%Q%9%o!<%I$r99?7$7$^$9(B
+    # ユーザのパスワードを更新します
     def UpdateUserPassword(self, user_name, old_password, new_password):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -263,10 +264,10 @@ class NECOMATter():
         user_node['session_expire_time'] = 0.0
         return True
 
-    # $B%f!<%6$rEPO?$7$^$9(B
+    # ユーザを登録します
     def AddUser(self, user_name, password):
-        # $B%f!<%6L>$O$$$A$$$A%(%9%1!<%W$9$k$N$,$a$s$I$/$5$$$N$G(B
-        # $BEPO?;~$K%(%9%1!<%W$5$l$J$$$3$H$r3NG'$9$k$@$1$K$7$^$9(B($B$$$$$N$+$J$!(B)
+        # ユーザ名はいちいちエスケープするのがめんどくさいので
+        # 登録時にエスケープされないことを確認するだけにします(いいのかなぁ)
         escaped_user_name = self.EscapeForXSS(user_name)
         if escaped_user_name != user_name:
             logging.error("User %s has escape string. please user other name" % user_name)
@@ -280,11 +281,11 @@ class NECOMATter():
         user_node = user_index.create("name", user_name, {
             "name": user_name, "password_hash": hash_value
         })
-        # $B<+J,$r%U%)%m!<$7$F$$$J$$$H<+J,$N%?%$%`%i%$%s$K<+J,$,=P$^$;$s(B
+        # 自分をフォローしていないと自分のタイムラインに自分が出ません
         self.FollowUserByNode(user_node, user_node)
         return True
 
-    # follower $B$,(Btarget $B$r%U%)%m!<$7$F$$$k$+$I$&$+$r3NG'$7$^$9(B
+    # follower がtarget をフォローしているかどうかを確認します
     def IsFollowed(self, follower_user_node, target_user_node):
         if follower_user_node is None or target_user_node is None:
             logging.error("follower_user_node or target_user_node is None")
@@ -300,7 +301,7 @@ class NECOMATter():
             is_followed = True
         return is_followed
 
-    # $B%f!<%6$r%U%)%m!<$7$^$9(B
+    # ユーザをフォローします
     def FollowUserByNode(self, follower_user_node, target_user_node):
         if follower_user_node is None or target_user_node is None:
             logging.error("follower_user_node or target_user_node is None")
@@ -316,13 +317,13 @@ class NECOMATter():
             return False
         return True
 
-    # $B%f!<%6$r%U%)%m!<$7$^$9(B
+    # ユーザをフォローします
     def FollowUserByName(self, follower_user_name, target_user_name):
         follower_user_node = self.GetUserNode(follower_user_name)
         target_user_node = self.GetUserNode(target_user_name)
         return self.FollowUserByNode(follower_user_node, target_user_node)
 
-    # $B%f!<%6$r%U%)%m!<$7$F$$$?$i%U%)%m!<$r30$7$^$9(B
+    # ユーザをフォローしていたらフォローを外します
     def UnFollowUserByNode(self, follower_user_node, target_user_node):
         if follower_user_node is None or target_user_node is None:
             logging.error("follower_user_node or target_user_node is None")
@@ -335,13 +336,13 @@ class NECOMATter():
             self.gdb.delete(relationship)
         return True
 
-    # $B%f!<%6$r%U%)%m!<$7$F$$$?$i%U%)%m!<$r30$7$^$9(B
+    # ユーザをフォローしていたらフォローを外します
     def UnFollowUserByName(self, follower_user_name, target_user_name):
         follower_user_node = self.GetUserNode(follower_user_name)
         target_user_node = self.GetUserNode(target_user_name)
         return self.UnFollowUserByNode(follower_user_node, target_user_node)
 
-    # $B%f!<%6L>$N%j%9%H$r<hF@$7$^$9(B
+    # ユーザ名のリストを取得します
     def GetUserNameList(self):
         user_index = self.gdb.get_or_create_index(neo4j.Node, "user")
         query_result = user_index.query("name:*")
@@ -351,7 +352,7 @@ class NECOMATter():
                 user_name_list.append(user_node["name"])
         return user_name_list
 
-    # $BBP>]$N%f!<%6$,%U%)%m!<$7$F$$$k%f!<%6L>$N%j%9%H$r<hF@$7$^$9(B
+    # 対象のユーザがフォローしているユーザ名のリストを取得します
     def GetUserFollowedUserNameList(self, user_name):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -368,7 +369,7 @@ class NECOMATter():
             followed_user_name_list.append(name[0])
         return followed_user_name_list
 
-    # tweet$B$N%N!<%I(BID$B$+$iBP>]$N%f!<%6$N(Btweet $B$r<hF@$7$^$9!#(B
+    # tweetのノードIDから対象のユーザのtweet を取得します。
     def GetTweetFromID(self, tweet_id):
         query = ""
         query += "start tweet = node(%d) " % tweet_id
@@ -377,7 +378,7 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
-    # tag $B$+$i(Btweet $B$r<hF@$7$^$9(B
+    # tag からtweet を取得します
     def GetTagTweet(self, tag_string, limit=None, since_time=None):
         query = ""
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
@@ -391,12 +392,12 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
-    # tag $B$+$i<hF@$7$?(Btweet $B$r(B{"text": $BK\J8(B, "time": $BF|IUJ8;zNs(B}$B$N%j%9%H$K$7$FJV$7$^$9(B
+    # tag から取得したtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
     def GetTagTweetFormated(self, tag_name, limit=None, since_time=None):
         tweet_list = self.GetTagTweet(tag_name, limit=limit, since_time=since_time)
         return self.FormatTweet(tweet_list)
 
-    # tag $B$N%j%9%H$r<hF@$7$^$9(B
+    # tag のリストを取得します
     def GetTagList(self, limit=None, since_time=None):
         query = ""
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
@@ -410,7 +411,7 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
-    # $B%f!<%6$N(BAPI$B%-!<$N%j%9%H$r<hF@$7$^$9(B($B%N!<%I;XDjHG(B)
+    # ユーザのAPIキーのリストを取得します(ノード指定版)
     def GetUserAPIKeyListByNode(self, user_node):
         if user_node is None:
             logging.error("user_node is None")
@@ -424,7 +425,7 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
-    # $B%f!<%6$N(BAPI$B%-!<$N%j%9%H$r<hF@$7$^$9(B($BL>A0;XDjHG(B)
+    # ユーザのAPIキーのリストを取得します(名前指定版)
     def GetUserAPIKeyListByName(self, user_name):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -439,7 +440,7 @@ class NECOMATter():
             result_list.append(key[0])
         return result_list
 
-    # $B%f!<%6$,(BAPI$B%-!<$r;}$C$F$$$k$+$I$&$+$r3NG'$7$^$9(B
+    # ユーザがAPIキーを持っているかどうかを確認します
     def CheckUserAPIKeyByName(self, user_name, key_name):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -460,7 +461,7 @@ class NECOMATter():
             return False
         return True
 
-    # $B%f!<%6$N(BAPI$B%-!<$r:o=|$7$^$9(B
+    # ユーザのAPIキーを削除します
     def DeleteUserAPIKeyByName(self, user_name, key_name):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
@@ -475,20 +476,20 @@ class NECOMATter():
         query += "START user=node(%d) " % user_id
         query += "MATCH ( key_node ) -[r :API_KEY]-> (user) " #% key_name
         query += "WHERE key_node.key = '%s' " % key_name
-        query += "DELETE key_node, r" # $B%N!<%I$r(Bdelete$B$9$k$H$-$O(B node $B$H(B $B%j%l!<%7%g%s%7%C%W$rN>J}(Bdelete$B$9$kI,MW$,$"$k$C$]$$(B
+        query += "DELETE key_node, r" # ノードをdeleteするときは node と リレーションシップを両方deleteする必要があるっぽい
         result_list, metadata = cypher.execute(self.gdb, query)
-        # $B<:GT$7$?;~$K$O$A$c$s$H(Blist$B$,J#?t$K$J$k$N!)(B
+        # 失敗した時にはちゃんとlistが複数になるの？
         if len(result_list) != 0:
             return False
         return True
 
-    # $B%f!<%6$K(BAPI$B%-!<$rDI2C$7$^$9(B
+    # ユーザにAPIキーを追加します
     def CreateUserAPIKeyByName(self, user_name):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("user %s is not registerd" % user_name)
             return None
-        # $B2x$7$/(BAPI$B%-!<$r@8@.$7$^$9(B
+        # 怪しくAPIキーを生成します
         key = self.GetPasswordHash(user_name,
             str(time.time() + random.randint(0, 100000000)))
         key_node = self.CreateOrGetUserAPIKeyNode(key)
