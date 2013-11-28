@@ -67,7 +67,8 @@ class NECOMATter():
             result_list.append({'text': tweet[0],
                 "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
                 "user": tweet[2],
-                "unix_time": tweet[1]})
+                "unix_time": tweet[1],
+                "id": tweet[3]._id})
         return result_list
 
     # ユーザのノードを取得します。
@@ -112,13 +113,26 @@ class NECOMATter():
             tag_node = self.gdb.get_or_create_indexed_node("tag", "tag", tag, {"tag": tag})
             tweet_node.create_path("TAG", tag_node)
 
+    # tweet_node をid から取得します
+    def GetTweetNodeFromID(self, tweet_id):
+        tweet_node = self.gdb.node(tweet_id)
+        if 'text' not in tweet_node:
+            return None
+        return tweet_node
+
     # ユーザにtweet させます。Tweetに成功したら、tweet_node を返します
-    def Tweet(self, user_node, tweet_string):
+    def Tweet(self, user_node, tweet_string, reply_to=None):
         if user_node is None:
             logging.error("Tweet owner is not defined.")
             return None
         tweet_index = self.GetTweetIndex()
         text = self.EscapeForXSS(tweet_string)
+        reply_to_tweet_node = None
+        if reply_to is not None:
+            reply_to_tweet_node = self.GetTweetNodeFromID(reply_to)
+            if reply_to_tweet_node is None:
+                logging.error("ID %d tweet is not found." % reply_to)
+                return None
         tweet_node = tweet_index.create("text", text, {
             "text": self.EscapeForXSS(tweet_string), 
             "time": time.time()
@@ -127,6 +141,9 @@ class NECOMATter():
         tweet_node.create_path("TWEET", user_node)
         # タグがあればそこに繋ぎます
         self.Tweet_LinkToTag(tweet_node, text)
+        # 返事先のtweetがあるならば、リレーションシップを繋ぎます
+        if reply_to_tweet_node is not None:
+            tweet_node.create_path("REPLY", reply_to_tweet_node)
         return tweet_node
 
     # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
@@ -142,19 +159,12 @@ class NECOMATter():
         query += "MATCH (tweet) -[:TWEET]-> (user) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name "
+        query += "RETURN tweet.text, tweet.time, user.name, tweet "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
-        """ # good old code. not used cypher
-        relationship_list = user_node.match_incoming(rel_type="TWEET", limit=limit)
-        result_node_list = []
-        for relationship in relationship_list:
-            result_node_list.append(relationship.start_node)
-        return result_node_list
-        """
 
     # tweet_node を{"text": 本文, "time": 日付文字列, "user": ユーザ名} の形式の辞書にします
     def ConvertTweetNodeToHumanReadableDictionary(self, tweet_node):
@@ -188,7 +198,7 @@ class NECOMATter():
         query += "MATCH (tweet) -[:TWEET]-> (target) <-[:FOLLOW]- (user) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, target.name "
+        query += "RETURN tweet.text, tweet.time, target.name, tweet "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -374,7 +384,7 @@ class NECOMATter():
         query = ""
         query += "start tweet = node(%d) " % tweet_id
         query += "MATCH (user) <-[:TWEET]- (tweet) "
-        query += "RETURN tweet.text, tweet.time, user.name "
+        query += "RETURN tweet.text, tweet.time, user.name, tweet "
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
@@ -385,7 +395,7 @@ class NECOMATter():
         query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name "
+        query += "RETURN tweet.text, tweet.time, user.name, tweet "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -404,7 +414,7 @@ class NECOMATter():
         query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name "
+        query += "RETURN tweet.text, tweet.time, user.name, tweet "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -499,5 +509,50 @@ class NECOMATter():
             self.gdb.delete(key_node)
             return None
         return key_node
-        
+
+    # 一つのtweetが返事をした親tweetを最上位の親まで辿って取り出します(元のtweetは含まれません)
+    def GetParentTweetAboutTweetID(self, tweet_id, limit=None, since_time=None):
+        query = ""
+        query += "START original_tweet=node(%d) " % tweet_id
+        query += "MATCH original_tweet -[:REPLY*1..]-> tweet "
+        query += "WITH original_tweet, tweet "
+        query += "MATCH tweet -[:TWEET]-> user "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "RETURN tweet.text, tweet.time, user.name, tweet "
+        query += "ORDER BY tweet.time ASC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # 一つのtweetについた返事のtweetを、最後の子まで辿って取り出します(元のtweetは含まれません)
+    def GetChlidTweetAboutTweetID(self, tweet_id, limit=None, since_time=None):
+        query = ""
+        query += "START original_tweet=node(%d) " % tweet_id
+        query += "MATCH original_tweet <-[:REPLY*1..]- tweet "
+        query += "WITH original_tweet, tweet "
+        query += "MATCH tweet -[:TWEET]-> user "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "RETURN tweet.text, tweet.time, user.name, tweet "
+        query += "ORDER BY tweet.time ASC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # 一つのtweetが返事をした親tweetを最上位の親まで辿って取り出します(フォーマット済み版)
+    def GetParentTweetAboutTweetIDFormatted(self, tweet_id, limit=None, since_time=None):
+        tweet_list = self.GetParentTweetAboutTweetID(tweet_id, limit, since_time)
+        return self.FormatTweet(tweet_list)
+
+    # 一つのtweetについた返事のtweetを、最後の子まで辿って取り出します(フォーマット済み版)
+    def GetChildTweetAboutTweetIDFormatted(self, tweet_id, limit=None, since_time=None):
+        tweet_list = self.GetChlidTweetAboutTweetID(tweet_id, limit, since_time)
+        return self.FormatTweet(tweet_list)
+
+    # 一つのtweet をTweetID から取り出します
+    def GetTweetNodeFromIDFormatted(self, tweet_id):
+        return self.FormatTweet(self.GetTweetFromID(tweet_id))
 

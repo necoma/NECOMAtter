@@ -2,20 +2,35 @@
 function RenderTimelineToHTML(tweet_list){
 	var html = "";
 	for (var i = 0, len = tweet_list.length; i < len; i++){
+		var target_tweet = tweet_list[i]
+		if( !('id' in target_tweet)
+		 || !('user' in target_tweet)
+		 || !('time' in target_tweet)
+		 || !('text' in target_tweet))
+		{
+			html += '<div class="tweet_column">broken tweet.</div>'
+			continue;
+		}
+		var tweet_id = target_tweet['id'];
+		var user = target_tweet['user'];
+		var time = target_tweet['time'];
+		var text = target_tweet['text'];
 		var tweet = "";
-		tweet += '<div class="tweet_column"><span class="tweet_name"><a href="/user/';
-		tweet += tweet_list[i]['user'];
+		tweet += '<div class="tweet_column" id="TweetID_' + tweet_id + '"><span class="tweet_name"><a href="/user/';
+		tweet += user;
 		tweet += '">'
-		tweet += tweet_list[i]['user'];
-		tweet += '</a></span> <span class="tweet_time">';
-		tweet += tweet_list[i]['time'];
-		tweet += '</span"><div class="tweet_body">';
+		tweet += user;
+		tweet += '</a></span> <span class="tweet_time"><a href="/tweet/';
+		tweet += tweet_id;
+		tweet += '">';
+		tweet += time;
+		tweet += '</a></span"><div class="tweet_body">';
 		// 怪しくこの時点で文字列を書き換えます。
 		// ・改行は<br>に
 		// ・URLっぽい文字列はlinkに
 		// ・#タグ ぽい文字列はタグ検索用のURLへのlinkに
 		// します。
-		tweet += tweet_list[i]['text'].replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^ ]+)/gi, function(str){
+		tweet += text.replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^ ]+)/gi, function(str){
 				if(str.match(/^#/)){
 					var tag_name = str.replace(/^#/, '');
 					return '<a href="/tag/' + tag_name + '">' + str + '</a>';

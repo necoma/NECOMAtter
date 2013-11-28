@@ -34,20 +34,21 @@ $(document).ready(function(){
 		  <li><a href="/static/rest_interfaces.html">REST API のドキュメント</a></li>
 	          <li>フォローの概念(timeline)</li>
 	          <li>タグの概念</li>
+		  <li>replyの概念</li>
+		  <li>REST friendly なユーザ管理(なんちゃって API Key による実装なので再生攻撃ができるけれども)</li>
           </ul>
           まだできていないこと(できるようにしようと思っている)
           <ul>
 		  <li>unit test</li>
 	          <li>REST interfaces(200 OK を返すのに失敗しているとかが残っている)</li>
-		  <li>REST friendly なユーザ管理
-		  (現状は Flask session(タダのcookie) によるなんちゃってサインインなのでRESTと食合せが悪い)</li>
-	          <li>streaming taimeline (twitter のstreaming API みたいに、タイムラインをリアルタイムに取得できるようにしたいなぁ)</li>
+		  <li>replyをWeb UIからできるように</li>
+		  <li>API key の確認をWeb UIからできるように</li>
+	          <li>streaming timeline (twitter のstreaming API みたいに、タイムラインをリアルタイムに取得できるようにしたいなぁ)</li>
           </ul>
 	  できないこと(とりあえずは必要ないと思っている)
 	  <ul>
 		  <li>ユーザアイコン</li>
 		  <li>ユーザプロフィール</li>
-		  <li>@</li>
 		  <li>d</li>
 		  <li>鍵付きアカウント</li>
 	  </ul>

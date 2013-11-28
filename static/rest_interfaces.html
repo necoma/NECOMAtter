@@ -32,7 +32,7 @@
 <div class="REST_url">URL: /post.json</div>
 <div class="REST_method">method: POST</div>
 <div class="REST_description">post new tweet. (required sign in)</div>
-<div class="REST_data_format">post data format: {"text": tweet text, "api_key": API key }</div>
+<div class="REST_data_format">post data format: {"text": tweet text, "api_key": API key, "user_name": user name }</div>
 <div class="REST_data_format">result data format: {"result": 'ok' or 'error', 'description': description text}</div>
 
 <h3 class="REST_service">follow user</h3>
@@ -81,9 +81,9 @@
 <div class="REST_url">URL: /user_setting/key/<api_key>.json</div>
 <div class="REST_method">method: DELETE(recomended), POST</div>
 <div class="REST_description">delete API key (required sign in)</div>
+<div class="REST_data_format">post data format: {"user_name": target user name, "api_key": API key}</div>
 <div class="REST_data_format">api_key: registerd your API key</div>
 <div class="REST_data_format">result data format: {"result": 'ok'}</div>
-
 
 </div>
 </body>

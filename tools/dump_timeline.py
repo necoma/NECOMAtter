@@ -28,6 +28,6 @@ if user_node is None:
 
 tweet_list = world.GetUserTimeline(user_node, limit)
 for tweet in tweet_list:
-    print "%s from %s at %s" % (tweet[0].encode('utf-8'), tweet[2].encode('utf-8'), time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])))
+    print "%s from %s at %s ID: %d" % (tweet[0].encode('utf-8'), tweet[2].encode('utf-8'), time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])), tweet[3]._id)
 
 

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding: utf-8
 
 import sys,os
 import logging
@@ -7,6 +8,8 @@ from flask import Flask, flash, redirect, url_for, session, request, jsonify, g,
 from NECOMATter import NECOMATter
 import time
 import json
+import gevent
+from gevent.wsgi import WSGIServer
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -25,10 +28,10 @@ def GetAuthenticatedUserName():
     print 'session_key failed', user_name, session_key
     if ( request.method == 'POST' and
         request.json is not None and
-        'user' in request.json and
+        'user_name' in request.json and
         'api_key' in request.json and
-        world.CheckUserAPIKeyByName(request.json['user'], request.json['api_key']) ):
-            return request.json['user']
+        world.CheckUserAPIKeyByName(request.json['user_name'], request.json['api_key']) ):
+            return request.json['user_name']
     print 'request has no valid API key failed'
     return None
 
@@ -64,10 +67,44 @@ def userPage_Get_Rest(user_name):
 def userPage_Get(user_name):
     return render_template('timeline_page.html', user_name=user_name, do_target="Tweet", request_path="user")
 
-@app.route('/user/<user_name>/<unix_time>')
-def userTweet_Get(user_name, unix_time):
-    # TODO: ユーザのツイートを個別で見られるページを作る予定……    
-    return render_template('one_tweet.html', user_name=user_name)
+@app.route('/tweet/<int:tweet_id>')
+def userTweet_Get(tweet_id):
+    return render_template('tweet_tree.html', tweet_id=tweet_id)
+
+# 対象のtweetID の tweet のみを取得します
+@app.route('/tweet/<int:tweet_id>.json')
+def userTweet_Get_Rest(tweet_id):
+    return json.dumps(world.GetTweetNodeFromIDFormatted(tweet_id))
+
+# 対象のtweetID の返信関係の木構造を返します
+@app.route('/tweet/<int:tweet_id>_tree.json')
+def userTweetTree_Get_Rest(tweet_id):
+    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id)
+    tweet_list.extend(world.GetTweetNodeFromIDFormatted(tweet_id))
+    tweet_list.extend(world.GetChildTweetAboutTweetIDFormatted(tweet_id))
+    return json.dumps(tweet_list)
+
+@app.route('/tweet/<int:tweet_id>_parent.json')
+def userTweetTreeParent_Get_Rest(tweet_id):
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, limit, since_time)
+    return json.dumps(tweet_list)
+
+@app.route('/tweet/<int:tweet_id>_child.json')
+def userTweetTreeChild_Get_Rest(tweet_id):
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    tweet_list = world.GetChildTweetAboutTweetIDFormatted(tweet_id, limit, since_time)
+    return json.dumps(tweet_list)
 
 @app.route('/user/<user_name>/followed_user_name_list.json')
 def userFollowedGet(user_name):
@@ -135,11 +172,17 @@ def postTweet():
     user_name = GetAuthenticatedUserName()
     if user_name is None:
         abort(401)
+    if 'text' not in request.json:
+        abort(401)
     text = request.json['text']
+    reply_to = None
+    if 'reply_to' in request.json:
+        reply_to = request.json['reply_to']
     user_node = world.GetUserNode(user_name)
     if user_node is None:
         abort(501)
-    tweet_node = world.Tweet(user_node, text)
+    print "reply_to: ", reply_to
+    tweet_node = world.Tweet(user_node, tweet_string=text, reply_to=reply_to)
     tweet_dic = world.ConvertTweetNodeToHumanReadableDictionary(tweet_node)
     tweet_dic.update({'result': 'ok'})
     return json.dumps(tweet_dic)
@@ -216,21 +259,23 @@ def signoutPage():
     session.pop('session_key', None)
     return redirect(url_for('topPage'))
 
-def CheckNewColumn():
-    time.sleep(1)
-    yield "sleep.\n"
-
 @app.route('/user_name_list.json')
 def userNameList():
     return json.dumps(world.GetUserNameList())
 
+def CheckNewColumn(i):
+    gevent.sleep(1)
+    return "sleep %d\n" % i
+
 @app.route('/stream')
 def streamed_response():
     def generate():
-        while True:
-            yield CheckNewColumn()
-    return Response(stream_with_context(generate()))
+        for i in range(1, 10):
+            yield CheckNewColumn(i)
+    return Response(generate(), mimetype='application/json; charset=utf-8')
 
 if __name__ == '__main__':
     #app.run('0.0.0.0', port=1000, debug=True)
-    app.run('::', port=8000, debug=True)
+    #app.run('::', port=8000, debug=True)
+    http_server = WSGIServer(('::', 8000), app)
+    http_server.serve_forever()
