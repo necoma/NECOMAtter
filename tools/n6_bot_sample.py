@@ -95,8 +95,10 @@ for line in req.iter_lines(chunk_size=1):
             print "hit: ", match_result
             n6_result = SearchN6_IPv4(match_result)
             if n6_result is None or n6_result == "":
-                continue
-            print "n6 result got. Let's tweet"
+                print "n6 result is nothing..."
+                n6_result = "no result from n6"
+            else:
+                print "n6 result got."
             tweet_result = PostTweet(user_name, api_key, "n6 search ip=%s result: %s" % (match_result, n6_result), tweet_id)
             if tweet_result is not None and 'id' in tweet_result:
                 # 自分のtweetした番号は覚えておきます
