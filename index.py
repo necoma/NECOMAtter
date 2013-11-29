@@ -28,10 +28,14 @@ class StreamingWatcherManager():
         self.uniq_id = 0
         self.regexp_watcher_list = {}
 
-    def RegisterWatcher_RegexpMatch(self, regexp_pattern, queue):
+    def RegisterWatcher_RegexpMatch(self, regexp_pattern, queue, user_name, description="undefined"):
         regist_id = self.uniq_id
         self.uniq_id += 1
-        self.regexp_watcher_list[regist_id] = {'re_prog': re.compile(regexp_pattern), 'queue': queue }
+        self.regexp_watcher_list[regist_id] = {'re_prog': re.compile(regexp_pattern),
+                'queue': queue,
+                'user_name': user_name,
+                'description': world.EscapeForXSS(description)
+                }
         return regist_id
 
     def UnregisterWatcher(self, delete_id):
@@ -52,6 +56,16 @@ class StreamingWatcherManager():
 
     def GetWatcherListNum(self):
         return len(self.regexp_watcher_list)
+
+    # streaming API で監視中のユーザ情報のリストを辞書形式で返します
+    def GetWatcherDescriptionList(self):
+        description_list = []
+        for regexp_client in self.regexp_watcher_list.values():
+            description = {}
+            description['user_name'] = regexp_client['user_name']
+            description['description'] = regexp_client['description']
+            description_list.append(description)
+        return description_list
 
 watchDogManager = StreamingWatcherManager()
 
@@ -311,6 +325,16 @@ def signoutPage():
 def userNameList():
     return json.dumps(world.GetUserNameList())
 
+# 現在稼働中のstreaming API client の情報リストを出力します
+@app.route('/stream/client_list.json')
+def streamClientList_Rest():
+    return json.dumps(watchDogManager.GetWatcherDescriptionList())
+
+# 現在稼働中のstreaming API client の情報リストページ
+@app.route('/stream/client_list')
+def streamClientList():
+    return render_template('stream_client.html')
+
 # streaming AIP での正規表現マッチの待機用関数
 def RegexpMatchWait(queue):
     if queue.empty():
@@ -333,8 +357,11 @@ def streamed_response():
     if 'regexp' not in request.json:
         abort(400)
     regexp = request.json['regexp']
+    description = None
+    if 'description' in request.json:
+        description = request.json['description']
     queue = gevent.queue.Queue()
-    regist_id = watchDogManager.RegisterWatcher_RegexpMatch(regexp, queue)
+    regist_id = watchDogManager.RegisterWatcher_RegexpMatch(regexp, queue, user_name, description)
     print "accept streaming client. user: %s" % user_name
     def generate():
         while True:

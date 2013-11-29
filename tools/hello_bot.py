@@ -1,10 +1,8 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# tweetストリーミングを監視してPOSTを行うBOTのサンプル実装です。
-#
-# tweetストリーミングからIPv4 address っぽいものを取り出してきて、
-# 引っかかったらn6 を使って検索を行った結果を返します。
+# tweetストリーミングを監視して "hello" という文字列が現れたら
+# そのtweetに対して "hello <user_name>" を返すbot
 
 import sys
 import json
@@ -17,23 +15,7 @@ if len(sys.argv) != 3:
 
 user_name = sys.argv[1]
 api_key = sys.argv[2]
-regexp = '(\d+\.\d+\.\d+\.\d+)'
-key_file = "iimura.key"
-cert_file = "iimura.pem"
-curl_command = "curl"
-
-def SearchN6(key_file, cert_file, query):
-    req = requests.get("https://n6alpha.cert.pl/test/search/events.sjson?%s" % query,
-            verify=False,
-            cert=(cert_file, key_file))
-    if req.status_code != 200:
-        print "result status code is not 200. (%d)" % req.status_code
-        return None
-    return req.text
-
-# n6 でip=... の検索を行います
-def SearchN6_IPv4(ipv4_addr):
-    return SearchN6(key_file, cert_file, "ip=%s" % ipv4_addr)
+regexp = 'hello'
 
 # ツイートします。ツイートに成功したらobjectを、失敗したらNoneを返します
 def PostTweet(user_name, api_key, text, reply_to=None):
@@ -60,7 +42,7 @@ request_data = {}
 request_data['user_name'] = user_name
 request_data['api_key'] = api_key
 request_data['regexp'] = regexp
-request_data['description'] = "n6 BOT sample. use regexp: %s" % regexp
+request_data['description'] = "hello BOT. use regexp: %s" % regexp
 
 # streaming API越しに監視を開始します
 req = requests.post('http://[::1]:8000/stream/regexp.json',
@@ -89,17 +71,9 @@ for line in req.iter_lines(chunk_size=1):
         # マッチ結果に値がなければ検索できないので無視します
         if 'match_result' not in tweet:
             continue
-        # サーバに送信する正規表現に () を入れておけば、
-        # match_result にリストで入れて返してくれます
-        for match_result in tweet['match_result']:
-            print "hit: ", match_result
-            n6_result = SearchN6_IPv4(match_result)
-            if n6_result is None or n6_result == "":
-                continue
-            print "n6 result got. Let's tweet"
-            tweet_result = PostTweet(user_name, api_key, "n6 search ip=%s result: %s" % (match_result, n6_result), tweet_id)
-            if tweet_result is not None and 'id' in tweet_result:
-                # 自分のtweetした番号は覚えておきます
-                my_tweet_id[tweet_result['id']] = True
+        tweet_result = PostTweet(user_name, api_key, "hello %s" % user_name, tweet_id)
+        if tweet_result is not None and 'id' in tweet_result:
+            # 自分のtweetした番号は覚えておきます
+            my_tweet_id[tweet_result['id']] = True
 
 print "server disconnect. quit."

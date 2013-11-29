@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}alive stream client list{% endblock %}
+{% block body %}
+<script>
+// stream client の情報をHTML形式に変換します
+function RenderStreamClientToHTML(data){
+	var result_html = "";
+	for (var i = 0, len = data.length; i < len; i++){
+		var client_info = data[i];
+		var tmp_html = "";
+		tmp_html += '<div class="OneStreamClient">';
+		tmp_html +=   '<h4>user: ';
+		tmp_html +=     client_info['user_name'];
+		tmp_html +=   '</h4>';
+		tmp_html +=   client_info['description'];
+		tmp_html += '</div>';
+		result_html += tmp_html;
+	}
+	if(result_html == "")
+	{
+		result_html = 'no client alive';
+	}
+	return result_html;
+}
+
+// ページの読み込みが終わった時点で起動するfunction をjQueryから呼び出しています。
+$(document).ready(
+	function(){
+	$.ajax({  url: "/stream/client_list.json"
+		, type: 'GET'
+		, dataType: 'json'
+		}).done(function(data, textStatus, jqxHR){
+			$('#BotList').html(RenderStreamClientToHTML(data));
+		}).fail(function(jqXHR, textStatus, errorThrown){
+			$('#BotList').html('load error.');
+		});
+	});
+</script>
+<h2>alive stream client list</h2>
+  {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
+  <div id="BotList" class="memo">
+	now loading...
+  </div>
+{% endblock %}

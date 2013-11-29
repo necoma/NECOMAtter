@@ -60,6 +60,28 @@ body {
 	//padding: 2px;
 }
 
+.OneStreamClient {
+	border: solid 1px #cccccc;
+	position: relative;
+	border-radius: 8px;
+	-moz-border-radius: 8px;
+	-webkit-border-radius: 8px;
+	margin-top: 1em;
+	padding: 0.5em;
+}
+
+.OneStreamClient h4 {
+	position: absolute;
+	top: -0.5em;
+	left: 1em;
+	margin: 0;
+	padding: 0 0.5em;
+	color: #0055bb;
+	font-weight: normal;
+	background-color:#f7fdff; /*背景色にあわせます*/
+	font-weight:bold;
+}
+
 /* tweet のテキストの奇数行 */
 #Tweet_text .tweet_column:nth-child(odd){
 	background-color: #ffeeee;

@@ -19,6 +19,7 @@ request_data = {}
 request_data['user_name'] = user_name
 request_data['api_key'] = api_key
 request_data['regexp'] = regexp
+request_data['description'] = "Public Timeline Watcher (sample) use regexp: %s" % regexp
 
 req = requests.post('http://[::1]:8000/stream/regexp.json',
         headers={'content-type': 'application/json; charset=utf-8'},

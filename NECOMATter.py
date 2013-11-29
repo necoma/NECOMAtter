@@ -295,6 +295,38 @@ class NECOMATter():
         self.FollowUserByNode(user_node, user_node)
         return True
 
+    # ユーザを削除します
+    def DelUser(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.info("User %s is not registered." % user_name)
+            return True
+        user_id = user_node._id
+        # このユーザに纏わるリレーションシップを全部消します
+        # トランザクションではできないのかなぁ……
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH () <-[r:FOLLOW]- (user) "
+        query += "DELETE r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH (user) <-[r:FOLLOW]- () "
+        query += "DELETE r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH (user) <-[r:TWEET]- () "
+        query += "DELETE r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH (user) <-[r:API_KEY]- (api_key) "
+        query += "DELETE r, api_key "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        user_node.delete()
+        return True
+
     # follower がtarget をフォローしているかどうかを確認します
     def IsFollowed(self, follower_user_node, target_user_node):
         if follower_user_node is None or target_user_node is None:
