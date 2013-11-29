@@ -8,8 +8,10 @@ from flask import Flask, flash, redirect, url_for, session, request, jsonify, g,
 from NECOMATter import NECOMATter
 import time
 import json
+import re
 import gevent
 from gevent.wsgi import WSGIServer
+import gevent.queue
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -18,6 +20,41 @@ app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'
 
 world = NECOMATter("http://localhost:7474")
 
+# streaming API で監視を走らせる時のwatcherを管理するclass
+# ストリーミングのクライアントが現れる毎にwatchdogリストに登録する
+# 登録されたものはクライアント側で何らかのエラーがあったら登録を削除する
+class StreamingWatcherManager():
+    def __init__(self):
+        self.uniq_id = 0
+        self.regexp_watcher_list = {}
+
+    def RegisterWatcher_RegexpMatch(self, regexp_pattern, queue):
+        regist_id = self.uniq_id
+        self.uniq_id += 1
+        self.regexp_watcher_list[regist_id] = {'re_prog': re.compile(regexp_pattern), 'queue': queue }
+        return regist_id
+
+    def UnregisterWatcher(self, delete_id):
+        del self.regexp_watcher_list[delete_id]
+
+    def UpdateTweet(self, tweet_text, tweet_dic):
+        for regexp_watcher in self.regexp_watcher_list.values():
+            if 're_prog' not in regexp_watcher or 'queue' not in regexp_watcher:
+                continue
+            re_prog = regexp_watcher['re_prog']
+            queue = regexp_watcher['queue']
+            if re_prog is None or queue is None:
+                continue
+            match_result = re_prog.findall(tweet_text)
+            if not match_result:
+                continue
+            queue.put_nowait((tweet_dic, match_result))
+
+    def GetWatcherListNum(self):
+        return len(self.regexp_watcher_list)
+
+watchDogManager = StreamingWatcherManager()
+
 # NECOMATter で認証完了しているユーザ名を取得します。
 # 認証完了していない場合にはNoneを返します
 def GetAuthenticatedUserName():
@@ -25,14 +62,14 @@ def GetAuthenticatedUserName():
     session_key = session.get('session_key')
     if world.CheckUserSessionKeyIsValid(user_name, session_key):
         return user_name
-    print 'session_key failed', user_name, session_key
+    #print 'session_key failed', user_name, session_key
     if ( request.method == 'POST' and
         request.json is not None and
         'user_name' in request.json and
         'api_key' in request.json and
         world.CheckUserAPIKeyByName(request.json['user_name'], request.json['api_key']) ):
             return request.json['user_name']
-    print 'request has no valid API key failed'
+    #print 'request has no valid API key failed'
     return None
 
 # NECOMATter でのユーザ認証を行うデコレータ。
@@ -173,7 +210,7 @@ def postTweet():
     if user_name is None:
         abort(401)
     if 'text' not in request.json:
-        abort(401)
+        abort(400)
     text = request.json['text']
     reply_to = None
     if 'reply_to' in request.json:
@@ -184,6 +221,9 @@ def postTweet():
     print "reply_to: ", reply_to
     tweet_node = world.Tweet(user_node, tweet_string=text, reply_to=reply_to)
     tweet_dic = world.ConvertTweetNodeToHumanReadableDictionary(tweet_node)
+    tweet_dic.update({'user': user_name, 'id': tweet_node._id})
+    # 怪しく result ok の入っていない状態でstreaming側に渡します
+    watchDogManager.UpdateTweet(text, tweet_dic)
     tweet_dic.update({'result': 'ok'})
     return json.dumps(tweet_dic)
 
@@ -263,16 +303,41 @@ def signoutPage():
 def userNameList():
     return json.dumps(world.GetUserNameList())
 
-def CheckNewColumn(i):
-    gevent.sleep(1)
-    return "sleep %d\n" % i
+def RegexpMatchWait(queue):
+    if queue.empty():
+        gevent.sleep(1)
+        return ''
+    (tweet_dic, match_result) = queue.get()
+    result_dic = tweet_dic.copy()
+    result_dic['match_result'] = match_result
+    logging.info('waiting tweet text got: %s' % str(result_dic))
+    return "%s\n" % json.dumps(result_dic)
 
-@app.route('/stream')
+@app.route('/stream/regexp.json', methods=['POST'])
 def streamed_response():
+    user_name = GetAuthenticatedUserName()
+    if user_name is None:
+        abort(401)
+    if 'regexp' not in request.json:
+        abort(400)
+    regexp = request.json['regexp']
+    queue = gevent.queue.Queue()
+    regist_id = watchDogManager.RegisterWatcher_RegexpMatch(regexp, queue)
+    print "accept streaming client. user: %s" % user_name
     def generate():
-        for i in range(1, 10):
-            yield CheckNewColumn(i)
-    return Response(generate(), mimetype='application/json; charset=utf-8')
+        while True:
+            try:
+                yield RegexpMatchWait(queue)
+            except IOError:
+                # クライアント側が接続を切ると、
+                # MatchWait で何かを書き込もうとした時に
+                # BrokenPipe(IOError) が発生するはず
+                # ……なのだけれど、IOError では catch できないのは何故？
+                print "IOError detected. unregister watcher"
+                watchDogManager.UnregisterWatcher(regist_id)
+                break
+    #return Response(generate(), mimetype='application/json; charset=utf-8')
+    return Response(generate(), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     #app.run('0.0.0.0', port=1000, debug=True)

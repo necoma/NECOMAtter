@@ -14,7 +14,7 @@ function CreateNewKeyButtonClicked(){
 			if('key' in data){
 				var key = data['key'];
 				var html = '<li id="DeleteKey_' + key + '">';
-				html += 'key: <code>' + key + '</code>';
+				html += '<code>' + key + '</code>';
 				html += ' <input type="button" value="delete key" onClick="DeleteKeyButtonClicked("' + key + '");">(NEW!)</li>';
 				$('#KeyList').prepend(html);
 			}
@@ -32,11 +32,12 @@ function CreateNewKeyButtonClicked(){
 </script>
 <div class="normal_body">
   <h2>API key list</h2>
+  ここに表示されている API Key とユーザ名を使うことで、BOT等から tweet することができるようになります。
   {% if error %}<p class=error><strong>Error:</strong>{{ error }}</p>{% endif %}
   <div class="CreateNewKey"><input type="button" value="create a new key" onClick="CreateNewKeyButtonClicked();"><div>
   <ul id="KeyList">
   {% for key in key_list %}
-    <li id="DeleteKey_{{key}}">key: <code>{{key}}</code> <input type="button" value="delete key" onClick="DeleteKeyButtonClicked('{{key}}');"></li>
+    <li id="DeleteKey_{{key}}"><code>{{key}}</code> <input type="button" value="delete key" onClick="DeleteKeyButtonClicked('{{key}}');"></li>
   {% endfor %}
   </ul>
 </div>

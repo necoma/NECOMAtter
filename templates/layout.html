@@ -17,7 +17,9 @@
 <body>
 <a href="/">NECOMATter</a>
 {% if 'user_name' in session and 'session_key' in session %}
-&nbsp;sign in on "{{ session['user_name'] }}"&nbsp;<a href="/signout">sign out</a> <a href="/timeline/{{ session['user_name'] }}">timeline</a>
+&nbsp;sign in on "{{ session['user_name'] }}"&nbsp;<a href="/signout">sign out</a>
+<a href="/timeline/{{ session['user_name'] }}">timeline</a>
+<a href="/user_setting/">API Key setting</a>
 {% endif %}
 {% block body %}{% endblock %}
 <hr>
