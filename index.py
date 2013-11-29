@@ -87,10 +87,12 @@ def userPage_Get_Rest(user_name):
     tweet_list = world.GetUserTweetFormated(user_name, limit=limit, since_time=since_time)
     return json.dumps(tweet_list)
 
+# ユーザページ
 @app.route('/user/<user_name>')
 def userPage_Get(user_name):
     return render_template('timeline_page.html', user_name=user_name, do_target="Tweet", request_path="user")
 
+# 個別のツイートページ
 @app.route('/tweet/<int:tweet_id>')
 def userTweet_Get(tweet_id):
     return render_template('tweet_tree.html', tweet_id=tweet_id)
@@ -108,6 +110,7 @@ def userTweetTree_Get_Rest(tweet_id):
     tweet_list.extend(world.GetChildTweetAboutTweetIDFormatted(tweet_id))
     return json.dumps(tweet_list)
 
+# 対象のツイートの親(replyしている先)を辿って返します
 @app.route('/tweet/<int:tweet_id>_parent.json')
 def userTweetTreeParent_Get_Rest(tweet_id):
     since_time = None
@@ -119,6 +122,7 @@ def userTweetTreeParent_Get_Rest(tweet_id):
     tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, limit, since_time)
     return json.dumps(tweet_list)
 
+# 対象のツイートの子(replyしてきたtweet)を辿って返します
 @app.route('/tweet/<int:tweet_id>_child.json')
 def userTweetTreeChild_Get_Rest(tweet_id):
     since_time = None
@@ -130,10 +134,12 @@ def userTweetTreeChild_Get_Rest(tweet_id):
     tweet_list = world.GetChildTweetAboutTweetIDFormatted(tweet_id, limit, since_time)
     return json.dumps(tweet_list)
 
+# 対象のユーザがフォローしているユーザ名のリストを返します
 @app.route('/user/<user_name>/followed_user_name_list.json')
 def userFollowedGet(user_name):
     return json.dumps(world.GetUserFollowedUserNameList(user_name))
 
+# ユーザのタイムラインを返します
 @app.route('/timeline/<user_name>.json')
 def timelinePage_Get_Rest(user_name):
     since_time = None
@@ -145,14 +151,17 @@ def timelinePage_Get_Rest(user_name):
     tweet_list = world.GetUserTimelineFormated(user_name, limit, since_time)
     return json.dumps(tweet_list)
 
+# ユーザのタイムラインページ
 @app.route('/timeline/<user_name>')
 def timelinePage_Get(user_name):
     return render_template('timeline_page.html', user_name=user_name, do_target="Timeline", request_path="timeline")
 
+# タグページ
 @app.route('/tag/<tag_name>')
 def tagPage_Get(tag_name):
     return render_template('tag_page.html', tag_name=tag_name)
 
+# タグのタイムラインを返します
 @app.route('/tag/<tag_name>.json')
 def tagPage_Get_Rest(tag_name):
     since_time = None
@@ -164,6 +173,7 @@ def tagPage_Get_Rest(tag_name):
     tweet_list = world.GetTagTweetFormated("#" + tag_name, limit, since_time)
     return json.dumps(tweet_list)
 
+# ユーザ設定ページ
 @app.route('/user_setting/')
 def userSettingsPage_Get():
     user_name = GetAuthenticatedUserName()
@@ -172,6 +182,7 @@ def userSettingsPage_Get():
     key_list = world.GetUserAPIKeyListByName(user_name)
     return render_template('user_setting_page.html', user=user_name, key_list=key_list)
 
+# API Key の削除
 @app.route('/user_setting/key/<key>.json', methods=['DELETE', 'POST'])
 def userSettingsPage_DeleteKey(key):
     user_name = GetAuthenticatedUserName()
@@ -181,6 +192,7 @@ def userSettingsPage_DeleteKey(key):
         return json.dumps({'result': 'ok'})
     abort(500)
 
+# 新しいAPI Keyの生成
 @app.route('/user_setting/create_new_key.json', methods=['POST'])
 def userSettingsPage_CreateNewKey():
     user_name = GetAuthenticatedUserName()
@@ -191,6 +203,7 @@ def userSettingsPage_CreateNewKey():
         abort(401)
     return json.dumps({'result': 'ok', 'key': new_key['key']})
 
+# tweet します
 @app.route('/post.json', methods=['POST'])
 def postTweet():
     user_name = GetAuthenticatedUserName()
@@ -214,6 +227,7 @@ def postTweet():
     tweet_dic.update({'result': 'ok'})
     return json.dumps(tweet_dic)
 
+# フォローします
 @app.route('/follow.json', methods=['POST'])
 def followUser():
     follower_user_name = GetAuthenticatedUserName()
@@ -226,6 +240,7 @@ def followUser():
         return abort(500, {'result': 'error', 'description': 'follow failed.'})
     return json.dumps({'result': 'ok'})
 
+# フォローを外します
 @app.route('/unfollow.json', methods=['POST', 'DELETE'])
 def unfollowUser():
     follower_user_name = GetAuthenticatedUserName()
@@ -238,6 +253,7 @@ def unfollowUser():
         abort(500, {'result': 'error', 'description': 'unfollow failed.'})
     return json.dumps({'result': 'ok'})
 
+# ユーザ生成ページ
 @app.route('/signup', methods=['GET'])
 def signupPage():
     user_name = GetAuthenticatedUserName()
@@ -245,6 +261,7 @@ def signupPage():
         return redirect('/user/%s' % user_name)
     return render_template('signup.html')
 
+# ユーザ生成ページ(POSTされた後の実際の生成部分)
 @app.route('/signup', methods=['POST'])
 def signupProcess():
     user_name = request.form['user_name']
@@ -261,6 +278,7 @@ def signupProcess():
         return redirect('/timeline/%s' % user_name)
     return render_template('signup.html', error="create user %s failed. unknown error." % user_name)
 
+# サインインページ
 @app.route('/signin', methods=['GET'])
 def signinPage():
     user_name = GetAuthenticatedUserName()
@@ -268,6 +286,7 @@ def signinPage():
         return redirect('/user/%s' % user_name)
     return render_template('signin.html')
 
+# サインインページ(POSTされた後の実際のサインイン部分)
 @app.route('/signin', methods=['POST'])
 def signinProcess():
     user_name = request.form['user_name']
@@ -281,15 +300,18 @@ def signinProcess():
         return redirect('/timeline/%s' % user_name)
     return render_template('signin.html', error="invalid password or username")
 
+# サインアウトページ. このページが開いたら強制的にサインアウトさせます
 @app.route('/signout')
 def signoutPage():
     session.pop('session_key', None)
     return redirect(url_for('topPage'))
 
+# 登録されているユーザ名をリストで返します
 @app.route('/user_name_list.json')
 def userNameList():
     return json.dumps(world.GetUserNameList())
 
+# streaming AIP での正規表現マッチの待機用関数
 def RegexpMatchWait(queue):
     if queue.empty():
         gevent.sleep(1)
@@ -300,6 +322,9 @@ def RegexpMatchWait(queue):
     logging.info('waiting tweet text got: %s' % str(result_dic))
     return "%s\n" % json.dumps(result_dic)
 
+# streaming API. 正規表現でマッチしたtweetがあるたびに
+# そのtweetをjson形式で送信します.
+# 接続してきた時点までのtweetについては特に何もしません
 @app.route('/stream/regexp.json', methods=['POST'])
 def streamed_response():
     user_name = GetAuthenticatedUserName()
