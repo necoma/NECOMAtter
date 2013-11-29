@@ -6,7 +6,6 @@
 
 import sys
 import json
-import subprocess
 import requests # pip install requests
 
 if len(sys.argv) != 3:
@@ -68,9 +67,6 @@ for line in req.iter_lines(chunk_size=1):
             # 自分のtweetもstreamには現れるので、自分の送信したtweetであれば無視するようにします
             if tweet_id in my_tweet_id:
                 continue
-        # マッチ結果に値がなければ検索できないので無視します
-        if 'match_result' not in tweet:
-            continue
         tweet_result = PostTweet(user_name, api_key, "hello %s" % tweet['user_name'], tweet_id)
         if tweet_result is not None and 'id' in tweet_result:
             # 自分のtweetした番号は覚えておきます
