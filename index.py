@@ -72,19 +72,6 @@ def GetAuthenticatedUserName():
     #print 'request has no valid API key failed'
     return None
 
-# NECOMATter でのユーザ認証を行うデコレータ。
-# 1) Flask のセッションに入っている user_name が存在するか
-# 2) リクエストの中にjsonでAPI_keyが入っていればそのAPI keyが正しいか
-# をそれぞれ判定して、問題なければ元の関数を呼び出し、駄目であれば abort(401) するようになります
-def NECOMATterAuthRequired(func, fallback_path=None, result_type="text"):
-    def decorated_func(*args, **keyWordArgs):
-        user_name = GetAuthenticatedUserName()
-        if user_name is None:
-            abort(401)
-            return
-        func(*args, **keyWordArgs)
-    return decorated_func 
-
 @app.route('/')
 def topPage():
     return render_template('index.html')
