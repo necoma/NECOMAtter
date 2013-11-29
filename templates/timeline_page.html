@@ -2,12 +2,12 @@
 {% block title %}{{ user_name}}'s {{do_target}}{% endblock %}
 {% block body %}
 <script>
-// $B:G8e$KFI$_9~$s$@(Btweet$B$N(BUnixTime$B$rJ]B8$7$F$*$-$^$9!#(B
-// $BIi$NCM$N>l9g$O2?$bFI$_9~$s$G$$$J$$;v$K$J$k$O$:$G$9(B
+// 最後に読み込んだtweetのUnixTimeを保存しておきます。
+// 負の値の場合は何も読み込んでいない事になるはずです
 var lastReadUnixTime = -1;
-// $B0lEY$KFI$_9~$`(Btweet$B$N?t$r;XDj$7$^$9(B
+// 一度に読み込むtweetの数を指定します
 var readTweetNum = 10;
-// $B%5!<%P$+$iFI$_$@$7$?(Bdata$B$r;H$C$F!"(BlastReadUnixTime $B$r99?7$7$^$9(B
+// サーバから読みだしたdataを使って、lastReadUnixTime を更新します
 function LastReadUnixTimeUpdate(data)
 {
 	if(data.length <= 0){
@@ -18,7 +18,7 @@ function LastReadUnixTimeUpdate(data)
 		lastReadUnixTime = target_tweet['unix_time'];
 	}
 }
-// lastReadUnixTime $B$r;H$C$F!"$=$NB3$-$N(Btweet$B$rFI$_9~$_$^$9!#(B
+// lastReadUnixTime を使って、その続きのtweetを読み込みます。
 function LoadTweets(func){
 	StartReadTweets('/{{request_path}}/{{user_name}}.json'
 			, "#Tweet_text"
@@ -32,17 +32,17 @@ function LoadTweets(func){
 			} );
 }
 
-// $B%Z!<%8$NFI$_9~$_$,=*$o$C$?;~E@$G5/F0$9$k(Bfunction $B$r(BjQuery$B$+$i8F$S=P$7$F$$$^$9!#(B
+// ページの読み込みが終わった時点で起動するfunction をjQueryから呼び出しています。
 $(document).ready(
 	function(){
-		// tweet$B$O%Z!<%8$,FI$_9~$^$l$?8e$KFI$_9~$_$r3+;O$7$^$9!#(B
-		// $B:G=i$O(B now loading... $B$H=q$$$F$"$k$N$G!"FI$_9~$_$,=*$o$C$?;~E@$G6uJ8;z$K>e=q$-$7$^$9!#(B
+		// tweetはページが読み込まれた後に読み込みを開始します。
+		// 最初は now loading... と書いてあるので、読み込みが終わった時点で空文字に上書きします。
 		LoadTweets(function() { $('#Tweet_text').html("<div></div>"); });
 	});
 
-// $B%U%)%m!<$H%"%s%U%)%m!<$N%\%?%s$O@5$7$/%5%$%s%$%s$7$F$$$F!"<+J,0J30$N%f!<%6$N>l9g$K$N$_I=<($5$;$^$9(B
+// フォローとアンフォローのボタンは正しくサインインしていて、自分以外のユーザの場合にのみ表示させます
 {% if 'user_name' in session and 'session_key' in session %}
-  // $B<+J,$G$"$l$P%U%)%m!<$J$I$O$7$J$$$N$G%\%?%s$r>C$7$^$9(B
+  // 自分であればフォローなどはしないのでボタンを消します
   {% if session['user_name'] == user_name %}
     $(document).ready(function(){
     	$(".FollowButton").html('');
@@ -54,7 +54,7 @@ $(document).ready(function(){
 			, {}
 			, function(user_name_list, textStatus){
 				if(user_name_list.indexOf('{{user_name}}') >= 0){
-					// $B%U%)%m!<$7$F$$$k>l9g(B
+					// フォローしている場合
 					$("#UnFollowButton").removeAttr('disabled');
 					$("#FollowButton").attr('disabled', true);
 				}else{
@@ -66,14 +66,14 @@ $(document).ready(function(){
 		});
   {% endif %}
 {% else %}
-  // $B$=$b$=$b%5%$%s%$%s$7$F$$$J$$$N$G$"$l$P!"%U%)%m!<$J$I$N%\%?%s$OI=<($7$^$;$s!#(B
+  // そもそもサインインしていないのであれば、フォローなどのボタンは表示しません。
   $(document).ready(function(){
     	$(".FollowButton").html('');
     	$(".UnFollowButton").html('');
 	});
 {% endif %}
 
-// $B%D%$!<%H$5$;$^$9!#(BTODO: $B%D%$!<%H$K<:GT$7$?;~$J$I$N%(%i!<%A%'%C%/$O$7$J$$$H%f!<%6$O2?$,5/$3$C$?$+$o$+$j$^$;$s!#(B
+// ツイートさせます。TODO: ツイートに失敗した時などのエラーチェックはしないとユーザは何が起こったかわかりません。
 function Tweet(){
 	user = '{{ user_name }}';
 	text = $("#post_tweet_text").val();
@@ -143,7 +143,7 @@ function ReadMoreButtonClicked(){
 	});
 }
 
-// $B%9%/%m!<%k$7$FMWAG$,I=<($5$l$?$i>!<j$K%j%m!<%I$9$k$h$&$K$7$^$9(B
+// スクロールして要素が表示されたら勝手にリロードするようにします
 // from http://hennayagyu.com/webhack/javascript/%E3%81%82%E3%82%8B%E8%A6%81%E7%B4%A0%E3%81%8C%E8%A1%A8%E7%A4%BA%E3%81%95%E3%82%8C%E3%81%9F%E3%81%A8%E3%81%8D%E3%81%AB%E5%91%BD%E4%BB%A4%E3%82%92%E5%AE%9F%E8%A1%8C%E3%81%99%E3%82%8Bjavascript-w-jquery-2348
 $(function(){
 	var triggerNode = $("#ReadMoreButton");

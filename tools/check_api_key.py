@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$,(BAPI$B%-!<$r;}$C$F$$$k$+$r3NG'$7$^$9!#(B
+# ユーザがAPIキーを持っているかを確認します。
 
 import sys
 import os
