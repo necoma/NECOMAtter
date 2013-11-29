@@ -17,7 +17,7 @@ if len(sys.argv) != 3:
 
 user_name = sys.argv[1]
 api_key = sys.argv[2]
-regexp = '(\d+.\d+.\d+.\d+.)'
+regexp = '(\d+\.\d+\.\d+\.\d+)'
 key_file = "iimura.key"
 cert_file = "iimura.pem"
 curl_command = "curl"
