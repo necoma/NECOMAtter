@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# tweet ID $B$KE;$o$k(Btweet$B$r<hF@$7$^$9(B
+# tweet ID に纏わるtweetを取得します
 
 import sys
 import os

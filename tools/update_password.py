@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$N%Q%9%o!<%I$rJQ99$7$^$9!#(B
+# ユーザのパスワードを変更します。
 
 import sys
 import os

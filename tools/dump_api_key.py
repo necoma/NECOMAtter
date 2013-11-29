@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$N(BAPI key$B$rI=<($7$^$9!#(B
+# ユーザのAPI keyを表示します。
 
 import sys
 import os

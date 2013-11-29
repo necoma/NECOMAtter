@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$K(BAPI$B%-!<$rDI2C$7$^$9!#(B
+# ユーザにAPIキーを追加します。
 
 import sys
 import os

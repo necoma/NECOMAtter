@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$N%?%$%`%i%$%s$rI=<($7$^$9!#(B
+# ユーザのタイムラインを表示します。
 
 import sys
 import os

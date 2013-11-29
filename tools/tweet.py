@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$K%D%$!<%H$5$;$^$9!#(B
+# ユーザにツイートさせます。
 
 import sys
 import os

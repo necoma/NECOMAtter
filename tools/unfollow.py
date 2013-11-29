@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$N%U%)%m!<$r30$7$^$9!#(B
+# ユーザのフォローを外します。
 
 import sys
 import os

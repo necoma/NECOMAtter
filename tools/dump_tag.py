@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
-# $B%f!<%6$N%D%$!<%H$rI=<($7$^$9!#(B
+# ユーザのツイートを表示します。
 
 import sys
 import os
