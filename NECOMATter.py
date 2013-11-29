@@ -66,7 +66,7 @@ class NECOMATter():
         for tweet in tweet_list:
             result_list.append({'text': tweet[0],
                 "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
-                "user": tweet[2],
+                "user_name": tweet[2],
                 "unix_time": tweet[1],
                 "id": tweet[3]._id})
         return result_list
@@ -166,7 +166,7 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
-    # tweet_node を{"text": 本文, "time": 日付文字列, "user": ユーザ名} の形式の辞書にします
+    # tweet_node を{"text": 本文, "time": 日付文字列, "user_name": ユーザ名} の形式の辞書にします
     def ConvertTweetNodeToHumanReadableDictionary(self, tweet_node):
         if tweet_node is None:
             logging.error("tweet_node is None")
@@ -205,7 +205,7 @@ class NECOMATter():
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
-    # ユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user": ユーザ名}のリストにして返します
+    # ユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
     def GetUserTimelineFormated(self, user_name, limit=None, since_time=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:

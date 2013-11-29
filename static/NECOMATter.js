@@ -4,7 +4,7 @@ function RenderTimelineToHTML(tweet_list){
 	for (var i = 0, len = tweet_list.length; i < len; i++){
 		var target_tweet = tweet_list[i]
 		if( !('id' in target_tweet)
-		 || !('user' in target_tweet)
+		 || !('user_name' in target_tweet)
 		 || !('time' in target_tweet)
 		 || !('text' in target_tweet))
 		{
@@ -12,7 +12,7 @@ function RenderTimelineToHTML(tweet_list){
 			continue;
 		}
 		var tweet_id = target_tweet['id'];
-		var user = target_tweet['user'];
+		var user = target_tweet['user_name'];
 		var time = target_tweet['time'];
 		var text = target_tweet['text'];
 		var tweet = "";

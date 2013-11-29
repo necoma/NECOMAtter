@@ -11,7 +11,7 @@
 <div class="REST_method">method: GET</div>
 <div class="REST_description">get user tweets.</div>
 <div class="REST_data_format">options limit: It limits the number of a paid value.. since_time: This option intends for the past at appointed time.</div>
-<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "unix_time": unix time[second], "user": user name, "id": this tweet's TweetID}, ...]</div>
+<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "unix_time": unix time[second], "user_name": user name, "id": this tweet's TweetID}, ...]</div>
 <div class="REST_example_request">example: /user/iimura.json?limit=10&since_time=1385021149.0</div>
 
 <h3 class="REST_service">get User timeline</h3>
@@ -19,7 +19,7 @@
 <div class="REST_method">method: GET</div>
 <div class="REST_description">get user timeline.</div>
 <div class="REST_data_format">options limit: It limits the number of a paid value.. since_time: This option intends for the past at appointed time.</div>
-<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "user": user name, "unix_time": unix time[second], "id": this tweet's TweetID}, ...]</div>
+<div class="REST_data_format">result data format: [{"text": tweet_text, "time": formatted time string, "user_name": user name, "unix_time": unix time[second], "id": this tweet's TweetID}, ...]</div>
 <div class="REST_example_request">example: /timeline/iimura.json?limit=10&since_time=1385021149.0</div>
 
 <h3 class="REST_service">get User list</h3>
@@ -90,7 +90,7 @@
 <div class="REST_description"> (required sign in)</div>
 <div class="REST_data_format">post data format: {"regexp": regular expression string(Python format), "user_name": target user name, "api_key": API key}</div>
 <div class="REST_data_format">
-	result data format: one tweet in one line like: {"text": tweet_text, "time": formatted time string, "unix_time": unix time[second], "user": tweet user name, "id": this tweet's TweetID, "match_result": [match result string (if you use '()' in regexp option), ...]}
+	result data format: one tweet in one line like: {"text": tweet_text, "time": formatted time string, "unix_time": unix time[second], "user_name": tweet user name, "id": this tweet's TweetID, "match_result": [match result string (if you use '()' in regexp option), ...]}
 </div>
 <div class="REST_example_request">example post data: {"regexp": "(\d+.\d+.\d+.\d+)", "user_name": "iimura", "api_key": "...."}</div>
 
