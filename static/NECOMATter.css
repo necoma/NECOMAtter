@@ -3,7 +3,8 @@ body {
 	background-color: #ffffff;
 	/*background-image: url(/static/necomata.jpg);*/
 	//background-image: url(http://www.necoma-project.jp/logo.png);
-	background-image: url(http://www.necoma-project.jp/touch_icon.png);
+	//background-image: url(http://www.necoma-project.jp/touch_icon.png);
+	background-image: url(/static/necoma.jpeg);
 	background-repeat: no-repeat;
 	background-position: right bottom;
 	background-attachment: fixed;

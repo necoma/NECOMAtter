@@ -72,6 +72,13 @@ $(document).ready(function(){
   <div class="memo">
 	  実装時メモ
 	  <ul>
+		  <li>BOTの作り方
+		  <ul>
+			  <li>NECOMATter にユーザ登録をする(sign up)
+			  <li>サインインした状態で<a href="/user_setting/">API key の設定ページ</a>を開く
+			  <li>create key ボタンを押してAPI keyを生成する
+			  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=blob;f=tools/hello_bot.py;h=b0e3216ca26283eeab89dd47c103e3b18b827e3f;hb=HEAD">hello_bot.py</a>を参考にしてBOTを作る
+		  </ul>
 		  <li>XSS対策
 		  <ul>
 			  <li>Python <a href="http://docs.python.jp/2.7/library/xml.sax.utils.html">xml.sax.utils.escape</a> を使って'&amp;', '&gt;', '&lt;' だけをエスケープしている</li>
@@ -96,6 +103,8 @@ $(document).ready(function(){
 			  <li>クライアント側でも同じように<code>/(#[^ ]+)/g</code> という正規表現で検索してlinkに書き換えている。こちらはJavaScriptで書かれている</li>
 			  <li>なので、これは同じことを二箇所で別の書き方をしている問題にひっかかる</li>
 		  </ul>
+		  <li>なんちゃって API Key がまんまパスワードなので、どうしたものか……
+		  </li>
 	  </ul>
   </div>
 {% endblock %}
