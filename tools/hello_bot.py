@@ -71,7 +71,7 @@ for line in req.iter_lines(chunk_size=1):
         # マッチ結果に値がなければ検索できないので無視します
         if 'match_result' not in tweet:
             continue
-        tweet_result = PostTweet(user_name, api_key, "hello %s" % user_name, tweet_id)
+        tweet_result = PostTweet(user_name, api_key, "hello %s" % tweet['user_name'], tweet_id)
         if tweet_result is not None and 'id' in tweet_result:
             # 自分のtweetした番号は覚えておきます
             my_tweet_id[tweet_result['id']] = True

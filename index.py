@@ -235,7 +235,7 @@ def postTweet():
     print "reply_to: ", reply_to
     tweet_node = world.Tweet(user_node, tweet_string=text, reply_to=reply_to)
     tweet_dic = world.ConvertTweetNodeToHumanReadableDictionary(tweet_node)
-    tweet_dic.update({'user': user_name, 'id': tweet_node._id})
+    tweet_dic.update({'user_name': user_name, 'id': tweet_node._id})
     # 怪しく result ok の入っていない状態でstreaming側に渡します
     watchDogManager.UpdateTweet(text, tweet_dic)
     tweet_dic.update({'result': 'ok'})
