@@ -31,7 +31,7 @@ class NECOMATter():
 
     # HTML でXSSさせないようなエスケープをします。
     def EscapeForXSS(self, text):
-        return escape(text)
+        return escape(text, {'"': '&quot;'})
 
     # ユーザ用のインデックスを取得します
     def GetUserIndex(self):
