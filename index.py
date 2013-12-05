@@ -90,6 +90,10 @@ def GetAuthenticatedUserName():
 def topPage():
     return render_template('index.html')
 
+@app.route('/favicon.ico')
+def faviconPage():
+    return redirect('/static/favicon.ico')
+
 @app.route('/user/<user_name>.json')
 def userPage_Get_Rest(user_name):
     since_time = None
