@@ -30,7 +30,7 @@ function RenderTimelineToHTML(tweet_list){
 		// ・URLっぽい文字列はlinkに
 		// ・#タグ ぽい文字列はタグ検索用のURLへのlinkに
 		// します。
-		tweet += text.replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^ ]+)/gi, function(str){
+		tweet += text.replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^< ]+)/gi, function(str){
 				if(str.match(/^#/)){
 					var tag_name = str.replace(/^#/, '');
 					return '<a href="/tag/' + tag_name + '">' + str + '</a>';

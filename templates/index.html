@@ -81,7 +81,7 @@ $(document).ready(function(){
 		  </ul>
 		  <li>XSS対策
 		  <ul>
-			  <li>Python <a href="http://docs.python.jp/2.7/library/xml.sax.utils.html">xml.sax.utils.escape</a> を使って'&amp;', '&gt;', '&lt;' だけをエスケープしている</li>
+			  <li>Python <a href="http://docs.python.jp/2.7/library/xml.sax.utils.html">xml.sax.utils.escape</a> を使って'&amp;', '&gt;', '&lt;', '&quot;' をエスケープしている</li>
 			  <li>ユーザから入力される文字列の扱い
 			  <ul>
 				  <li>ユーザ名: DB登録前にエスケープしてみて結果が変わったら登録させない</li>
@@ -96,6 +96,8 @@ $(document).ready(function(){
 			  <li>使っているのは<a href="http://www.neo4j.org/">Neo4j</a>というグラフデータベースの<a href="http://www.neo4j.org/learn/cypher">Cypher</a>というクエリ言語なので、SQL injection的な攻撃ができるはず。</li>
 			  <li>今のところユーザからの入力は'&quot;'で囲われた中に現れるだけのように見えるので、とりあえず'&quot;'は'_'に変換してクエリ文字列を生成するようにしてみた
 		  </ul>
+		  </li>
+		  <li>streaming API でのBOTが登録する正規表現はそのままPython のre class に渡しているのは、大丈夫なんだろうか。
 		  </li>
 		  <li>タグの実装が変？
 		  <ul>

@@ -103,7 +103,7 @@ class NECOMATter():
 
     # text からタグのような文字列を取り出してリストにして返します
     def GetTagListFromText(self, text):
-        return re.findall(r"(#[^ ]+)", text)
+        return re.findall(r"(#[^\s\r\n]+)", text)
 
     # tweet_node を、text から抽出したタグへと関連付けます
     def Tweet_LinkToTag(self, tweet_node, text):
@@ -116,7 +116,10 @@ class NECOMATter():
     # tweet_node をid から取得します
     def GetTweetNodeFromID(self, tweet_id):
         tweet_node = self.gdb.node(tweet_id)
-        if 'text' not in tweet_node:
+        try:
+            if 'text' not in tweet_node:
+                return None
+        except neo4j.ClientError:
             return None
         return tweet_node
 
@@ -186,7 +189,7 @@ class NECOMATter():
         return self.FormatTweet(tweet_list)
 
     # ユーザのタイムラインを取得します。
-    # 取得されるのは text, time, name のリストです。
+    # 取得されるのは text, time, user_name, tweet_node のリストです。
     def GetUserTimeline(self, user_node, limit=None, since_time=None):
         if user_node is None:
             logging.error("User is undefined.")
@@ -300,29 +303,29 @@ class NECOMATter():
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.info("User %s is not registered." % user_name)
-            return True
+            return False
         user_id = user_node._id
         # このユーザに纏わるリレーションシップを全部消します
         # トランザクションではできないのかなぁ……
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH () <-[r:FOLLOW]- (user) "
-        query += "DELETE r "
+        query += "DELETE r " # フォローを外します(消えるユーザ→他のユーザ)
         result_list, metadata = cypher.execute(self.gdb, query)
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (user) <-[r:FOLLOW]- () "
-        query += "DELETE r "
+        query += "DELETE r " # フォローを外します(他のユーザ→消えるユーザ)
         result_list, metadata = cypher.execute(self.gdb, query)
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (user) <-[r:TWEET]- () "
-        query += "DELETE r "
+        query += "DELETE r " # tweeet については残しておきます(ただ、tweetを辿ることができなくなるはずです)
         result_list, metadata = cypher.execute(self.gdb, query)
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (user) <-[r:API_KEY]- (api_key) "
-        query += "DELETE r, api_key "
+        query += "DELETE r, api_key " # API_KEY はリレーションシップとAPI_KEYそのものの両方を消します
         result_list, metadata = cypher.execute(self.gdb, query)
         user_node.delete()
         return True
@@ -350,7 +353,7 @@ class NECOMATter():
             return False
         if self.IsFollowed(follower_user_node, target_user_node):
             logging.warning("already followed.")
-            return True
+            return False
         if follower_user_node is None or target_user_node is None:
             logging.error("follower_user_node or target_user_node is None")
             return False
@@ -374,8 +377,13 @@ class NECOMATter():
         if result is None:
             logging.error("fatal error. match() return None.")
             return False
+        unfollow_num = 0
         for relationship in result:
             self.gdb.delete(relationship)
+            unfollow_num += 1
+        if unfollow_num == 0:
+            logging.error("unfollow num is 0. you are no followed.")
+            return False
         return True
 
     # ユーザをフォローしていたらフォローを外します
@@ -413,11 +421,15 @@ class NECOMATter():
 
     # tweetのノードIDから対象のユーザのtweet を取得します。
     def GetTweetFromID(self, tweet_id):
-        query = ""
-        query += "start tweet = node(%d) " % tweet_id
-        query += "MATCH (user) <-[:TWEET]- (tweet) "
-        query += "RETURN tweet.text, tweet.time, user.name, tweet "
-        result_list, metadata = cypher.execute(self.gdb, query)
+        result_list = []
+        try:
+            query = ""
+            query += "start tweet = node(%d) " % tweet_id
+            query += "MATCH (user) <-[:TWEET]- (tweet) "
+            query += "RETURN tweet.text, tweet.time, user.name, tweet "
+            result_list, metadata = cypher.execute(self.gdb, query)
+        except neo4j.CypherError:
+            return []
         return result_list
 
     # tag からtweet を取得します
@@ -442,16 +454,20 @@ class NECOMATter():
     # tag のリストを取得します
     def GetTagList(self, limit=None, since_time=None):
         query = ""
-        query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
-        query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
+        query += "start tag_node=node(*) "
+        query += "MATCH () -[:TAG]-> tag_node "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name, tweet "
-        query += "ORDER BY tweet.time DESC "
+        query += "RETURN tag_node.tag, count(*) as count "
+        query += "ORDER BY count DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
-        return result_list
+        tag_list = []
+        for result in result_list:
+            if len(result) > 0:
+                tag_list.append(result[0])
+        return tag_list
 
     # ユーザのAPIキーのリストを取得します(ノード指定版)
     def GetUserAPIKeyListByNode(self, user_node):
@@ -552,11 +568,11 @@ class NECOMATter():
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "RETURN tweet.text, tweet.time, user.name, tweet "
-        query += "ORDER BY tweet.time ASC "
+        query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
-        return result_list
+        return result_list[::-1]
 
     # 一つのtweetについた返事のtweetを、最後の子まで辿って取り出します(元のtweetは含まれません)
     def GetChlidTweetAboutTweetID(self, tweet_id, limit=None, since_time=None):
@@ -568,11 +584,11 @@ class NECOMATter():
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "RETURN tweet.text, tweet.time, user.name, tweet "
-        query += "ORDER BY tweet.time ASC "
+        query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
-        return result_list
+        return result_list[::-1]
 
     # 一つのtweetが返事をした親tweetを最上位の親まで辿って取り出します(フォーマット済み版)
     def GetParentTweetAboutTweetIDFormatted(self, tweet_id, limit=None, since_time=None):

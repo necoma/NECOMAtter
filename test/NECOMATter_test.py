@@ -7,6 +7,7 @@ import os
 import unittest
 import subprocess
 import shutil
+import time
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from NECOMATter import NECOMATter
 from py2neo import neo4j, cypher
@@ -146,6 +147,43 @@ class NECOMATterTestCase(unittest.TestCase):
         result_list, metadata = cypher.execute(gdb, query)
         self.assertEqual([[u'limura']], result_list)
 
+    # ユーザを削除した場合、API_KEYも消えることを確認します
+    def test_DelUser_APIKey(self):
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成する
+        self.assertTrue(self.world.AddUser(user_name, password))
+        # API_KEY を作る
+        api_key_node = self.world.CreateUserAPIKeyByName(user_name)
+        self.assertIsNotNone(api_key_node)
+        api_key = api_key_node['key']
+        # API_KEY が存在することを確認する
+        result_list = []
+        try:
+            query = ""
+            query += 'START api_key_node=node:api_key(key="%s") ' %api_key
+            query += 'RETURN api_key_node.key'
+            result_list, metadata = cypher.execute(gdb, query)
+        except neo4j.ClientError:
+            result_list = []
+        self.assertEqual([[api_key]], result_list)
+        # ユーザを削除する
+        self.assertTrue(self.world.DelUser(user_name))
+        # API_KEY が存在しなくなったことを確認する
+        result_list = []
+        try:
+            query = ""
+            query += 'START api_key_node=node:api_key(key="%s") ' %api_key
+            query += 'RETURN api_key_node.key'
+            result_list, metadata = cypher.execute(gdb, query)
+        except neo4j.ClientError:
+            result_list = []
+        self.assertEqual([], result_list)
+
+    # ユーザを削除した場合、tweetは消えないことを確認します
+    def test_DelUser_Tweet(self):
+        pass
+
     def test_FollowUserByName(self):
         # 二人ユーザを作成
         self.assertTrue(self.world.AddUser("iimura", "password"))
@@ -229,8 +267,6 @@ class NECOMATterTestCase(unittest.TestCase):
         # ユーザを作成
         self.assertTrue(self.world.AddUser("iimura", "password"))
         iimura_node = self.world.GetUserNode("iimura")
-        # タイムラインにはまだ何も無い事を確認
-        self.assertEqual([], self.world.GetUserTimeline(iimura_node))
         # tweet する
         tweetText = u"test tweet 日本語も入れる"
         tweet_node = self.world.Tweet(iimura_node, tweetText)
@@ -244,6 +280,607 @@ class NECOMATterTestCase(unittest.TestCase):
         query += 'RETURN user.name '
         result_list, metadata = cypher.execute(gdb, query)
         self.assertEqual([[u'iimura']], result_list)
+
+    def test_Tweet_ReplyTo(self):
+        # reply-to をつけた tweet ができることを確認する
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        # tweet する
+        tweetText = u"test tweet"
+        tweet_node = self.world.Tweet(iimura_node, tweetText)
+        self.assertIsNotNone(tweet_node)
+        # tweet が他のtweetへの REPLY リレーションシップを持っていないことを確認する
+        query = ""
+        query += 'START tweet=node(%d) ' % tweet_node._id
+        query += 'MATCH tweet -[:REPLY]-> target_tweet '
+        query += 'RETURN target_tweet '
+        result_list, metadata = cypher.execute(gdb, query)
+        self.assertEqual(0, len(result_list))
+        # tweet が他のtweetからの REPLY リレーションシップを持っていないことを確認する
+        query = ""
+        query += 'START tweet=node(%d) ' % tweet_node._id
+        query += 'MATCH from_tweet -[:REPLY]-> tweet '
+        query += 'RETURN from_tweet '
+        result_list, metadata = cypher.execute(gdb, query)
+        self.assertEqual(0, len(result_list))
+        # 新しく tweet する。これは前のtweetへの返事とする
+        # tweet する
+        tweetText = u"test reply tweet to: %d" % tweet_node._id
+        reply_tweet_node = self.world.Tweet(iimura_node, tweetText, tweet_node._id)
+        self.assertIsNotNone(reply_tweet_node)
+        # 前の tweet が他のtweetへの REPLY リレーションシップを持っていないことを確認する(前と変わらない)
+        query = ""
+        query += 'START tweet=node(%d) ' % tweet_node._id
+        query += 'MATCH tweet -[:REPLY]-> target_tweet '
+        query += 'RETURN target_tweet '
+        result_list, metadata = cypher.execute(gdb, query)
+        self.assertEqual(0, len(result_list))
+        # 前の tweet が他のtweetからの REPLY リレーションシップを持っていることを確認する(前と違う)
+        query = ""
+        query += 'START tweet=node(%d) ' % tweet_node._id
+        query += 'MATCH from_tweet -[:REPLY]-> tweet '
+        query += 'RETURN from_tweet '
+        result_list, metadata = cypher.execute(gdb, query)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(reply_tweet_node._id, result_list[0][0]._id)
+        # 新しい tweet(reply_tweet) がreply-to先のtweet への REPLY リレーションシップを持っていることを確認する
+        query = ""
+        query += 'START tweet=node(%d) ' % reply_tweet_node._id
+        query += 'MATCH tweet -[:REPLY]-> target_tweet '
+        query += 'RETURN target_tweet '
+        result_list, metadata = cypher.execute(gdb, query)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(tweet_node._id, result_list[0][0]._id)
+        # reply_tweet が他のtweetからの REPLY リレーションシップを持っていないことを確認する
+        query = ""
+        query += 'START tweet=node(%d) ' % reply_tweet_node._id
+        query += 'MATCH from_tweet -[:REPLY]-> tweet '
+        query += 'RETURN from_tweet '
+        result_list, metadata = cypher.execute(gdb, query)
+        self.assertEqual(0, len(result_list))
+
+    def test_Timeline(self):
+        # タイムラインが正しく扱われるかのテスト
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        self.assertTrue(self.world.AddUser("tarou", "password"))
+        tarou_node = self.world.GetUserNode("tarou")
+        self.assertTrue(self.world.AddUser("abe", "password"))
+        abe_node = self.world.GetUserNode("abe")
+        # タイムラインにはまだ何も無い事を確認
+        self.assertEqual([], self.world.GetUserTimeline(iimura_node))
+        self.assertEqual([], self.world.GetUserTimeline(tarou_node))
+        self.assertEqual([], self.world.GetUserTimeline(abe_node))
+        # iimura は tarou と abe をフォローします
+        self.assertTrue(self.world.FollowUserByName("iimura", "tarou"))
+        self.assertTrue(self.world.FollowUserByName("iimura", "abe"))
+        # iimura が tweet します
+        tweet_node = self.world.Tweet(iimura_node, "hello world")
+        self.assertIsNotNone(tweet_node)
+        # iimura のタイムラインにだけ入っていることを確認
+        self.assertEqual(1, len(self.world.GetUserTimeline(iimura_node)))
+        self.assertEqual(0, len(self.world.GetUserTimeline(tarou_node)))
+        self.assertEqual(0, len(self.world.GetUserTimeline(abe_node)))
+        # abe が tweet します
+        tweet_node = self.world.Tweet(abe_node, "hello world")
+        self.assertIsNotNone(tweet_node)
+        # iimura と abe のタイムラインに入っていることを確認
+        self.assertEqual(2, len(self.world.GetUserTimeline(iimura_node)))
+        self.assertEqual(0, len(self.world.GetUserTimeline(tarou_node)))
+        self.assertEqual(1, len(self.world.GetUserTimeline(abe_node)))
+        # tarou が tweet します
+        tweet_node = self.world.Tweet(tarou_node, "hello world")
+        self.assertIsNotNone(tweet_node)
+        # iimura と tarou のタイムラインに入っていることを確認
+        self.assertEqual(3, len(self.world.GetUserTimeline(iimura_node)))
+        self.assertEqual(1, len(self.world.GetUserTimeline(tarou_node)))
+        self.assertEqual(1, len(self.world.GetUserTimeline(abe_node)))
+
+    def test_GetUserTimeline_Limit(self):
+        # limit が効くことを確認します
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        # タイムラインにはまだ何も無い事を確認
+        self.assertEqual([], self.world.GetUserTimeline(iimura_node))
+        # iimura が 10回 tweet します
+        for i in range(1, 11):
+            tweet_node = self.world.Tweet(iimura_node, "tweet no: %d" % i)
+            self.assertIsNotNone(tweet_node)
+        # iimura のタイムラインが10個になっていることを確認
+        self.assertEqual(10, len(self.world.GetUserTimeline(iimura_node)))
+        # limit=5 にして取得した場合に、5個になっていることを確認
+        tweet_list = self.world.GetUserTimeline(iimura_node, limit=5)
+        self.assertEqual(5, len(tweet_list))
+        # 中身が「最新の5個」になっていることを確認します
+        for i in range(0, 5):
+            tweet_node = tweet_list[i]
+            target_tweet_text = "tweet no: %d" % (10-i)
+            self.assertEqual(target_tweet_text, tweet_node[0])
+
+    def test_GetUserTimeline_SinceTime(self):
+        # since_time が効くことを確認します
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        # タイムラインにはまだ何も無い事を確認
+        self.assertEqual([], self.world.GetUserTimeline(iimura_node))
+        no7_tweet = None
+        # iimura が 10回 tweet します
+        for i in range(1, 11):
+            tweet_node = self.world.Tweet(iimura_node, "tweet no: %d" % i)
+            self.assertIsNotNone(tweet_node)
+            # 7番目のtweetは覚えておきます
+            if i == 7:
+                no7_tweet = tweet_node
+                # since_time を使うので、少しだけ待ちます
+                time.sleep(0.1)
+        # iimura のタイムラインが10個になっていることを確認
+        self.assertEqual(10, len(self.world.GetUserTimeline(iimura_node)))
+        # since_time に no7_tweet の時間を指定して取得した場合に、7個になっていることを確認
+        tweet_list = self.world.GetUserTimeline(iimura_node, since_time=no7_tweet['time'])
+        self.assertEqual(6, len(tweet_list))
+        # 中身が「1, 2, 3, 4, 5, 6, 7番目のtweet、の7個」になっていることを確認します
+        for i in range(0, 6):
+            tweet_node = tweet_list[i]
+            target_tweet_text = "tweet no: %d" % (6-i)
+            self.assertEqual(target_tweet_text, tweet_node[0])
+
+    def test_GetTagList(self):
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        # GetTagList ではまだ何も無い事を確認
+        self.assertEqual([], self.world.GetTagList())
+        # 特にtagの無いtweetをおこないます
+        tweet_node = self.world.Tweet(iimura_node, "normal tweet")
+        self.assertIsNotNone(tweet_node)
+        # GetTagList ではまだ何も無い事を確認
+        self.assertEqual([], self.world.GetTagList())
+        # tagのあるtweetをおこないます
+        tweet_node = self.world.Tweet(iimura_node, "tweet with tag #tag")
+        self.assertIsNotNone(tweet_node)
+        # GetTagList に "tag" が含まれていることを確認
+        self.assertEqual([u"#tag"], self.world.GetTagList())
+        # 同じ tagのあるtweetをおこないます
+        tweet_node = self.world.Tweet(iimura_node, "another tweet with tag #tag")
+        self.assertIsNotNone(tweet_node)
+        # GetTagList のリストが増えていないことを確認
+        self.assertEqual([u"#tag"], self.world.GetTagList())
+        # 違う tagのあるtweetをおこないます
+        tweet_node = self.world.Tweet(iimura_node, "tweet with another tag #tag2")
+        # GetTagList のリストが増えていることを確認
+        self.assertEqual(sorted([u"#tag", u"#tag2"]), sorted(self.world.GetTagList()))
+
+    def test_Tweet_Tag_Create(self):
+        # タグつきで tweet した場合にタグが生成されることを確認します
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        # tagリストにはまだ何も無い事を確認
+        self.assertEqual([], self.world.GetTagList())
+        # tagのあるtweetをおこないます
+        tweet_node = self.world.Tweet(iimura_node, "tweet with tag #tag\n")
+        self.assertIsNotNone(tweet_node)
+        # tagリストに新しく "#tag" が現れることを確認("#tag\n" では無いことを確認します)
+        self.assertEqual(sorted([u"#tag"]), self.world.GetTagList())
+
+    def test_GetTagTweetFormated(self):
+        # タグに関連するtweetを取り出せることを確認します
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        target_tag_string = "#tag"
+        # #tag にはまだ何も無い事を確認
+        self.assertEqual([], self.world.GetTagTweetFormated(target_tag_string))
+        # tagのあるtweetをおこないます
+        tweet_string = "is tag %s apple?\n" % target_tag_string
+        tweet_node = self.world.Tweet(iimura_node, tweet_string)
+        self.assertIsNotNone(tweet_node)
+        # tagリストに新しく target_tag_string が現れることを確認
+        formatted_tag_tweet_list = self.world.GetTagTweetFormated(target_tag_string)
+        self.assertEqual(1, len(formatted_tag_tweet_list))
+        tag_tweet = formatted_tag_tweet_list[0]
+        self.assertEqual(tweet_string, tag_tweet['text'])
+        self.assertEqual(tweet_node._id, tag_tweet['id'])
+        self.assertEqual("iimura", tag_tweet['user_name'])
+        # 同じ tag を使った別の tweet を投げる
+        tweet_string = "no! tag %s\nis not apple." % target_tag_string
+        tweet_node = self.world.Tweet(iimura_node, tweet_string)
+        self.assertIsNotNone(tweet_node)
+        # tagリストに新しく target_tag_string が現れることを確認
+        formatted_tag_tweet_list = self.world.GetTagTweetFormated(target_tag_string)
+        self.assertEqual(2, len(formatted_tag_tweet_list))
+        tag_tweet = formatted_tag_tweet_list[0]
+        self.assertEqual(tweet_string, tag_tweet['text'])
+        self.assertEqual(tweet_node._id, tag_tweet['id'])
+
+    def test_GetUserAPIKeyListByName(self):
+        # ユーザのAPI keyが取得できることを確認します
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        # API key はまだ何も無いことを確認します
+        self.assertEqual([], self.world.GetUserAPIKeyListByName("iimura"))
+        # API key を新しく生成します
+        key_node = self.world.CreateUserAPIKeyByName("iimura")
+        self.assertIsNotNone(key_node)
+        # API key が取得できるようになったことを確認します
+        key_list = self.world.GetUserAPIKeyListByName("iimura")
+        self.assertEqual(1, len(key_list))
+        key_name = key_list[0]
+        self.assertEqual(key_node['key'], key_name)
+
+    def test_GetTweetNodeFromID(self):
+        # tweet の ID からtweet nodeを取得できることを確認します
+        # 最初は何もノードが無いはずです
+        self.assertIsNone(self.world.GetTweetNodeFromID(0))
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        # iimura_node のidをtweetとして取得しようとしても失敗することを確認します
+        self.assertIsNone(self.world.GetTweetNodeFromID(iimura_node._id))
+        # tweetをおこないます
+        tweet_node = self.world.Tweet(iimura_node, "normal tweet")
+        self.assertIsNotNone(tweet_node)
+        # IDでtweetを取得してみます
+        get_tweet_node = self.world.GetTweetNodeFromID(tweet_node._id)
+        # 取得できているはずです。
+        self.assertIsNotNone(get_tweet_node)
+        # id 等も同じ値になっているはずです
+        self.assertEqual(tweet_node._id, get_tweet_node._id)
+        self.assertEqual(tweet_node['text'], get_tweet_node['text'])
+
+    def test_GetTweetFromID(self):
+        # tweet の ID から tweet を取得できることを確認します
+        # 最初は何もノードが無いはずです
+        self.assertEqual([], self.world.GetTweetFromID(0))
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser("iimura", "password"))
+        iimura_node = self.world.GetUserNode("iimura")
+        # iimura_node のidをtweetとして取得しようとしても失敗することを確認します
+        self.assertEqual([], self.world.GetTweetFromID(iimura_node._id))
+        # tweetをおこないます
+        tweet_node = self.world.Tweet(iimura_node, "normal tweet")
+        self.assertIsNotNone(tweet_node)
+        # IDでtweetを取得してみます
+        get_tweet = self.world.GetTweetFromID(tweet_node._id)
+        # 一つだけ取得できているはずです。
+        self.assertEqual(1, len(get_tweet))
+        # 取得された値は text, time, user_name, node の順の配列になっているはずです
+        (tweet_text, time, user_name, node) = get_tweet[0]
+        # id 等も同じ値になっているはずです
+        self.assertEqual(tweet_node['text'], tweet_text)
+        self.assertEqual(iimura_node['name'], user_name)
+        self.assertEqual(tweet_node._id, node._id)
+
+    def test_CheckUserPasswordIsValid(self):
+        # パスワードのチェックが正しく行えることを確認します
+        user_name = "iimura"
+        password = "password"
+        # 誰もユーザが居ない時には失敗することを確認します
+        self.assertFalse(self.world.CheckUserPasswordIsValid(user_name, password))
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        # 正しいパスワードの場合は成功することを確認します
+        self.assertTrue(self.world.CheckUserPasswordIsValid(user_name, password))
+        # 間違えたパスワードの場合は失敗することを確認します
+        self.assertFalse(self.world.CheckUserPasswordIsValid(user_name, password + "append text"))
+
+    def test_UpdateUserPassword(self):
+        # パスワードの変更ができることを確認します
+        user_name = "iimura"
+        password = "password"
+        wrong_password = "wrong password"
+        new_password = "new password"
+        # ユーザが存在しない場合はパスワードが変更できないことを確認します。
+        self.assertFalse(self.world.UpdateUserPassword(user_name, password, new_password))
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        # パスワードが正しく設定されていることを CheckUserPasswordIsValid() で確認します
+        self.assertTrue(self.world.CheckUserPasswordIsValid(user_name, password))
+        # 間違えたパスワードではパスワードが変更できないことを確認します。
+        self.assertFalse(self.world.UpdateUserPassword(user_name, wrong_password, new_password))
+        # パスワードが変更されていないことを確認します
+        self.assertTrue(self.world.CheckUserPasswordIsValid(user_name, password))
+        # パスワードを変更します
+        self.assertTrue(self.world.UpdateUserPassword(user_name, password, new_password))
+        # パスワードが変更されていることを確認します
+        self.assertTrue(self.world.CheckUserPasswordIsValid(user_name, new_password))
+        # 古いパスワードでは認証が通らなくなっていることを確認します。
+        self.assertFalse(self.world.CheckUserPasswordIsValid(user_name, password))
+
+    def test_CheckUserAPIKeyByName(self):
+        # ユーザのAPIキーのチェックが正しく動作することを確認します
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        # APIキーを作ります
+        api_key_node = self.world.CreateUserAPIKeyByName(user_name)
+        self.assertIsNotNone(api_key_node)
+        api_key = api_key_node['key']
+        # 正しい APIキー であればチェックを通る事を確認します
+        self.assertTrue(self.world.CheckUserAPIKeyByName(user_name, api_key))
+        # 間違えた APIキー であればチェックが通らないことを確認します
+        self.assertFalse(self.world.CheckUserAPIKeyByName(user_name, api_key + "wrong"))
+
+    def test_DeleteUserAPIKeyByName(self):
+        # ユーザのAPIキーを削除できることを確認します
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        # APIキーを作ります
+        api_key_node = self.world.CreateUserAPIKeyByName(user_name)
+        self.assertIsNotNone(api_key_node)
+        api_key = api_key_node['key']
+        # APIキーが存在することを確認します
+        self.assertEqual([api_key], self.world.GetUserAPIKeyListByName(user_name))
+        # APIキー のチェックが通る事を確認します
+        self.assertTrue(self.world.CheckUserAPIKeyByName(user_name, api_key))
+        # APIキーを削除します
+        self.assertTrue(self.world.DeleteUserAPIKeyByName(user_name, api_key))
+        # APIキーが存在しなくなったことを確認します
+        self.assertEqual([], self.world.GetUserAPIKeyListByName(user_name))
+        # APIキーのチェックも通らなくなったことを確認しておきます
+        self.assertFalse(self.world.CheckUserAPIKeyByName(user_name, api_key))
+
+    def test_GetParentTweetAboutTweetIDFormatted_same_user(self):
+        # 返事の関係にあるtweetの親を辿ることができるのを確認します(同じユーザ版)
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        iimura_node = self.world.GetUserNode(user_name)
+        # tweetします
+        tweet_node_1 = self.world.Tweet(iimura_node, "normal tweet")
+        self.assertIsNotNone(tweet_node_1)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_2 = self.world.Tweet(iimura_node, "normal tweet", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_2)
+        # tweet_node_2 に対して返事の形式でtweetします。
+        tweet_node_3 = self.world.Tweet(iimura_node, "normal tweet", tweet_node_2._id)
+        self.assertIsNotNone(tweet_node_3)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_4 = self.world.Tweet(iimura_node, "normal tweet", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_4)
+        # ここまでで、
+        # 1 <--+-- 2 <-- 3
+        #      | 
+        #      +-- 4 
+        # という形のtreeができているはずです。 
+        #
+        # tweet_node_2 の親を辿ります
+        # 1 だけが取得できるはずです
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_2._id)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(tweet_node_1._id, result_list[0]['id'])
+        # tweet_node_3 の親を辿ります
+        # 1 と2が取得できるはずです(順番は時間sortされるので、1,2の順のはずです)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_3._id)
+        self.assertEqual(2, len(result_list))
+        self.assertEqual(tweet_node_1._id, result_list[0]['id'])
+        self.assertEqual(tweet_node_2._id, result_list[1]['id'])
+        # tweet_node_4 の親を辿ります
+        # 1 だけが取得できるはずです
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_4._id)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(tweet_node_1._id, result_list[0]['id'])
+
+    def test_GetParentTweetAboutTweetIDFormatted_other_user(self):
+        # 返事の関係にあるtweetの親を辿ることができるのを確認します(違うユーザ版)
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        user_node = []
+        for n in range(1, 5):
+            name = "%s:%d" % (user_name, n)
+            self.assertTrue(self.world.AddUser(name, password))
+            user_node.append(self.world.GetUserNode(name))
+        # tweetします
+        tweet_node_1 = self.world.Tweet(user_node[0], "normal tweet")
+        self.assertIsNotNone(tweet_node_1)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_2 = self.world.Tweet(user_node[1], "normal tweet", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_2)
+        # tweet_node_2 に対して返事の形式でtweetします。
+        tweet_node_3 = self.world.Tweet(user_node[2], "normal tweet", tweet_node_2._id)
+        self.assertIsNotNone(tweet_node_3)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_4 = self.world.Tweet(user_node[3], "normal tweet", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_4)
+        # ここまでで、
+        # 1 <--+-- 2 <-- 3
+        #      | 
+        #      +-- 4 
+        # という形のtreeができているはずです。 
+        #
+        # tweet_node_2 の親を辿ります
+        # 1 だけが取得できるはずです
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_2._id)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(tweet_node_1._id, result_list[0]['id'])
+        # tweet_node_3 の親を辿ります
+        # 1 と2が取得できるはずです(順番は時間sortされるので、1,2の順のはずです)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_3._id)
+        self.assertEqual(2, len(result_list))
+        self.assertEqual(tweet_node_1._id, result_list[0]['id'])
+        self.assertEqual(tweet_node_2._id, result_list[1]['id'])
+        # tweet_node_4 の親を辿ります
+        # 1 だけが取得できるはずです
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_4._id)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(tweet_node_1._id, result_list[0]['id'])
+
+    def test_GetParentTweetAboutTweetIDFormatted_limit(self):
+        # 返事の関係にあるtweetの親を辿ることができるのを確認します(limitの確認)
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        iimura_node = self.world.GetUserNode(user_name)
+        # 1 <- 2 <- 3 <- 4 <- ... という形でtweetの連鎖を作ります。
+        prev_tweet_node_id = None
+        tweet_node_list = []
+        for n in range(0, 10):
+            tweet_node = self.world.Tweet(iimura_node, "normal tweet %d" % n, prev_tweet_node_id)
+            self.assertIsNotNone(tweet_node)
+            tweet_node_list.append(tweet_node)
+            prev_tweet_node_id = tweet_node._id
+       
+        # n: 連鎖の開始点, limit: limitの指定数, answer: 答えとなるtweet_nodeのインデックス値
+        # という条件で、テストを行います。
+        for n, limit, answer in [
+                (0, 10, []),
+                (1, 10, [0]),
+                (5, 10, [0, 1, 2, 3, 4]),
+                (9, 10, [0, 1, 2, 3, 4, 5, 6, 7, 8]),
+                (9, 5, [4, 5, 6, 7, 8]),
+                (7, 5, [2, 3, 4, 5, 6])
+                ]:
+            result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_list[n]._id, limit=limit)
+            self.assertEqual(len(answer), len(result_list), "answer required: %s(count: %d) -> got result: %s(count: %d)" % (str(answer), len(answer), str(result_list), len(result_list)))
+            for i in range(0, len(answer)):
+                self.assertEqual(tweet_node_list[answer[i]]._id, result_list[i]['id'], "no %d check failed. n: %d, limit: %d, answer: %s %s" % (i, n, limit, str(answer), str(result_list)))
+
+    def test_GetChildTweetAboutTweetIDFormatted_same_user(self):
+        # 返事の関係にあるtweetの子を辿ることができるのを確認します(同じユーザ版)
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        iimura_node = self.world.GetUserNode(user_name)
+        # tweetします
+        tweet_node_1 = self.world.Tweet(iimura_node, "normal tweet 0")
+        self.assertIsNotNone(tweet_node_1)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_2 = self.world.Tweet(iimura_node, "normal tweet 1", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_2)
+        # tweet_node_2 に対して返事の形式でtweetします。
+        tweet_node_3 = self.world.Tweet(iimura_node, "normal tweet 2", tweet_node_2._id)
+        self.assertIsNotNone(tweet_node_3)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_4 = self.world.Tweet(iimura_node, "normal tweet 3", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_4)
+        # ここまでで、
+        # 1 <--+-- 2 <-- 3
+        #      | 
+        #      +-- 4 
+        # という形のtreeができているはずです。 
+        #
+        # tweet_node_2 の子を辿ります
+        # 3 だけが取得できるはずです
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_2._id)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(tweet_node_3._id, result_list[0]['id'])
+        # tweet_node_3 の子を辿ります
+        # 空リストが取得できるはずです
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_3._id)
+        self.assertEqual(0, len(result_list))
+        # tweet_node_1 の子を辿ります
+        # 2, 3, 4 が取得できるはずです(順番は時間sortされるので、2,3,4 の順のはずです)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_1._id)
+        self.assertEqual(3, len(result_list))
+        self.assertEqual(tweet_node_2._id, result_list[0]['id'])
+        self.assertEqual(tweet_node_3._id, result_list[1]['id'])
+        self.assertEqual(tweet_node_4._id, result_list[2]['id'])
+
+    def test_GetChildTweetAboutTweetIDFormatted_other_user(self):
+        # 返事の関係にあるtweetの子を辿ることができるのを確認します(違うユーザ版)
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        user_node = []
+        for n in range(1, 5):
+            name = "%s:%d" % (user_name, n)
+            self.assertTrue(self.world.AddUser(name, password))
+            user_node.append(self.world.GetUserNode(name))
+        # tweetします
+        tweet_node_1 = self.world.Tweet(user_node[0], "normal tweet")
+        self.assertIsNotNone(tweet_node_1)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_2 = self.world.Tweet(user_node[1], "normal tweet", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_2)
+        # tweet_node_2 に対して返事の形式でtweetします。
+        tweet_node_3 = self.world.Tweet(user_node[2], "normal tweet", tweet_node_2._id)
+        self.assertIsNotNone(tweet_node_3)
+        # tweet_node_1 に対して返事の形式でtweetします。
+        tweet_node_4 = self.world.Tweet(user_node[3], "normal tweet", tweet_node_1._id)
+        self.assertIsNotNone(tweet_node_4)
+        # ここまでで、
+        # 1 <--+-- 2 <-- 3
+        #      | 
+        #      +-- 4 
+        # という形のtreeができているはずです。 
+        #
+        # tweet_node_2 の子を辿ります
+        # 3 だけが取得できるはずです
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_2._id)
+        self.assertEqual(1, len(result_list))
+        self.assertEqual(tweet_node_3._id, result_list[0]['id'])
+        # tweet_node_3 の子を辿ります
+        # 空リストが取得できるはずです
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_3._id)
+        self.assertEqual(0, len(result_list))
+        # tweet_node_1 の子を辿ります
+        # 2, 3, 4 が取得できるはずです(順番は時間sortされるので、2,3,4 の順のはずです)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_1._id)
+        self.assertEqual(3, len(result_list))
+        self.assertEqual(tweet_node_2._id, result_list[0]['id'])
+        self.assertEqual(tweet_node_3._id, result_list[1]['id'])
+        self.assertEqual(tweet_node_4._id, result_list[2]['id'])
+
+    def test_GetChildTweetAboutTweetIDFormatted_limit(self):
+        # 返事の関係にあるtweetの子を辿ることができるのを確認します(limitの確認)
+        user_name = "iimura"
+        password = "password"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        iimura_node = self.world.GetUserNode(user_name)
+        # 1 <- 2 <- 3 <- 4 <- ... という形でtweetの連鎖を作ります。
+        prev_tweet_node_id = None
+        tweet_node_list = []
+        for n in range(0, 10):
+            tweet_node = self.world.Tweet(iimura_node, "normal tweet %d" % n, prev_tweet_node_id)
+            self.assertIsNotNone(tweet_node)
+            tweet_node_list.append(tweet_node)
+            prev_tweet_node_id = tweet_node._id
+       
+        # n: 連鎖の開始点, limit: limitの指定数, answer: 答えとなるtweet_nodeのインデックス値
+        # という条件で、テストを行います。
+        for n, limit, answer in [
+                (9, 10, []),
+                (8, 10, [9]),
+                (5, 10, [6, 7, 8, 9]),
+                (0, 10, [1, 2, 3, 4, 5, 6, 7, 8, 9]),
+                (0, 5, [5, 6, 7, 8, 9]),
+                (2, 5, [5, 6, 7, 8, 9]) # 新しい順に取り出されるので、これでよいです
+                ]:
+            result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_list[n]._id, limit=limit)
+            self.assertEqual(len(answer), len(result_list), "answer required: %s(count: %d) -> got result: %s(count: %d)" % (str(answer), len(answer), str(result_list), len(result_list)))
+            for i in range(0, len(answer)):
+                self.assertEqual(tweet_node_list[answer[i]]._id, result_list[i]['id'], "no %d check failed. n: %d, limit: %d, answer: %s %s" % (i, n, limit, str(answer), str(result_list)))
+
+    def test_GetTweetNodeFromIDFormatted(self):
+        # tweet を取得できることを確認します
+        user_name = "iimura"
+        password = "password"
+        tweet_text = "tweet text 1"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, password))
+        iimura_node = self.world.GetUserNode(user_name)
+        # tweetします
+        tweet_node_1 = self.world.Tweet(iimura_node, tweet_text)
+        self.assertIsNotNone(tweet_node_1)
+        # 取得します
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_node_1._id)
+        self.assertIsNotNone(tweet_list)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_node_1._id, tweet_list[0]['id'])
+        self.assertEqual(user_name, tweet_list[0]['user_name'])
 
 if __name__ == '__main__':
     assert StartNeo4J()
