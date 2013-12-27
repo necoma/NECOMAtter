@@ -13,7 +13,8 @@ import gevent
 from gevent.wsgi import WSGIServer
 import gevent.queue
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig()
 
 app = Flask(__name__)
 app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'

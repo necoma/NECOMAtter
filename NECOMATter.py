@@ -592,12 +592,20 @@ class NECOMATter():
 
     # 一つのtweetが返事をした親tweetを最上位の親まで辿って取り出します(フォーマット済み版)
     def GetParentTweetAboutTweetIDFormatted(self, tweet_id, limit=None, since_time=None):
-        tweet_list = self.GetParentTweetAboutTweetID(tweet_id, limit, since_time)
+        tweet_list = []
+        try:
+            tweet_list = self.GetParentTweetAboutTweetID(tweet_id, limit, since_time)
+        except neo4j.CypherError:
+            return [] 
         return self.FormatTweet(tweet_list)
 
     # 一つのtweetについた返事のtweetを、最後の子まで辿って取り出します(フォーマット済み版)
     def GetChildTweetAboutTweetIDFormatted(self, tweet_id, limit=None, since_time=None):
-        tweet_list = self.GetChlidTweetAboutTweetID(tweet_id, limit, since_time)
+        tweet_list = []
+        try:
+            tweet_list = self.GetChlidTweetAboutTweetID(tweet_id, limit, since_time)
+        except neo4j.CypherError:
+            return [] 
         return self.FormatTweet(tweet_list)
 
     # 一つのtweet をTweetID から取り出します

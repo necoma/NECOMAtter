@@ -119,3 +119,49 @@ function DeleteJSON(url, data, success_func, error_func){
 		, error: error_func
 	});
 }
+
+
+//10進数を2桁の16進数に変換
+function convert16(_decimalNumber) {
+	var decimalNumber = Math.floor(_decimalNumber);
+	var value = decimalNumber.toString(16) + "";
+
+	if (value.length < 2) {
+		value = "0" + value;
+	}
+	return value;
+}
+
+// http://jsdo.it/windblue/bar_graph_01
+// 0 から 1 に正規化された数字(normalized_value) について、
+// 赤→黄→緑 と変化する色のうち、どの色になるのかを計算して "#rrggbb" の形式にして返します。
+function CreateColor(normalized_value
+		, left_red, left_green, left_blue
+		, middle_red, middle_green, middle_blue
+		, right_red, right_green, right_blue){
+	var leftRed = left_red || 255;
+	var leftGreen = left_green || 0;
+	var leftBlue = left_blue || 128;
+
+	var middleRed = middle_red || 255;
+	var middleGreen = middle_green || 255;
+	var middleBlue = middle_blue || 128;
+        
+	var rightRed = right_red || 0;
+	var rightGreen = right_green || 255;
+	var rightBlue = right_blue || 128;
+
+	if(normalized_value < 0.5){
+		var v = normalized_value * 2;
+		var red = leftRed - (leftRed - middleRed) * v;
+		var green = leftGreen - (leftGreen - middleGreen) * v;
+		var blue = leftBlue - (leftBlue - middleBlue) * v;
+	}else{
+		var v = (normalized_value - 0.5) * 2;
+		var red = middleRed - (middleRed - rightRed) * v;
+		var green = middleGreen - (middleGreen - rightGreen) * v;
+		var blue = middleBlue - (middleBlue - rightBlue) * v;
+	}
+
+	return "#" + convert16(red) + convert16(green) + convert16(blue);
+}

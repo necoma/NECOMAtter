@@ -1,14 +1,43 @@
 {% extends "layout.html" %}
 {% block title %}Sign up{% endblock %}
 {% block body %}
+<script src="/static/passwordmeter.js"></script>
+<script>
+function SignUp_checkPassword(text){
+	var password = $("#sign_up_password_1").val();
+	var strength = testPassword(password);
+
+	$("#password_strength").css("background-color", CreateColor(strength));
+
+	var strength_disp = $("#password_strength");
+	if(strength > 2/3){
+		strength_disp.text("強い");
+		$("#sign_up_submit_button").removeAttr("disabled");
+	}else if(strength > 1/3){
+		strength_disp.text("普通");
+		$("#sign_up_submit_button").removeAttr("disabled");
+	}else{
+		strength_disp.text("弱い");
+		$("#sign_up_submit_button").attr("disabled", true);
+	}
+	// パスワードが2つ同じかどうかを確認します。
+	var password_2 = $("#sign_up_password_2").val();
+	if(password != password_2){
+		$("#sign_up_submit_button").attr("disabled", true);
+	}
+}
+</script>
 <div class="normal_body">
   <h2>Sign up</h2>
   {% if error %}<p class=error><strong>Error:</strong>{{ error }}</p>{% endif %}
   <form action="{{ next }}" method="POST">
     <p>
       user_name: <input type=text name=user_name>
-      <br>password: <input type=password name=password autocomplete="off">(注：生文字列がnetworkを飛んでいきますのでしょぼいパスワードでお願いします)
-      <br><input type=submit value="Sign up">
+      <br><span>password: <input id="sign_up_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)"></span>
+      強度：<span id="password_strength">弱い</span>
+      (注：生文字列がnetworkを飛んでいきますのでしょぼいパスワードがいいかもしれません)
+      <br><span>password(確認用): <input id="sign_up_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)"></span>
+      <br><input id="sign_up_submit_button" type=submit value="Sign up" disabled>
   </form>
 </div>
 {% endblock %}
