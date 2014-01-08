@@ -24,6 +24,7 @@ class NECOMATter():
         self.TweetIndex = None
         self.TagIndex = None
         self.APIKeyIndex = None
+        self.ListIndex = None
         self.SessionExpireSecond = 60*60*24*7
         # Cypher transactions are not supported by this server version
         # と言われたのでとりあえずの所はtransaction は封印します
@@ -32,6 +33,16 @@ class NECOMATter():
     # HTML でXSSさせないようなエスケープをします。
     def EscapeForXSS(self, text):
         return escape(text, {'"': '&quot;'})
+
+    # text がCypher で文字列として入れた時に問題無いことを確認します
+    def VaridateCypherString(self, text):
+        escaped_text = self.EscapeForXSS(text)
+        return escaped_text == text
+
+    # 何かあとで使いそうな文字に関しては使えないことにします
+    def VaridateUserNameString(self, text):
+        escaped_text = re.sub(r'[#@*&\s]', '_', text)
+        return escaped_text == text
 
     # ユーザ用のインデックスを取得します
     def GetUserIndex(self):
@@ -57,6 +68,16 @@ class NECOMATter():
             self.APIKeyIndex = self.gdb.get_or_create_index(neo4j.Node, "api_key")
         return self.APIKeyIndex
 
+    # List用のインデックスを取得します
+    def GetListIndex(self):
+        if self.ListIndex is None:
+            self.ListIndex = self.gdb.get_or_create_index(neo4j.Node, "list")
+        return self.ListIndex
+
+    # time.time() で得られたエポックからの時間をフォーマットします
+    def FormatTime(self, time_epoc):
+        return time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(time_epoc))
+
     # tweet のクエリ結果からフォーマットされた辞書の配列にして返します
     def FormatTweet(self, tweet_list):
         if tweet_list is None:
@@ -65,7 +86,7 @@ class NECOMATter():
         result_list = []
         for tweet in tweet_list:
             result_list.append({'text': tweet[0],
-                "time": time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet[1])),
+                "time": self.FormatTime(tweet[1]),
                 "user_name": tweet[2],
                 "unix_time": tweet[1],
                 "id": tweet[3]._id})
@@ -176,7 +197,7 @@ class NECOMATter():
             return None
         result_dic = {}
         result_dic['text'] = tweet_node['text']
-        result_dic['time'] = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime(tweet_node['time']))
+        result_dic['time'] = self.FormatTime(tweet_node['time'])
         return result_dic
 
     # ユーザのtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
@@ -281,9 +302,11 @@ class NECOMATter():
     def AddUser(self, user_name, password):
         # ユーザ名はいちいちエスケープするのがめんどくさいので
         # 登録時にエスケープされないことを確認するだけにします(いいのかなぁ)
-        escaped_user_name = self.EscapeForXSS(user_name)
-        if escaped_user_name != user_name:
-            logging.error("User %s has escape string. please user other name" % user_name)
+        if self.VaridateCypherString(user_name) == False:
+            logging.error("User %s has escape string. please use other name" % user_name)
+            return False
+        if self.VaridateUserNameString(user_name) == False:
+            logging.error("User %s has permitted character. please use other name" % user_name)
             return False
         user_node = self.GetUserNode(user_name)
         if user_node is not None:
@@ -327,6 +350,7 @@ class NECOMATter():
         query += "MATCH (user) <-[r:API_KEY]- (api_key) "
         query += "DELETE r, api_key " # API_KEY はリレーションシップとAPI_KEYそのものの両方を消します
         result_list, metadata = cypher.execute(self.gdb, query)
+        self.DeleteAllListByNode(user_node)
         user_node.delete()
         return True
 
@@ -360,6 +384,7 @@ class NECOMATter():
         relationship = self.gdb.create((follower_user_node, "FOLLOW", target_user_node))
         if relationship is None:
             return False
+        relationship[0]['time'] = time.time()
         return True
 
     # ユーザをフォローします
@@ -612,3 +637,488 @@ class NECOMATter():
     def GetTweetNodeFromIDFormatted(self, tweet_id):
         return self.FormatTweet(self.GetTweetFromID(tweet_id))
 
+    # list 機能の実装時メモ
+    #
+    # list は単にfollowをしているnodeを作る事によって表される。
+    # follow しているだけのnode 。name はリストの名前になる
+    #
+    # (user) -[:LIST]->(follow_node) -[:FOLLOW]-> (other_user)
+    #
+    # という関係になる。
+    # 
+    # 最初は -[:FOLLOW]-> のrelationship にattribute として
+    # リストの名前を入れたらどうかと思ったけれどそうすると
+    # 複数のリストから同じユーザにフォローのrelationshipが張れないので諦めた。
+
+    # owner_node(node) のlist_name(string) 用のノードを取得します
+    # なければ作って返します。
+    # それでも失敗した場合はNoneを返します。
+    def CreateOrGetListNodeFromName(self, owner_node, list_name, description="", hidden=False):
+        if owner_node is None:
+            return None
+        if self.VaridateCypherString(list_name) == False:
+            logging.error("list name %s has escape string. please user other name" % list_name)
+            return None
+        # とりあえずクエリして存在確認をします。
+        owner_node_id = owner_node._id
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH list_node -[:OWNER]-> list_owner_node "
+        query += ", list_node <-[:LIST]- owner_node "
+        query += "WHERE list_owner_node = owner_node "
+        query += "AND list_node.name = \"%s\"" % list_name
+        query += "RETURN list_node "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        # 既にある場合はそれを返します
+        if len(result_list) == 1:
+            return result_list[0][0]
+
+        # TODO: ここでlockしていないので同時に呼び出されると
+        # 複数作られる可能性があります。
+        # できれば lock して対応するのがいい気がします。
+
+        # 存在しないようなので新しく作ります
+        list_index = self.GetListIndex()
+        list_node = list_index.create("list", list_name, {
+            "name": list_name,          # リストの名前
+            "time": time.time(),        # リストの作成された時間
+            "description": description, # リストの説明
+            "hidden": hidden            # 非公開リストか否か
+        })
+        if list_node is None:
+            logging.error("list_node create error")
+            return None
+        relationship = self.gdb.create((owner_node, "LIST", list_node))
+        if relationship is None:
+            logging.error("owner_node --> list_node relation create error")
+            list_node.delete()
+            return None
+        owner_relationship = self.gdb.create((list_node, "OWNER", owner_node))
+        if owner_relationship is None:
+            logging.error("list_node -[:OWNER]-> owner_node relation create error")
+            relationship.remove()
+            list_node.delete()
+            return None
+
+        # lockせずに作成しているので、
+        # 重複して作成したことを考えて、id の一番小さいものを正規のものとするために、
+        # 再度検索します
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) > 1:
+            candidate_node = list_node
+            my_node_id = list_node._id
+            min_node_id = my_node_id
+            for node in result_list:
+                if node._id < min_node_id:
+                    min_node_id = node._id
+                    candidate_node = node
+            if min_node_id < my_node_id:
+                # 自分よりid の小さいものがあったので、自分のノードは削除します
+                relationship.remove()
+                owner_relationship.remove()
+                list_node.delete()
+                list_node = candidate_node
+        return list_node
+
+    # owner_node のlist_node について、フォローしている他のユーザのフォローを外します
+    # (主にlistが非公開リストになったときの対応です)
+    def DeleteListFollowedUsers(self, owner_node, list_node):
+        if owner_node is None or list_node is None:
+            return False
+        owner_node_id = owner_node._id
+        list_node_id = list_node._id
+        query = ""
+        query += "START owner_node=node(%d), list_node=node(%d) " % (owner_node_id, list_node_id)
+        query += "MATCH list_node <-[list_r:LIST]- node "
+        query += "WHERE node != owner_node "
+        query += "DELETE list_r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return True
+
+    # owner_node のlist_name のリストについて、属性を変化させます
+    def UpdateListAttribute(self, owner_node, list_name, description="", hidden=False):
+        list_node = self.CreateOrGetListNodeFromName(owner_node, list_name, description=description, hidden=hidden)
+        if list_node is None:
+            logging.error("list_node get or create failed.")
+            return False
+        if list_node['description'] != description:
+            list_node['description'] = description
+        if list_node['hidden'] != hidden:
+            list_node['hidden'] = hidden
+            if hidden:
+                # 後から隠し属性になったので、
+                # フォローしている他のユーザからのフォローを外します
+                return self.DeleteListFollowedUsers(owner_node, list_node)
+        return True
+
+    # owner_node(node) のlist_name(string) を作成します
+    def CreateListByNode(self, owner_node, list_name, description="", hiddin=False):
+        list_node = self.CreateOrGetListNodeFromName(owner_node, list_name, description, hidden)
+        if list_node is None:
+            return None
+        list_node['description'] = description
+        list_node['hidden'] = hidden
+        return list_node
+
+    # owner_node(node) のlist_name(string) を作成します(名前指定版)
+    def CreateListByName(self, owner_node, list_name, description="", hiddin=False):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name '%s' is not registerd." % owner_name)
+            return None
+        return self.CreateListByNode(owner_node, list_name, description, hidden)
+
+    # owner_node(node) のlist_name(string)に、target_node(node) を追加します。
+    # 成否(True/False)を返します
+    def AddNodeToListByNode(self, owner_node, list_name, target_node):
+        if owner_node is None or target_node is None:
+            logging.error("owner_node or target_node is None")
+            return False
+        if list_name == "":
+            logging.error("list_name is null")
+            return False
+        if self.VaridateCypherString(list_name) == False:
+            logging.error("list name '%s' has escape string. please user other name" % list_name)
+            return False
+        # list用のノードを取得します
+        list_node = self.CreateOrGetListNodeFromName(owner_node, list_name)
+        if list_node is None:
+            logging.error("list_node create failed.")
+            return False
+        # list用のノードからFOLLOWリレーションシップを張ります
+        return self.FollowUserByNode(list_node, target_node)
+
+    # owner_name のユーザのlist_nameに、target_nameのユーザを追加します
+    def AddNodeToListByName(self, owner_name, list_name, target_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name '%s' is not registerd." % owner_name)
+            return False
+        target_node = self.GetUserNode(target_name)
+        if target_node is None:
+            logging.error("target_name '%s' is not registerd." % target_name)
+            return False
+        return self.AddNodeToListByNode(owner_node, list_name, target_node)
+
+    # owner_node のlistを全て削除します
+    def DeleteAllListByNode(self, owner_node):
+        if owner_node is None:
+            return False
+        owner_node_id = owner_node._id
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH () <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
+        query += ", list_node <-[list_follow_r:LIST]- () "
+        query += ", list_node -[owner_r:OWNER]-> list_owner_node "
+        query += "WHERE list_owner_node = owner_node "
+        query += "DELETE follow_r, owner_r, list_follow_r, follow_r, list_node "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return True
+
+    # owner_node のlistの一つを削除します
+    def DeleteListByNode(self, owner_node, list_name):
+        if owner_node is None:
+            return False
+        owner_node_id = owner_node._id
+        if self.VaridateCypherString(list_name) == False:
+            logging.error("list name '%s' has escape string. please user other name" % list_name)
+            return False
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH () <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
+        query += ", list_node <-[list_follow_r:LIST]- () "
+        query += ", list_node -[owner_r:OWNER]-> list_owner_node "
+        query += "WHERE list_owner_node = owner_node "
+        query += "AND list_node.name = \"%s\" " % list_name
+        query += "DELETE follow_r, owner_r, list_follow_r, follow_r, list_node "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return True
+
+    # owner_node のlist_name のノードを取得します
+    def GetListNodeByNode(self, owner_node, list_name):
+        if owner_node is None:
+            return None
+        owner_node_id = owner_node._id
+        if self.VaridateCypherString(list_name) == False:
+            logging.error("list name '%s' has escape string. please user other name" % list_name)
+            return None
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH list_node <-[list_r:LIST]- owner_node "
+        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "WHERE list_owner_node = owner_node "
+        query += "AND list_node.name = \"%s\" " % list_name
+        query += "RETURN list_node "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) != 1:
+            logging.error("list name '%s' not found." % list_name)
+            return None
+        return result_list[0][0]
+
+    # owner_node のlistを削除します(名前版)
+    def DeleteListByName(self, owner_node_name, list_name):
+        owner_node = self.GetUserNode(owner_node_name)
+        if owner_node is None:
+            logging.error("owner_name '%s' is not registerd." % owner_name)
+            return False
+        return self.DeleteListByNode(owner_node, list_name)
+
+    # owner_node の保持しているlistのリストを返します(owner_nodeのものだけを返します)
+    def GetUserOwnedListListByNode(self, owner_node):
+        if owner_node is None:
+            return None
+        owner_node_id = owner_node._id
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH list_node <-[:LIST]- owner_node "
+        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "WHERE list_owner_node = owner_node " # owner_node のものだけをリストします
+        query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node "
+        query += "ORDER BY list_node.time ASC "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # list のクエリ結果からフォーマットされた辞書の配列にして返します
+    def FormatList(self, list_list):
+        if list_list is None:
+            logging.warning("can not get list list")
+            return []
+        result_list = []
+        for list in list_list:
+            result_list.append({'name': list[0],
+                "time": self.FormatTime(list[1]),
+                "owner_name": list[2],
+                "unix_time": list[1],
+                "id": list[3]._id})
+        return result_list
+
+    # owner_node のlistのリストを返します(名前版)(owner_nodeのものだけを返します)
+    def GetUserOwnedListListFormated(self, owner_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name %s is not registerd." % owner_name)
+            return []
+        return self.FormatList(self.GetUserOwnedListListByNode(owner_node))
+
+    # owner_node のフォローしているlistのリストを返します(他のユーザのものも含みます)
+    def GetUserListListByNode(self, owner_node):
+        if owner_node is None:
+            return None
+        owner_node_id = owner_node._id
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH list_node <-[:LIST]- owner_node "
+        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node "
+        query += "ORDER BY list_node.time ASC "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # owner_node のlistのリストを返します(名前版)(他のユーザのものも含みます)
+    def GetUserListListFormated(self, owner_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name %s is not registerd." % owner_name)
+            return []
+        return self.FormatList(self.GetUserListListByNode(owner_node))
+
+    # list_idのリストからフォローしているユーザのユーザ名リストを取得します
+    def GetListUserListByListID(self, list_id):
+        query = ""
+        query += "START list_node=node(%d) " % list_id
+        query += "MATCH (followed_node) <-[follow_r:FOLLOW]- list_node "
+        query += "RETURN followed_node.name "
+        query += "ORDER BY follow_r.time ASC "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        user_node_name_list = []
+        for node_list in result_list:
+            if len(node_list) == 1:
+                user_node_name_list.append(node_list[0])
+        return user_node_name_list
+
+    # owner_node のlist名list_nameのリストからフォローしているユーザのユーザ名リストを取得します
+    def GetListUserListByNode(self, owner_node, list_name):
+        if owner_node is None:
+            return None
+        if self.VaridateCypherString(list_name) == False:
+            logging.error("list name '%s' has escape string. please user other name" % list_name)
+            return None
+        owner_node_id = owner_node._id
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH (followed_node) <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
+        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "WHERE list_owner_node = owner_node "
+        query += "AND list_node.name = \"%s\" " % list_name
+        query += "RETURN followed_node.name "
+        query += "ORDER BY follow_r.time ASC "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        user_node_name_list = []
+        for node_list in result_list:
+            if len(node_list) == 1:
+                user_node_name_list.append(node_list[0])
+        return user_node_name_list
+
+    # owner_node のlist名list_nameのリストからフォローしているユーザのユーザ名リストを取得します(名前版)
+    def GetListUserListByName(self, owner_name, list_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name '%s' is not registerd." % owner_name)
+            return False
+        return self.GetListUserListByNode(owner_node, list_name)
+
+    # owner_node のlist_nameリストから、target_nodeへのフォローを外します
+    # フォロー先が居なくなっても list自体 を削除はしません
+    def UnfollowUserFromListByNode(self, owner_node, list_name, target_node):
+        if owner_node is None:
+            return False
+        if target_node is None:
+            return False
+        if self.VaridateCypherString(list_name) == False:
+            logging.error("list name '%s' has escape string. please user other name" % list_name)
+            return False
+        # delete をCypherで行うと存在しなかったのかどうなのかがわからないので、
+        # 一旦 relationship を手に入れてから、削除することにします。
+        owner_node_id = owner_node._id
+        target_node_id = target_node._id
+        query = ""
+        query += "START owner_node=node(%d), followed_node=node(%d) " % (owner_node_id, target_node_id)
+        query += "MATCH (followed_node) <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
+        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "WHERE list_owner_node = owner_node "
+        query += "AND list_node.name = \"%s\" " % list_name
+        query += "RETURN follow_r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) <= 0:
+            # 削除対象が存在しない場合は False にします
+            return False
+        for relation in result_list:
+            relation[0].delete()
+        return True
+        
+    # owner_node のlist_nameリストから、target_nodeへのフォローを外します(名前版)
+    def UnfollowUserFromListByName(self, owner_name, list_name, target_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name '%s' is not registerd." % owner_name)
+            return False
+        target_node = self.GetUserNode(target_name)
+        if target_node is None:
+            logging.error("target_name '%s' is not registerd." % target_name)
+            return False
+        return self.UnfollowUserFromListByNode(owner_node, list_name, target_node)
+
+    # リストのタイムラインを取得します。
+    # 取得されるのは GetUserTimeLine() と同じtext, time, user_name, tweet_node のリストです。
+    def GetListTimeline(self, list_node, limit=None, since_time=None):
+        return self.GetUserTimeline(list_node, limit, since_time)
+
+    # リストのタイムライン をGetUserTimelineFormated() と同じ
+    # {"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
+    def GetListTimelineFormated(self, user_name, list_name, limit=None, since_time=None):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User '%s' is undefined." % user_name)
+            return []
+        list_node = self.GetListNodeByNode(user_node, list_name)
+        if list_node is None:
+            logging.error("list '%s' not found." % list_name)
+            return []
+        tweet_list = self.GetListTimeline(list_node, limit, since_time)
+        return self.FormatTweet(tweet_list)
+
+    # owner_node がフォローしているlistについてのサマリを取得します
+    def GetSummaryOfListByNode(self, owner_node):
+        if owner_node is None:
+            return None
+        owner_node_id = owner_node._id
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH followed_node <-[:FOLLOW]- list_node <-[:LIST]- owner_node "
+        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "RETURN followed_node.name, list_node.name, list_owner_node.name, list_node.description, list_node.hidden "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # GetSummaryOfListByNode で取り出した情報を辞書にして返します
+    def FormatSummaryOfList(self, summary_list):
+        result_dic = {}
+        for summary in summary_list:
+            (followed_node_name, list_node_name, list_owner_node_name, list_node_description, list_node_hidden) = summary
+            target_dic = {'members': []}
+            list_unique_id = "%s#%s" % (list_owner_node_name, list_node_name) # タプルはキーになり得ますが、json.dumps() する時にエラーしてしまうので文字列にします
+            if list_unique_id in result_dic:
+                target_dic = result_dic[list_unique_id]
+            target_dic['name'] = list_node_name
+            target_dic['owner_node_name'] = list_owner_node_name
+            target_dic['description'] = list_node_description
+            target_dic['hidden'] = list_node_hidden
+            target_dic['members'].append(followed_node_name)
+            result_dic[list_unique_id] = target_dic.copy()
+        return result_dic
+
+    # owner_node がフォローしているlistについてのサマリを取得します(名前指定版)
+    def GetSummaryOfListByName(self, owner_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("User '%s' is undefined." % owner_name)
+            return {}
+        return self.FormatSummaryOfList(self.GetSummaryOfListByNode(owner_node))
+
+    # 他のユーザのリストをフォローします
+    def AddOtherUserListByNode(self, owner_node, other_user_node, list_name):
+        if owner_node is None or other_user_node is None:
+            return False
+        list_node = self.GetListNodeByNode(other_user_node, list_name)
+        if list_node is None:
+            return False
+        relationship = self.gdb.create((owner_node, "LIST", list_node))
+        if relationship is None:
+            return False
+        relationship[0]['time'] = time.time()
+        return True
+
+    # 他のユーザのリストをフォローします(名前指定版)
+    def AddOtherUserListByName(self, owner_name, other_user_name, list_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("User '%s' is undefined." % owner_name)
+            return False
+        other_user_node = self.GetUserNode(other_user_name)
+        if other_user_node is None:
+            logging.error("User '%s' is undefined." % other_user_name)
+            return False
+        return self.AddOtherUserListByNode(owner_node, other_user_node, list_name)
+
+    # 自分がフォローしている他人のリストへのフォローを外します
+    def DeleteOtherUserListByNode(self, owner_node, other_user_node, list_name):
+        if owner_node is None or other_user_node is None:
+            return False
+        owner_node_id = owner_node._id
+        if owner_node_id == other_user_node._id:
+            # other_user_node は自分であるので、失敗にします
+            logging.warn("same user request DelOtherUserListByNode()")
+            return False
+        list_node = self.GetListNodeByNode(other_user_node, list_name)
+        if list_node is None:
+            logging.error("list name '%s' not found" % list_name)
+            return False
+        list_node_id = list_node._id
+        query = ""
+        query += "START owner_node=node(%d), list_node=node(%d) " % (owner_node_id, list_node_id)
+        query += "MATCH list_node <-[list_r:LIST]- owner_node "
+        query += "DELETE list_r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return True
+
+    # 自分がフォローしている他人のリストへのフォローを外します(名前指定版)
+    def DeleteOtherUserListByName(self, owner_name, other_user_name, list_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("User '%s' is undefined." % owner_name)
+            return False
+        other_user_node = self.GetUserNode(other_user_name)
+        if other_user_node is None:
+            logging.error("User '%s' is undefined." % other_user_name)
+            return False
+        return self.DeleteOtherUserListByNode(owner_node, other_user_node, list_name)

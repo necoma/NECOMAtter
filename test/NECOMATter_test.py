@@ -90,7 +90,7 @@ class NECOMATterTestCase(unittest.TestCase):
                 {"user": 'ii"mura', "password": "test", "AddUserResult": False, "search_string": 'ii\\"mura', "result": []},
                 {"user": "iimura", "password": "test", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
                 {"user": "iimura", "password": "password change", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
-                {"user": "iimura other user name", "password": "test", "AddUserResult": True, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
+                {"user": "iimura other user name", "password": "test", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
                 ]
         for qa in test_cases:
             if qa['AddUserResult']:
@@ -881,6 +881,367 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertEqual(tweet_text, tweet_list[0]['text'])
         self.assertEqual(tweet_node_1._id, tweet_list[0]['id'])
         self.assertEqual(user_name, tweet_list[0]['user_name'])
+
+# list関連のテストケースはここにまとめます
+class NECOMATter_list_TestCase(unittest.TestCase):
+    def setUp(self):
+        # 全てのノードやリレーションシップを削除します
+        gdb.clear()
+        self.world = NECOMATter("http://localhost:17474")
+        # ユーザ A, B, C を作っておきます。
+        self.user_node_list = []
+        for user_name in ['A', 'B', u"しー"]:
+            self.assertTrue(self.world.AddUser(user_name, "password"))
+            user_node = self.world.GetUserNode(user_name)
+            self.assertIsNotNone(user_node)
+            self.user_node_list.append(user_node)
+
+    def tearDown(self):
+        pass
+
+    def test_AddNodeToListByName(self):
+        # 今回のテスト対象のlist名
+        list_name = "testりすと"
+        # まずリストに何も無い事を確認します。
+        for user_node in self.user_node_list:
+            result = self.world.GetListUserListByNode(user_node, list_name)
+            self.assertEqual([], result)
+        # A がリストに B, C を追加します。
+        A_name = self.user_node_list[0]["name"]
+        B_name = self.user_node_list[1]["name"]
+        C_name = self.user_node_list[2]["name"]
+        self.assertTrue(self.world.AddNodeToListByName(A_name, list_name, B_name))
+        self.assertTrue(self.world.AddNodeToListByName(A_name, list_name, C_name))
+        # リストに追加されていることを確認します
+        list_user_node_list = self.world.GetListUserListByName(A_name, list_name)
+        self.assertEqual(2, len(list_user_node_list))
+        self.assertEqual([B_name, C_name], [list_user_node_list[0], list_user_node_list[1]])
+
+    def test_DeleteAllListByNode(self):
+        # 追加されるリスト名
+        list_name_list = ["list A", "list B", "りすと しー"]
+        # リストを全て削除されるユーザ名
+        owner_user_name = "alpha"
+        # ユーザを作成します。
+        for user_name in [owner_user_name]:
+            self.assertTrue(self.world.AddUser(user_name, "password"))
+        owner_user_node = self.world.GetUserNode(owner_user_name)
+        # リストを作成します
+        for list_name in list_name_list:
+            for target_user_node in self.user_node_list:
+                self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_node['name']))
+        # 一応リストが作成されていることは確認しておきます
+        for list_name in list_name_list:
+            self.assertNotEqual([], self.world.GetListUserListByName(owner_user_name, list_name))
+        # リストを全て削除します。
+        self.assertTrue(self.world.DeleteAllListByNode(owner_user_node))
+        # リストが全て消えていることを確認します
+        for list_name in list_name_list:
+            self.assertEqual([], self.world.GetListUserListByName(owner_user_name, list_name))
+
+    def CheckListName(self, answer_list_name_list, target_list):
+        self.assertEqual(len(answer_list_name_list), len(target_list))
+        for n in range(0, len(answer_list_name_list)):
+            self.assertEqual(answer_list_name_list[n], target_list[n]['name'])
+
+    def test_GetUserOwnedListListFormated(self):
+        # 追加されるリスト名
+        list_name_list = [u"list A", u"list B", u"りすと しー"]
+        # リストを追加するノード
+        owner_node = self.user_node_list[0]
+        owner_node_name = owner_node['name']
+        # リストを追加されるノードの名前
+        target_node_name = self.user_node_list[1]['name']
+        # 最初は何もリストが無い事を確認します
+        self.assertEqual([], self.world.GetUserOwnedListListFormated(owner_node_name))
+        # リストを生成します。
+        for list_name in list_name_list:
+            self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, target_node_name))
+        # 取得されるリストの辞書を生成しておきます
+        result_list_list = []
+        for list_name in list_name_list:
+            result_list_list.append({
+                "name": list_name,
+                "owner_node_name": owner_node_name,
+                })
+        # リストが生成されて名前のリストが取得できることを確認します
+        result_list = self.world.GetUserOwnedListListFormated(owner_node_name)
+        self.CheckListName(list_name_list, result_list)
+
+    def test_GetListUserListByName(self):
+        # リスト名
+        list_name = "list"
+        # 追加を行うユーザ名
+        owner_node_name = self.user_node_list[0]['name']
+        # 追加されるユーザ名
+        list_user_name_list = [self.user_node_list[1]['name'], self.user_node_list[2]['name']]
+        # リストにメンバを追加します
+        for user_name in list_user_name_list:
+            self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, user_name))
+        # ユーザ名が取得できることを確認します
+        self.assertEqual(list_user_name_list, self.world.GetListUserListByName(owner_node_name, list_name))
+
+    def test_UnfollowUserFromListByName(self):
+        # リスト名
+        list_name = "list"
+        # 追加を行うユーザ名
+        owner_node_name = self.user_node_list[0]['name']
+        # 追加されるユーザ名
+        list_user_name_list = [self.user_node_list[1]['name'], self.user_node_list[2]['name']]
+        # リストにメンバを追加します
+        for user_name in list_user_name_list:
+            self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, user_name))
+        # ユーザ名が取得できることを確認します
+        self.assertEqual(list_user_name_list, self.world.GetListUserListByName(owner_node_name, list_name))
+        # リストから一人目を削除します
+        self.assertTrue(self.world.UnfollowUserFromListByName(owner_node_name, list_name, list_user_name_list[0]))
+        # リストから削除されていることを確認します
+        self.assertEqual(list_user_name_list[1:], self.world.GetListUserListByName(owner_node_name, list_name))
+
+    def test_UnfollowUserFromListByName_other_user(self):
+        # 追加されていないユーザをリストから削除しようとした場合のテスト
+        # リスト名
+        list_name = "list"
+        # 追加を行うユーザ名
+        owner_node_name = self.user_node_list[0]['name']
+        # 追加されるユーザ名
+        add_user_name = self.user_node_list[1]['name']
+        # 追加はされないが、存在するユーザ名
+        other_user_name = self.user_node_list[2]['name']
+        # リストにメンバを追加します
+        self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
+        # ユーザ名が取得できることを確認します
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+        # リストから未登録のユーザを削除しようとしてみます
+        self.assertFalse(self.world.UnfollowUserFromListByName(owner_node_name, list_name, other_user_name))
+        # リストが破壊されていないことを確認します
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+
+    def test_UnfollowUserFromListByName_undefined_user(self):
+        # 存在しないユーザをリストから削除しようとした場合のテスト
+        # リスト名
+        list_name = "list"
+        # 追加を行うユーザ名
+        owner_node_name = self.user_node_list[0]['name']
+        # 追加されるユーザ名
+        add_user_name = self.user_node_list[1]['name']
+        # 存在しないユーザ名
+        undefined_user_name = "undefined user"
+        # リストにメンバを追加します
+        self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
+        # ユーザ名が取得できることを確認します
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+        # リストから存在しない名前ののユーザを削除しようとしてみます
+        self.assertFalse(self.world.UnfollowUserFromListByName(owner_node_name, list_name, undefined_user_name))
+        # リストが破壊されていないことを確認します
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+
+    def test_DeleteListByName(self):
+        # リスト名
+        list_name_list = [u"list A", u"list B"]
+        # 追加を行うユーザ名
+        owner_node_name = self.user_node_list[0]['name']
+        # 追加されるユーザ名
+        add_user_name = self.user_node_list[1]['name']
+        # リストにメンバを追加します
+        for list_name in list_name_list:
+            self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
+        # リスト名が取得できることを確認します
+        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(owner_node_name))
+        # 2つ目のリストを削除します
+        self.assertTrue(self.world.DeleteListByName(owner_node_name, list_name_list[1]))
+        # リスト名が減っていることを確認します
+        self.CheckListName(list_name_list[:1], self.world.GetUserOwnedListListFormated(owner_node_name))
+
+    def test_DeleteListByName_undefined_name(self):
+        # 未定義の名前のリストを消そうとした場合
+        # リスト名
+        list_name_list = [u"list A", u"list B"]
+        # 消そうとされる未定義のリスト名
+        target_undefined_list_name = "undefined list name"
+        # 追加を行うユーザ名
+        owner_node_name = self.user_node_list[0]['name']
+        # 追加されるユーザ名
+        add_user_name = self.user_node_list[1]['name']
+        # リストにメンバを追加します
+        for list_name in list_name_list:
+            self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
+        # リスト名が取得できることを確認します
+        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(owner_node_name))
+        # 存在しない名前のリストを削除します(存在しなかったとしてもTrueが帰るはずです)
+        self.assertTrue(self.world.DeleteListByName(owner_node_name, target_undefined_list_name))
+        # リスト名が変わっていないことを確認します
+        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(owner_node_name))
+
+    def test_DeleteListByName_same_list_name(self):
+        # 別ユーザが同じ名前のlistを作っていた場合に
+        # 片方がリストを消してももう片方には影響しないことを確認します
+        # リスト名
+        list_name_list = [u"list A", u"list B", u"りすとしー"]
+        # 消そうとされるリスト名
+        target_list_name = list_name_list[0]
+        # 消された後に残るリスト名のリスト
+        delete_result_list_name_list = list_name_list[1:]
+        # リストを消すノード
+        delete_owner_node = self.user_node_list[0]
+        # リストを消さないノードのリスト
+        no_delete_user_node_list = self.user_node_list[1:]
+        # 全てのメンバで全てのメンバについて同じ名前のリストを作ります
+        for owner_user_node in self.user_node_list:
+            for target_user_node in self.user_node_list:
+                for list_name in list_name_list:
+                    self.assertTrue(self.world.AddNodeToListByNode(owner_user_node, list_name, target_user_node))
+        # 一応、全員同じリストを持っていることを確認します
+        for user_node in self.user_node_list:
+            self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(user_node['name']))
+        # 一つのノードからターゲットリストを削除します
+        self.assertTrue(self.world.DeleteListByNode(delete_owner_node, target_list_name))
+        # 消したノードからはリストが削除されていることを確認します
+        self.CheckListName(delete_result_list_name_list, self.world.GetUserOwnedListListFormated(delete_owner_node['name']))
+        # 消していないノードからはリストが削除されていないことを確認します
+        for user_node in no_delete_user_node_list:
+            self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(user_node['name']))
+
+    def test_DeleteListByName_undefined_list_name(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストを登録するユーザ名
+        owner_user_name = self.user_node_list[0]['name']
+        # リストに登録されるユーザ名
+        target_user_name = self.user_node_list[1]['name']
+        # 消そうとする未定義のリスト名
+        undefined_list_name = "undefined list"
+        # リストが無い事を確認します
+        self.CheckListName([], self.world.GetUserOwnedListListFormated(owner_user_name))
+        # 何もリストが無い状態で未定義のリストを消そうとしてみます(存在しなくてもエラーにはなりません)
+        self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name))
+        # リストを作成します
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # もう一度、未定義のリストを消そうとしてみます
+        self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name))
+        # 既存のリストが消されていないことを確認します
+        self.CheckListName([list_name], self.world.GetUserOwnedListListFormated(owner_user_name))
+
+    def test_GetListTimelineFormated(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # tweetする文字列
+        tweet_text = u"tweet"
+        # 何もリストを作っていない時にリストのタイムラインを取得してみます。
+        # (何も取得できないだけでエラーはしないはずです)
+        self.assertEqual([], self.world.GetListTimelineFormated(owner_user_name, list_name))
+        # リストを作成します
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # リストのタイムラインにはまだ何も無い事を確認します。
+        self.assertEqual([], self.world.GetListTimelineFormated(owner_user_name, list_name))
+        # リストに入っていないメンバ(owner_user_node)がtweetします
+        owner_tweet_node = self.world.Tweet(owner_user_node, tweet_text)
+        self.assertIsNotNone(owner_tweet_node)
+        # リストのタイムラインにはまだ何も無い事を確認します。
+        self.assertEqual([], self.world.GetListTimelineFormated(owner_user_name, list_name))
+        # リストに入ってるメンバ(target_user_node)がtweetします
+        target_tweet_node = self.world.Tweet(target_user_node, tweet_text)
+        self.assertIsNotNone(target_tweet_node)
+        # リストのタイムラインにtweetが追加されていることを確認します。
+        formated_tweet_list = self.world.GetListTimelineFormated(owner_user_name, list_name)
+        self.assertEqual(1, len(formated_tweet_list))
+        self.assertEqual(tweet_text, formated_tweet_list[0]['text'])
+        self.assertEqual(target_tweet_node._id, formated_tweet_list[0]['id'])
+
+    def test_AddOtherUserListByNode(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # 存在しないリスト名
+        undefined_list_name = u"undefined list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストをフォローするユーザのノード
+        follower_user_node = self.user_node_list[2]
+        # リストをフォローするユーザのユーザ名
+        follower_user_name = follower_user_node['name']
+        # 存在しないユーザ名
+        undefined_user_name = "undefined user name"
+        # オーナがリストを作成します
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # フォロアはまだ自分のlistのリストには何も無いはずです
+        self.assertEqual([], self.world.GetUserListListFormated(follower_user_name))
+        # 作成されたリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(follower_user_name, owner_user_name, list_name))
+        # フォロアのリストに新しく追加されるはずです
+        list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        self.assertEqual(1, len(list_dic_list))
+        self.assertEqual(list_name, list_dic_list[0]['name'])
+        self.assertEqual(owner_user_name, list_dic_list[0]['owner_name'])
+        # 存在しないリストを指定するとフォローできないはずです
+        self.assertFalse(self.world.AddOtherUserListByName(follower_user_name, owner_user_name, undefined_list_name))
+        # 存在しないユーザを指定するとフォローできないはずです
+        self.assertFalse(self.world.AddOtherUserListByName(follower_user_name, undefined_user_name, list_name))
+        # フォロアのリストは特に代わりが無いはずです
+        new_list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        self.assertEqual(list_dic_list, new_list_dic_list)
+
+    def test_DelOtherUserListByNode(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # 存在しないリスト名
+        undefined_list_name = u"undefined list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストをフォローするユーザのノード
+        follower_user_node = self.user_node_list[2]
+        # リストをフォローするユーザのユーザ名
+        follower_user_name = follower_user_node['name']
+        # 存在しないユーザ名
+        undefined_user_name = "undefined user name"
+        # オーナがリストを作成します
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # フォロアはまだ自分のlistのリストには何も無いはずです
+        self.assertEqual([], self.world.GetUserListListFormated(follower_user_name))
+        # 作成されたリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(follower_user_name, owner_user_name, list_name))
+        # フォロアのリストに新しく追加されるはずです
+        list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        self.assertEqual(1, len(list_dic_list))
+        self.assertEqual(list_name, list_dic_list[0]['name'])
+        self.assertEqual(owner_user_name, list_dic_list[0]['owner_name'])
+        # 存在しないリストへのフォローを削除しようとすると、失敗するはずです
+        self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, owner_user_name, undefined_list_name))
+        # 存在しないユーザを指定すると失敗するはずです
+        self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, undefined_user_name, list_name))
+        # フォロアのリストは特に代わりが無いはずです
+        new_list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        self.assertEqual(list_dic_list, new_list_dic_list)
+        # 通常のリストのフォローの削除
+        self.assertTrue(self.world.DeleteOtherUserListByName(follower_user_name, owner_user_name, list_name))
+        # フォロアのlistのリストには何も無くなっているはずです
+        self.assertEqual([], self.world.GetUserListListFormated(follower_user_name))
+        # フォロアがリストを作成します
+        self.assertTrue(self.world.AddNodeToListByName(follower_user_name, list_name, target_user_name))
+        # 自分のリストへのフォローの削除は、それが存在していても失敗します
+        self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, follower_user_name, list_name))
+        # 自分のリストへのフォローの削除は、存在していなければもちろん失敗します
+        self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, follower_user_name, undefined_list_name))
+
 
 if __name__ == '__main__':
     assert StartNeo4J()
