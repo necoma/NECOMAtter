@@ -90,7 +90,7 @@ class NECOMATterTestCase(unittest.TestCase):
                 {"user": 'ii"mura', "password": "test", "AddUserResult": False, "search_string": 'ii\\"mura', "result": []},
                 {"user": "iimura", "password": "test", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
                 {"user": "iimura", "password": "password change", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
-                {"user": "iimura other user name", "password": "test", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
+                {"user": "iimura other user name", "password": "test", "AddUserResult": True, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
                 ]
         for qa in test_cases:
             if qa['AddUserResult']:

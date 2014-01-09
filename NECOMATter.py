@@ -41,7 +41,7 @@ class NECOMATter():
 
     # 何かあとで使いそうな文字に関しては使えないことにします
     def VaridateUserNameString(self, text):
-        escaped_text = re.sub(r'[#@*&\s]', '_', text)
+        escaped_text = re.sub(r'[#@*&]', '_', text)
         return escaped_text == text
 
     # ユーザ用のインデックスを取得します
