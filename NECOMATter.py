@@ -380,28 +380,23 @@ class NECOMATter():
         user_id = user_node._id
         # このユーザに纏わるリレーションシップを全部消します
         # トランザクションではできないのかなぁ……
-        query = ""
-        query += "START user = node(%d) " % user_id
-        query += "MATCH () <-[r:FOLLOW]- (user) "
-        query += "DELETE r " # フォローを外します(消えるユーザ→他のユーザ)
-        result_list, metadata = cypher.execute(self.gdb, query)
-        query = ""
-        query += "START user = node(%d) " % user_id
-        query += "MATCH (user) <-[r:FOLLOW]- () "
-        query += "DELETE r " # フォローを外します(他のユーザ→消えるユーザ)
-        result_list, metadata = cypher.execute(self.gdb, query)
-        query = ""
-        query += "START user = node(%d) " % user_id
-        query += "MATCH (user) <-[r:TWEET]- () "
-        query += "DELETE r " # tweeet については残しておきます(ただ、tweetを辿ることができなくなるはずです)
-        result_list, metadata = cypher.execute(self.gdb, query)
+
+        # リストについてはリスト自体も消すので先に(user_nodeが消えないうちに)消します
+        self.DeleteAllListByNode(user_node)
+        # API_KEY についてはノードもいらなくなるので消します
         query = ""
         query += "START user = node(%d) " % user_id
         query += "MATCH (user) <-[r:API_KEY]- (api_key) "
-        query += "DELETE r, api_key " # API_KEY はリレーションシップとAPI_KEYそのものの両方を消します
+        query += "DELETE r, api_key "
         result_list, metadata = cypher.execute(self.gdb, query)
-        self.DeleteAllListByNode(user_node)
-        user_node.delete()
+        # TODO: tweet_node については消しません。
+        # WARN: そのため、オーナーが居ないtweet_nodeになり得ます
+        # その他全てのリレーションシップとuser_nodeを消します
+        query = ""
+        query += "START user = node(%d) " % user_id
+        query += "MATCH () -[r]- (user) "
+        query += "DELETE r, user "
+        result_list, metadata = cypher.execute(self.gdb, query)
         return True
 
     # follower がtarget をフォローしているかどうかを確認します
