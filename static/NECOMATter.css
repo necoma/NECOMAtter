@@ -8,6 +8,7 @@ body {
 	background-repeat: no-repeat;
 	background-position: right bottom;
 	background-attachment: fixed;
+	background-size: 50% auto;
 }
 
 .error {
@@ -59,6 +60,14 @@ body {
 .tweet_name {
 	//float:left;
 	//padding: 2px;
+}
+
+.ImageFloat {
+	float: left;
+	margin-right: 1em;
+}
+.ImageFloatClear {
+	clear: both;
 }
 
 .OneStreamClient {

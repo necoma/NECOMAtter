@@ -1,45 +1,66 @@
-// /timeline/<<user_name>>.json から取得したobject をHTMLにします。
+// /timeline/<<user_name>>.json から取得した一つのobject(tweet) をHTMLにします。
+function RenderTweetToHTML(target_tweet){
+	if( !('id' in target_tweet)
+	 || !('user_name' in target_tweet)
+	 || !('time' in target_tweet)
+	 || !('text' in target_tweet))
+	{
+		html += '<div class="tweet_column">broken tweet.</div>';
+		return html;
+	}
+	var tweet_id = target_tweet['id'];
+	var user = target_tweet['user_name'];
+	var time = target_tweet['time'];
+	var text = target_tweet['text'];
+	var icon_url = "/static/img/footprint3.1.png"; // 移行期用？アイコン未設定の場合のアイコンはこれにします
+	if('icon_url' in target_tweet){
+		icon_url = target_tweet['icon_url'];
+	}
+	var tweet = "";
+	//tweet += '<div class="tweet_column pull-right img-responsive" id="TweetID_' + tweet_id + '">';
+	tweet += '<div class="tweet_column img-responsive" id="TweetID_' + tweet_id + '">';
+	tweet += '<a href="/user/' + user + '">';
+	tweet += '<div class="ImageFloat"><img src="' + icon_url + '" width="40" alt=""></div>';
+	tweet += ' <span class="tweet_name">';
+	tweet += user;
+	tweet += '</a></span> <span class="tweet_time"><a href="/tweet/';
+	tweet += tweet_id;
+	tweet += '">';
+	tweet += time;
+	tweet += '</a></span"><div class="tweet_body">';
+	// 怪しくこの時点で文字列を書き換えます。
+	// ・改行は<br>に
+	// ・URLっぽい文字列はlinkに
+	// ・#タグ ぽい文字列はタグ検索用のURLへのlinkに
+	// します。
+	tweet += text
+		.replace(/\r\n/g, "<br>")
+		.replace(/(\n|\r)/g, "<br>")
+		.replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^< ]+)|(@[^< ]+)/gi, function(str){
+			if(str.match(/^#/)){
+				var tag_name = str.replace(/^#/, '');
+				return '<a href="/tag/'
+					+ tag_name + '">' + str + '</a>';
+			}else if(str.match(/^@/)){
+				var user_name = str.replace(/^@/, '');
+				return '<a href="/timeline/'
+					+ user_name + '">' + str + '</a>';
+			}
+			return '<a href="' + str + '">' + str + '</a>';
+		});
+	tweet += '</div>';
+	tweet += '<div class="tweet_footer"></div>';
+	tweet += '<span class="ImageFloatClear"></span>';
+	tweet += '</div>';
+
+	return tweet;
+}
+// /timeline/<<user_name>>.json から取得したobject(tweetのリスト) をHTMLにします。
 function RenderTimelineToHTML(tweet_list){
 	var html = "";
 	for (var i = 0, len = tweet_list.length; i < len; i++){
-		var target_tweet = tweet_list[i]
-		if( !('id' in target_tweet)
-		 || !('user_name' in target_tweet)
-		 || !('time' in target_tweet)
-		 || !('text' in target_tweet))
-		{
-			html += '<div class="tweet_column">broken tweet.</div>'
-			continue;
-		}
-		var tweet_id = target_tweet['id'];
-		var user = target_tweet['user_name'];
-		var time = target_tweet['time'];
-		var text = target_tweet['text'];
-		var tweet = "";
-		tweet += '<div class="tweet_column" id="TweetID_' + tweet_id + '"><span class="tweet_name"><a href="/user/';
-		tweet += user;
-		tweet += '">'
-		tweet += user;
-		tweet += '</a></span> <span class="tweet_time"><a href="/tweet/';
-		tweet += tweet_id;
-		tweet += '">';
-		tweet += time;
-		tweet += '</a></span"><div class="tweet_body">';
-		// 怪しくこの時点で文字列を書き換えます。
-		// ・改行は<br>に
-		// ・URLっぽい文字列はlinkに
-		// ・#タグ ぽい文字列はタグ検索用のURLへのlinkに
-		// します。
-		tweet += text.replace(/\r\n/g, "<br>").replace(/(\n|\r)/g, "<br>").replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^< ]+)/gi, function(str){
-				if(str.match(/^#/)){
-					var tag_name = str.replace(/^#/, '');
-					return '<a href="/tag/' + tag_name + '">' + str + '</a>';
-				}
-				return '<a href="' + str + '">' + str + '</a>';
-			});
-		tweet += '</div></div>';
-
-		html += tweet;
+		var tweet_html = RenderTweetToHTML(tweet_list[i]);
+		html += tweet_html;
 	}
 	return html;
 }
@@ -68,6 +89,9 @@ function StartReadTweets(resource, append_to, limit, since_time, success_func, e
 		}).fail(function(jqXHR, textStatus, errorThrown){
 			if(error_func){
 				error_func(textStatus, errorThrown);
+			}
+			if($(append_to).text() == 'now loading...'){
+				$(append_to).text('load failed.');
 			}
 		});
 }
@@ -165,3 +189,77 @@ function CreateColor(normalized_value
 
 	return "#" + convert16(red) + convert16(green) + convert16(blue);
 }
+
+// フォローしているユーザ名を取得して、".TweetTextArea" の
+// typeahead(文字入力してるときの候補) 用 data-source を更新する
+function UpdateTypeAheadForUserList(target_class, user_name){
+	$.getJSON("/user/" + user_name + "/followed_user_name_list.json",
+		{},
+		function(user_name_list, textStatus){
+			$(target_class).attr("data-items", user_name_list);
+		}
+	);
+}
+
+// 指定されたオブジェクトに user_name のフォローしているユーザ名のtypeaheadを設定する
+function ApplyUserNameTypeAhead(target, user_name){
+	$.getJSON("/user/" + user_name + "/followed_user_name_list.json"
+		, {}
+		, function(user_name_list){
+			var at_name_list = [];
+			for(var i = 0; i < user_name_list.length; i++)
+			{
+				at_name_list.push("@" + user_name_list[i] + " ");
+			}
+			$(target).typeahead({source: at_name_list});
+		}
+	);
+}
+
+//ページを読んでいるユーザ名(document.ready() で更新されるはずです)
+var authUserName = "";
+
+$(document).ready(function(){
+	// bootstrap でいろんなものを enable にするための呪文
+	$(".collapse").collapse();
+	$(".alert").alert();
+	// ページを読んでいるユーザ名を更新します
+	authUserName = $("#AuthUserName").text();
+
+	$("#GlobalTweetModalSubmitButton").prop('disabled', true);
+	// GlobalTweetModal でテキストが入力されていなければTweetボタンを押させない
+	$('#GlobalTweetModalForm textarea').each(function(){
+		$(this).bind('keyup', function(elm){
+			var txt = $('#GlobalTweetModalText').val();
+			if(txt == ""){
+				$("#GlobalTweetModalSubmitButton").attr('disabled', 'disabled');
+			}else{
+				$("#GlobalTweetModalSubmitButton").removeAttr('disabled');
+			}
+		});
+	});
+
+	// global なtweetダイアログからのtweet
+	$('#GlobalTweetModalSubmitButton').click(function(){
+		var text = $("#GlobalTweetModalText").val();
+		var user = authUserName;
+		if(text == "")
+		{
+			$('#GlobalTweetFormHelp').text("please imput text").fadeIn("slow").fadeOut("slow");
+			return false;
+		}
+		PostTweet(user, text, function(data){
+			$('#GlobalTweetModalText').val('');
+			$('#GlobalTweetModal').modal('hide');
+			html = RenderTimelineToHTML([data]);
+			$('#Tweet_text > div:first').before(html).fadeIn("slow");
+		}, function(data){
+			$('#GlobalTweetFormHelp').text("tweet failed.").fadeIn("slow").fadeOut("slow");
+		});
+		return true;
+	});
+
+	// フォローしているユーザ名を取得して、Tweet用のテキストエリアに
+	// typeahead(文字入力してるときの候補) を設定する
+	ApplyUserNameTypeAhead("#GlobalTweetModalText", authUserName);
+});

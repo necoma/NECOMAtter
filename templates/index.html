@@ -40,16 +40,19 @@ $(document).ready(function(){
 		  <li>replyの概念</li>
 		  <li>REST friendly なユーザ管理(なんちゃって API Key による実装なので再生攻撃ができるけれども)</li>
 	          <li>streaming timeline (今のところpublic timeline(全ての人のtweetが流れてくる)だけ)</li>
+		  <li>listの概念</li>
           </ul>
           まだできていないこと(できるようにしようと思っている)
           <ul>
 		  <li>unit test</li>
 	          <li>REST interfaces(200 OK を返すのに失敗しているとかが残っている)</li>
 		  <li>replyをWeb UIからできるように</li>
+		  <li>list の管理を Web UI からできるように</li>
+		  <li>ユーザアイコン(初期アバターアイコンが勝手に選択されるだけになっていて、ユーザがアップロード等をするインタフェースが無い)</li>
+		  <li>@ (reply とは別の概念？単にユーザにメッセージを飛ばすだけでreplyでは無いはず)</li>
           </ul>
 	  できないこと(とりあえずは必要ないと思っている)
 	  <ul>
-		  <li>ユーザアイコン</li>
 		  <li>ユーザプロフィール</li>
 		  <li>d</li>
 		  <li>鍵付きアカウント</li>
@@ -62,7 +65,7 @@ $(document).ready(function(){
 		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=summary">git/NECOMATter</a></li>
 		  <li><a href="http://ns3-dev.sekiya-lab.info/ganglia/">ganglia</a></li>
 		  <li><a href="http://hadoop-master.sekiya-lab.info:8088/cluster">hadoop cluster</a></li>
-		  <li><a href="http://docs.neo4j.org/refcard/1.9/">Cypher query language for Neo4j</a>, <a href="http://docs.neo4j.org/chunked/stable/cypher-query-lang.html">other</a></li>
+		  <li><a href="http://docs.neo4j.org/refcard/1.9/">Cypher query language for Neo4j</a>, <a href="http://docs.neo4j.org/chunked/stable/cypher-query-lang.html">other</a>, <a href="http://lewuathe.com/blog/2013/09/20/neo4jfalseshi-ifang-1/">JP doc</a></li>
 		  <li><a href="http://docs.neo4j.org/chunked/stable/data-modeling-examples.html">Neo4j data modeling examples</a></li>
 		  <li><a href="http://book.py2neo.org/en/latest/">Py2neo</a>: Python library for Neo4j</li>
 		  <li><a href="http://flask.pocoo.org/">Flask</a>: microframework for Python</li>
@@ -110,5 +113,6 @@ $(document).ready(function(){
 		  <li>というか、生パスワードが飛び交ったりしている時点でもうセキュリティ関係は全然駄目……
 		  </li>
 	  </ul>
+	  <li>Neo4J上のデータのリレーションシップやらノードが増えてきたので<a href="static/data_relation.html">メモ</a>を残すようにした。
   </div>
 {% endblock %}

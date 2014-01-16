@@ -87,6 +87,13 @@ def GetAuthenticatedUserName():
     #print 'request has no valid API key failed'
     return None
 
+@app.after_request
+def after_request(responce):
+    # これを書けばContent-Security-Policy が効くようになる
+    # 参考: http://blog.hash-c.co.jp/2013/12/Content-Security-Policy-CSP.html
+    #responce.headers.add("Content-Security-Policy", "default-src 'self'")
+    return responce
+
 @app.route('/')
 def topPage():
     return render_template('index.html')
@@ -119,38 +126,42 @@ def userTweet_Get(tweet_id):
 # 対象のtweetID の tweet のみを取得します
 @app.route('/tweet/<int:tweet_id>.json')
 def userTweet_Get_Rest(tweet_id):
-    return json.dumps(world.GetTweetNodeFromIDFormatted(tweet_id))
+    user_name = GetAuthenticatedUserName()
+    return json.dumps(world.GetTweetNodeFromIDFormatted(tweet_id, query_user_name=user_name))
 
 # 対象のtweetID の返信関係の木構造を返します
 @app.route('/tweet/<int:tweet_id>_tree.json')
 def userTweetTree_Get_Rest(tweet_id):
-    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id)
-    tweet_list.extend(world.GetTweetNodeFromIDFormatted(tweet_id))
-    tweet_list.extend(world.GetChildTweetAboutTweetIDFormatted(tweet_id))
+    user_name = GetAuthenticatedUserName()
+    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, query_user_name=user_name)
+    tweet_list.extend(world.GetTweetNodeFromIDFormatted(tweet_id, query_user_name=user_name))
+    tweet_list.extend(world.GetChildTweetAboutTweetIDFormatted(tweet_id, query_user_name=user_name))
     return json.dumps(tweet_list)
 
 # 対象のツイートの親(replyしている先)を辿って返します
 @app.route('/tweet/<int:tweet_id>_parent.json')
 def userTweetTreeParent_Get_Rest(tweet_id):
+    user_name = GetAuthenticatedUserName()
     since_time = None
     limit = None
     if 'since_time' in request.values:
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, limit, since_time)
+    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, limit, since_time, query_user_name=user_name)
     return json.dumps(tweet_list)
 
 # 対象のツイートの子(replyしてきたtweet)を辿って返します
 @app.route('/tweet/<int:tweet_id>_child.json')
 def userTweetTreeChild_Get_Rest(tweet_id):
+    user_name = GetAuthenticatedUserName()
     since_time = None
     limit = None
     if 'since_time' in request.values:
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetChildTweetAboutTweetIDFormatted(tweet_id, limit, since_time)
+    tweet_list = world.GetChildTweetAboutTweetIDFormatted(tweet_id, limit, since_time, query_user_name=user_name)
     return json.dumps(tweet_list)
 
 # 対象のユーザがフォローしているユーザ名のリストを返します
@@ -234,13 +245,7 @@ def postTweet():
     reply_to = None
     if 'reply_to' in request.json:
         reply_to = request.json['reply_to']
-    user_node = world.GetUserNode(user_name)
-    if user_node is None:
-        abort(501)
-    print "reply_to: ", reply_to
-    tweet_node = world.Tweet(user_node, tweet_string=text, reply_to=reply_to)
-    tweet_dic = world.ConvertTweetNodeToHumanReadableDictionary(tweet_node)
-    tweet_dic.update({'user_name': user_name, 'id': tweet_node._id})
+    tweet_dic = world.TweetByName(user_name, tweet_string=text, reply_to=reply_to)
     # 怪しく result ok の入っていない状態でstreaming側に渡します
     watchDogManager.UpdateTweet(text, tweet_dic)
     tweet_dic.update({'result': 'ok'})
@@ -382,6 +387,90 @@ def streamed_response():
                 break
     #return Response(generate(), mimetype='application/json; charset=utf-8')
     return Response(generate(), mimetype='text/event-stream')
+
+# リストにユーザを追加します
+@app.route('/list/<user_name>/add.json', methods=['POST', 'PUT'])
+def list_add(user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401, {'result': 'error', 'description': 'authentication required'})
+    if auth_user_name != user_name:
+        abort(400, {'result': 'error', 'description': 'only owner-user can add list.'})
+    if 'target_user' not in request.json or 'list_name' not in request.json:
+        abort(400, {'result': 'error', 'description': 'target_user and list_name required'})
+    target_user = request.json['target_user']
+    list_name = request.json['list_name']
+    if world.AddNodeToListByName(user_name, list_name, target_user):
+        return json.dumps({'result': 'ok', 'list_name': list_name})
+    abort(500, {'result': 'error', 'description': 'list add failed.'})
+
+# リストからユーザを削除します(本当ならdel.jsonではなくて
+#/list/<user_name>/<list_name>/<delete_user_name> へのDELETEな気がしますが)
+#POSTでないと駄目な場合にこれを使います
+@app.route('/list/<user_name>/del.json', methods=['POST'])
+def list_user_delete_post(user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401, {'result': 'error', 'description': 'authentication required'})
+    if auth_user_name != user_name:
+        abort(400, {'result': 'error', 'description': 'only owner-user can add list.'})
+    if 'target_user' not in request.json or 'list_name' not in request.json:
+        abort(400, {'result': 'error', 'description': 'target_user and list_name required'})
+    target_user = request.json['target_user']
+    list_name = request.json['list_name']
+    if world.UnfollowUserFromListByName(user_name, list_name, target_user):
+        return json.dumps({'result': 'ok', 'list_name': list_name,
+            "delete_user": target_user})
+    abort(500, {'result': 'error', 'description':
+        'user "%s" delete from list "%s" failed.' % (target_user, list_name)})
+
+# リストからユーザを削除します
+@app.route('/list/<user_name>/<list_name>/<target_user_name>.json', methods=['DELETE'])
+def list_user_delete_rest(user_name, list_name, target_user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401, {'result': 'error', 'description': 'authentication required'})
+    if auth_user_name != user_name:
+        abort(400, {'result': 'error', 'description': 'only owner-user can add list.'})
+    if world.UnfollowUserFromListByName(user_name, list_name, target_user_name):
+        return json.dumps({'result': 'ok', 'list_name': list_name,
+            "delete_user": target_user_name})
+    abort(500, {'result': 'error', 'description':
+        'user "%s" delete from list "%s" failed.' % (target_user_name, list_name)})
+
+# ユーザのリスト名のリストを取得します
+#TODO: 非公開リストに未対応
+@app.route('/list/<user_name>.json', methods=['GET'])
+def list_get(user_name):
+    #auth_user_name = GetAuthenticatedUserName()
+    list_name_list = world.GetListNameListByName(user_name)
+    if list_name_list is None:
+        abort(500, {'result': 'error', 'description': 'user list get failed.'})
+    return json.dumps({'result': 'ok', 'list_name_list': list_name_list})
+
+# ユーザのリストにあるユーザのリストのタイムラインを取得します
+#TODO: 非公開リストに未対応
+@app.route('/list/<user_name>/<list_name>.json', methods=['GET'])
+def list_user_get(user_name, list_name):
+    #auth_user_name = GetAuthenticatedUserName()
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    tweet_list = world.GetListTimelineFormated(user_name, list_name, limit, since_time)
+    return json.dumps(tweet_list)
+
+# ユーザのリストページ
+@app.route('/list/<user_name>/<list_name>', methods=['GET'])
+def list_user_page(user_name, list_name):
+    return render_template('timeline_page_v2.html', user_name=user_name, list_name=list_name)
+
+# ユーザのリストのリストページ
+@app.route('/list/<user_name>', methods=['GET'])
+def list_user_page_(user_name, list_name):
+    return render_template('user_list_list_page.html', user_name=user_name)
 
 if __name__ == '__main__':
     #app.run('0.0.0.0', port=1000, debug=True)

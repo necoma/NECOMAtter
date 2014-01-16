@@ -1,0 +1,114 @@
+<html>
+<head><title>NECOMATter Neo4J data relation memo</title>
+<link rel="stylesheet" type="text/css" href="/static/NECOMATter.css">
+</head>
+<body>
+<h2>NECOMATter Neo4J data relation memo</h2>
+
+<h3>nodes</h3>
+<ul>
+	<li><div class="DataNode" id="DataNode_user">
+		<span class="DataNodeName">user</span>
+		<div class="DataNodeProperties">properties: <ul>
+			<li>name: user name (string)</li>
+			<li>password_hash: hashed password (string)</li>
+			<li>icon_url: avater icon path (string)</li>
+			<li>session_expire_time: user_session expire time (epoc second)</li>
+			<li>session_key: saved session key (string)</li>
+		</ul></div>
+	</div></li>
+	<li><div class="DataNode" id="DataNode_tweet">
+		<span class="DataNodeName">tweet</span>
+		<div class="DataNodeProperties">properties: <ul>
+			<li>text: tweet text (string)</li>
+			<li>time: tweet time (epoc second)</li>
+		</ul></div>
+	</div></li>
+	<li><div class="DataNode" id="DataNode_tag">
+		<span class="DataNodeName">tag</span>
+		<div class="DataNodeProperties">properties: <ul>
+			<li>tag: tag name (string)</li>
+		</ul></div>
+	</div></li>
+	<li><div class="DataNode" id="DataNode_api_key">
+		<span class="DataNodeName">api_key</span>
+		<div class="DataNodeProperties">properties: <ul>
+			<li>key: API Key (string)</li>
+			<li>time: creation time (epoc second)</li>
+		</ul></div>
+	</div></li>
+	<li><div class="DataNode" id="DataNode_list">
+		<span class="DataNodeName">list</span>
+		<div class="DataNodeProperties">properties: <ul>
+			<li>name: list name (string)</li>
+			<li>time: creation time (epoc second)</li>
+			<li>description: list description (strong)</li>
+			<li>hidden: if true is hidden list (bool)</li>
+		</ul></div>
+	</div></li>
+</ul>
+
+<h3>relationships</h3>
+<ul>
+	<li><div class="DataRelationship" id="DataRelationship_TWEET">
+		<span class="DataRelationshipName">TWEET</span>
+		<div class="DataRelationshipProperties">properties: none</div>
+		<div class="DataRelationshipLink"><ul>
+			<li>from node: <a href="#DataNode_tweet">tweet</a>
+			<li>to node: <a href="#DataNode_user">user</a>
+		</ul></div>
+	</div></li>
+	<li><div class="DataRelationship" id="DataRelationship_FOLLOW">
+		<span class="DataRelationshipName">FOLLOW</span>
+		<div class="DataRelationshipProperties">properties: <ul>
+			<li>time: creation time (epoc second)</li>
+		</ul></div>
+		<div class="DataRelationshipLink"><ul>
+			<li>from node: <a href="#DataNode_tweet">user</a>, <a href="#DataNode_list">list</a>
+			<li>to node: <a href="#DataNode_user">user</a>
+		</ul></div>
+	</div></li>
+	<li><div class="DataRelationship" id="DataRelationship_OWNER">
+		<span class="DataRelationshipName">OWNER</span>
+		<div class="DataRelationshipProperties">properties: none</div>
+		<div class="DataRelationshipLink"><ul>
+			<li>from node: <a href="#DataNode_list">list</a>
+			<li>to node: <a href="#DataNode_user">user</a>
+		</ul></div>
+	</div></li>
+	<li><div class="DataRelationship" id="DataRelationship_REPLY">
+		<span class="DataRelationshipName">REPLY</span>
+		<div class="DataRelationshipProperties">properties: none</div>
+		<div class="DataRelationshipLink"><ul>
+			<li>from node: <a href="#DataNode_tweet">tweet</a>
+			<li>to node: <a href="#DataNode_user">user</a>
+		</ul></div>
+	</div></li>
+	<li><div class="DataRelationship" id="DataRelationship_API_KEY">
+		<span class="DataRelationshipName">API_KEY</span>
+		<div class="DataRelationshipProperties">properties: none</div>
+		<div class="DataRelationshipLink"><ul>
+			<li>from node: <a href="#DataNode_api_key">api_key</a>
+			<li>to node: <a href="#DataNode_user">user</a>
+		</ul></div>
+	</div></li>
+	<li><div class="DataRelationship" id="DataRelationship_TAG">
+		<span class="DataRelationshipName">TAG</span>
+		<div class="DataRelationshipProperties">properties: none</div>
+		<div class="DataRelationshipLink"><ul>
+			<li>from node: <a href="#DataNode_tweet">tweet</a>
+			<li>to node: <a href="#DataNode_tag">tag</a>
+		</ul></div>
+	</div></li>
+	<li><div class="DataRelationship" id="DataRelationship_LIST">
+		<span class="DataRelationshipName">LIST</span>
+		<div class="DataRelationshipProperties">properties: none</div>
+		<div class="DataRelationshipLink"><ul>
+			<li>from node: <a href="#DataNode_user">user</a>
+			<li>to node: <a href="#DataNode_list">list</a>
+		</ul></div>
+	</div></li>
+</ul>
+
+</body>
+</html>
