@@ -92,19 +92,40 @@ class NECOMATter():
             return []
         result_list = []
         for tweet in tweet_list:
+            text = tweet[0]
+            unix_time = tweet[1]
+            tweet_owner_name = tweet[2]
+            tweet_id = tweet[4]._id
+            own_stard = True if tweet[5] is not None else False
+            own_retweeted = True if tweet[6] is not None else False
             icon_url = "/static/img/footprint3.2.png"
             if tweet[3] is not None:
                 icon_url = tweet[3]
-            result_list.append({'text': tweet[0],
-                "time": self.FormatTime(tweet[1]),
-                "user_name": tweet[2],
-                "unix_time": tweet[1],
-                "icon_url": icon_url,
-                "id": tweet[4]._id,
-                "star_count": tweet[5],
-                "retweet_count": tweet[6],
-                "own_stard": True if tweet[7] is not None else False,
-                "own_retweeted": True if tweet[8] is not None else False,
+            is_retweet = False
+            if len(tweet) >= 8 and tweet[7] is not None and tweet[7].type == "RETWEET":
+                is_retweet = True
+            retweet_user_name = None
+            if len(tweet) >= 9 and tweet[8] is not None:
+                retweet_user_name = tweet[8]
+            if is_retweet == False: # retweet されていない場合でもretweet_node_name が存在するようなクエリになっているのでここで回避します
+                retweet_user_name = None
+            retweet_unix_time = None
+            retweet_time = None
+            if len(tweet) >= 10 and tweet[9] is not None:
+                retweet_unix_time = tweet[9]
+                retweet_time = self.FormatTime(retweet_unix_time)
+            result_list.append({'text': text
+                , "time": self.FormatTime(unix_time)
+                , "user_name": tweet_owner_name
+                , "unix_time": unix_time
+                , "icon_url": icon_url
+                , "id": tweet_id
+                , "own_stard": own_stard
+                , "own_retweeted": own_retweeted
+                , "is_retweet": is_retweet
+                , "retweet_user_name": retweet_user_name
+                , "retweet_time": retweet_time
+                , "retweet_unix_time": retweet_unix_time
                 })
         return result_list
 
@@ -173,17 +194,22 @@ class NECOMATter():
             if reply_to_tweet_node is None:
                 logging.error("ID %d tweet is not found." % reply_to)
                 return None
+        creation_time = time.time()
         tweet_node = tweet_index.create("text", text, {
             "text": self.EscapeForXSS(tweet_string), 
-            "time": time.time()
+            "time": creation_time
             })
         # user_node がtweet したということで、path をtweet_node から繋げます
-        tweet_node.create_path("TWEET", user_node)
+        tweet_node.create_path(("TWEET", {
+                "time": creation_time
+            }), user_node)
         # タグがあればそこに繋ぎます
         self.Tweet_LinkToTag(tweet_node, text)
         # 返事先のtweetがあるならば、リレーションシップを繋ぎます
         if reply_to_tweet_node is not None:
-            tweet_node.create_path("REPLY", reply_to_tweet_node)
+            tweet_node.create_path(("REPLY", {
+                "time": creation_time
+            }), reply_to_tweet_node)
         return tweet_node
 
     # ユーザにtweetさせます。(名前指定版) Tweet に成功したら、一つのtweet辞書を返します
@@ -203,10 +229,12 @@ class NECOMATter():
                 , 'time': self.FormatTime(tweet_node['time'])
                 , "unix_time": tweet_node['time']
                 , "icon_url": icon_url
-                , "star_count": 0
-                , "retweet_count": 0
                 , "own_stard": False
                 , "own_retweeted": False
+                , "is_retweet": False
+                , "retweet_user_name": None
+                , "retweet_time": None
+                , "retweet_unix_time": None
                 }
 
     # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
@@ -219,14 +247,12 @@ class NECOMATter():
         # クエリを作ります
         query = ""
         query += "START user = node(%d) " % user_id
-        query += "MATCH (tweet) -[:TWEET]-> (user) "
-        query += ", tweet <-[?:STAR]- (stard_user) "
-        query += ", tweet <-[?:RETWEET]- (retweeted_user) "
+        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
         query += ", tweet <-[my_star_r?:STAR]- (user) "
         query += ", tweet -[my_retweet_r?:RETWEET]-> (user) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name, user.icon_url?, tweet, count(stard_user), count(retweeted_user), my_star_r, my_retweet_r "
+        query += "RETURN tweet.text, tweet.time, user.name, user.icon_url?, tweet, my_star_r, my_retweet_r, null, tweet_r.time? "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -254,7 +280,7 @@ class NECOMATter():
 
     # ユーザのタイムラインを取得します。
     # 取得されるのは text, time, user_name, tweet_node のリストです。
-    def GetUserTimeline(self, user_node, limit=None, since_time=None):
+    def GetUserTimeline(self, user_node, limit=None, since_time=None, query_user_node=None):
         if user_node is None:
             logging.error("User is undefined.")
             return []
@@ -262,27 +288,37 @@ class NECOMATter():
         # クエリを作ります
         query = ""
         query += "START user = node(%d) " % user_id
-        query += "MATCH (tweet) -[:TWEET]-> (target) <-[:FOLLOW]- (user) "
-        query += ", tweet <-[?:STAR]- (stard_user) "
-        query += ", tweet <-[?:RETWEET]- (retweeted_user) "
-        query += ", tweet <-[my_star_r?:STAR]- (user) "
-        query += ", tweet -[my_retweet_r?:RETWEET]-> (user) "
+        if query_user_node is not None:
+            query += ", query_user = node(%d) " % query_user_node._id
+        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (target) <-[:FOLLOW]- (user) "
+        query += ", tweet -[?:TWEET]-> (tweet_user) "
+        if query_user_node is not None:
+            query += ", tweet <-[my_star_r?:STAR]- (query_user) "
+            query += ", tweet -[my_retweet_r?:RETWEET]-> (query_user) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, target.name, target.icon_url?, tweet, count(stard_user), count(retweeted_user), my_star_r, my_retweet_r "
-        query += "ORDER BY tweet.time DESC "
+        query += "RETURN tweet.text, tweet.time, tweet_user.name?, target.icon_url?, tweet "
+        if query_user_node is not None:
+            query += ", my_star_r, my_retweet_r, tweet_r "
+        else:
+            query += ", null, null, null "
+        query += ", target.name?, tweet_r.time? "
+        query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
     # ユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
-    def GetUserTimelineFormated(self, user_name, limit=None, since_time=None):
+    def GetUserTimelineFormated(self, user_name, limit=None, since_time=None, query_user_name=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("User %s is undefined." % user_name)
             return []
-        tweet_list = self.GetUserTimeline(user_node, limit, since_time)
+        query_user_node = None
+        if query_user_name is not None:
+            query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetUserTimeline(user_node, limit, since_time, query_user_node=query_user_node)
         return self.FormatTweet(tweet_list)
 
     # ユーザ名とセッションキーから、そのセッションが有効かどうかを判定します。
@@ -372,7 +408,7 @@ class NECOMATter():
         return True
 
     # ユーザを削除します
-    def DelUser(self, user_name):
+    def DeleteUser(self, user_name):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.info("User %s is not registered." % user_name)
@@ -497,18 +533,17 @@ class NECOMATter():
             query += "start tweet = node(%d) " % tweet_id
             if user_node is not None:
                 query += ", query_user = node(%d) " % user_node._id
-            query += "MATCH (user) <-[:TWEET]- (tweet) "
-            query += ", tweet <-[?:STAR]- (stard_user) "
-            query += ", tweet <-[?:RETWEET]- (retweeted_user) "
+            query += "MATCH (user) <-[?:TWEET]- (tweet) "
             if user_node is not None:
                 query += ", tweet <-[star_r?:STAR]- query_user "
                 query += ", tweet -[retweet_r?:RETWEET]-> query_user "
-            query += "RETURN tweet.text, tweet.time, user.name"
-            query += ", user.icon_url?, tweet, count(stard_user), count(retweeted_user) "
+            query += "RETURN tweet.text, tweet.time, user.name?"
+            query += ", user.icon_url?, tweet "
             if user_node is not None:
                 query += ", star_r, retweet_r"
             else:
                 query += ", null, null "
+            query += ", null, null "
             result_list, metadata = cypher.execute(self.gdb, query)
         except neo4j.CypherError:
             return []
@@ -520,20 +555,19 @@ class NECOMATter():
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
         if user_node is not None:
             query += ", query_user = node(%d) " % user_node._id
-        query += "MATCH (user) <-[:TWEET]- (tweet) -[:TAG]-> tag_node " 
-        query += ", tweet <-[?:STAR]- (stard_user) "
-        query += ", tweet <-[?:RETWEET]- (retweeted_user) "
+        query += "MATCH (user) <-[?:TWEET]- (tweet) "
+        query += ", (tweet) -[:TAG]-> tag_node " 
         if user_node is not None:
             query += ", tweet <-[star_r?:STAR]- query_user "
             query += ", tweet -[retweet_r?:RETWEET]-> query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name, user.icon_url?, tweet "
-        query += ", count(stard_user), count(retweeted_user) "
+        query += "RETURN tweet.text, tweet.time, user.name?, user.icon_url?, tweet "
         if user_node is not None:
             query += ", star_r, retweet_r"
         else:
             query += ", null, null "
+        query += ", null, null "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -663,20 +697,18 @@ class NECOMATter():
             query += ", query_user = node(%d) " % user_node._id
         query += "MATCH original_tweet -[:REPLY*1..]-> tweet "
         query += "WITH original_tweet, tweet "
-        query += "MATCH tweet -[:TWEET]-> user "
-        query += ", tweet <-[?:STAR]- (stard_user) "
-        query += ", tweet <-[?:RETWEET]- (retweeted_user) "
+        query += "MATCH tweet -[?:TWEET]-> user "
         if user_node is not None:
             query += ", tweet <-[star_r?:STAR]- query_user "
             query += ", tweet -[retweet_r?:RETWEET]-> query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name, user.icon_url?, tweet "
-        query += ", count(stard_user), count(retweeted_user) "
+        query += "RETURN tweet.text, tweet.time, user.name?, user.icon_url?, tweet "
         if user_node is not None:
             query += ", star_r, retweet_r"
         else:
             query += ", null, null "
+        query += ", null, null "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -691,20 +723,18 @@ class NECOMATter():
             query += ", query_user = node(%d) " % user_node._id
         query += "MATCH original_tweet <-[:REPLY*1..]- tweet "
         query += "WITH original_tweet, tweet "
-        query += "MATCH tweet -[:TWEET]-> user "
-        query += ", tweet <-[?:STAR]- (stard_user) "
-        query += ", tweet <-[?:RETWEET]- (retweeted_user) "
+        query += "MATCH tweet -[?:TWEET]-> user "
         if user_node is not None:
             query += ", tweet <-[star_r?:STAR]- query_user "
             query += ", tweet -[retweet_r?:RETWEET]-> query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name, user.icon_url?, tweet "
-        query += ", count(stard_user), count(retweeted_user) "
+        query += "RETURN tweet.text, tweet.time, user.name?, user.icon_url?, tweet "
         if user_node is not None:
             query += ", star_r, retweet_r"
         else:
             query += ", null, null "
+        query += ", null, null "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -1227,3 +1257,169 @@ class NECOMATter():
             logging.error("User '%s' is undefined." % other_user_name)
             return False
         return self.DeleteOtherUserListByNode(owner_node, other_user_node, list_name)
+
+    # tweet をretweet します
+    def RetweetByNode(self, user_node, tweet_node):
+        if user_node is None:
+            logging.error("user_node is None")
+            return False
+        if tweet_node is None:
+            logging.error("tweet_node is None")
+            return False
+        user_node_id = user_node._id
+        tweet_node_id = tweet_node._id
+        # 既にretweet していた場合は失敗とします
+        query = ""
+        query += "START user_node=node(%d), tweet_node=node(%d) " % (user_node_id, tweet_node_id)
+        query += "MATCH tweet_node -[r:RETWEET]-> user_node "
+        query += "RETURN r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) > 0:
+            logging.warn("already retweeted.")
+            return False
+        relationship = self.gdb.create((tweet_node, "RETWEET", user_node))
+        if relationship is None:
+            return False
+        relationship[0]['time'] = time.time()
+        return True
+
+    # tweet をretweet します(名前指定版)
+    def RetweetByName(self, user_name, tweet_id):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User '%s' is undefined." % user_name)
+            return False
+        tweet_node = self.GetTweetNodeFromID(int(tweet_id))
+        return self.RetweetByNode(user_node, tweet_node)
+
+    # retweet を取り消します
+    def UnRetweetByNode(self, user_node, tweet_id):
+        if user_node is None:
+            logging.error("user_node is None")
+            return False
+        user_node_id = user_node._id
+        # retweet していない場合は失敗とします
+        query = ""
+        query += "START user_node=node(%d), tweet_node=node(%d) " % (user_node_id, tweet_id)
+        query += "MATCH tweet_node -[r:RETWEET]-> user_node "
+        query += "RETURN r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) <= 0:
+            logging.warn("retweet not found.")
+            return False
+        for result in result_list:
+            result[0].delete()
+        return True
+
+    # retweet を取り消します(名前指定版)
+    def UnRetweetByName(self, user_name, tweet_id):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User '%s' is undefined." % owner_name)
+            return False
+        return self.UnRetweetByNode(user_node, int(tweet_id))
+
+    # tweet にstarをつけます
+    def AddStarByNode(self, user_node, tweet_node):
+        if user_node is None:
+            logging.error("user_node is None")
+            return False
+        if tweet_node is None:
+            logging.error("tweet_node is None")
+            return False
+        user_node_id = user_node._id
+        tweet_node_id = tweet_node._id
+        # 既にstarをつけていた場合は失敗とします
+        query = ""
+        query += "START user_node=node(%d), tweet_node=node(%d) " % (user_node_id, tweet_node_id)
+        query += "MATCH tweet_node <-[r:STAR]- user_node "
+        query += "RETURN r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) > 0:
+            logging.warn("already stared.")
+            return False
+        relationship = self.gdb.create((user_node, "STAR", tweet_node))
+        if relationship is None:
+            return False
+        relationship[0]['time'] = time.time()
+        return True
+
+    # tweet にstarをつけます(名前指定版)
+    def AddStarByName(self, user_name, tweet_id):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User '%s' is undefined." % owner_name)
+            return False
+        tweet_node = self.GetTweetNodeFromID(int(tweet_id))
+        return self.AddStarByNode(user_node, tweet_node)
+
+    # つけたstar を取り消します
+    def DeleteStarByNode(self, user_node, tweet_id):
+        if user_node is None:
+            logging.error("user_node is None")
+            return False
+        user_node_id = user_node._id
+        # retweet していない場合は失敗とします
+        query = ""
+        query += "START user_node=node(%d), tweet_node=node(%d) " % (user_node_id, tweet_id)
+        query += "MATCH tweet_node <-[r:STAR]- user_node "
+        query += "RETURN r "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if len(result_list) <= 0:
+            logging.warn("star not found.")
+            return False
+        for result in result_list:
+            result[0].delete()
+        return True
+
+    # つけたstar を取り消します(名前指定版)
+    def DeleteStarByName(self, user_name, tweet_id):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User '%s' is undefined." % owner_name)
+            return False
+        return self.DeleteStarByNode(user_node, int(tweet_id))
+
+    # tweet の詳細情報を取得します
+    def GetTweetAdvancedInfoByNode(self, tweet_id, user_node=None):
+        user_node_id = 0
+        if user_node is not None:
+            user_node_id = user_node._id
+        query = ""
+        query += "START tweet_node=node(%d) " % tweet_id
+        if user_node is not None:
+            query += ", user_node=node(%d) " % user_node_id
+        query += "MATCH tweet_node <-[star_r?:STAR]- (stard_node) "
+        query += ", tweet_node <-[retweet_r?:RETWEET]- (retweeted_node) "
+        query += ", tweet_node -[?:TWEET]-> (tweet_user) "
+        if user_node is not None:
+            query += ", tweet_node <-[own_star_r?:STAR]- user_node "
+            query += ", tweet_node <-[own_retweet_r?:RETWEET]- user_node "
+        query += "RETURN tweet_node.text, tweet_node.time, tweet_user.name, tweet_user.icon_url? "
+        query += ", count(stard_node), count(retweeted_node)"
+        if user_node is not None:
+            query += ", own_star_r, own_retweet_r "
+        else:
+            query += ", null, null "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # tweet の詳細情報を取得します(辞書で返す版)
+    def GetTweetAdvancedInfoFormated(self, tweet_id, user_name=None):
+        user_node = None
+        if user_name is not None:
+            user_node = self.GetUserNode(user_name)
+        tweet_list = self.GetTweetAdvancedInfoByNode(int(tweet_id), user_node=user_node)
+        if len(tweet_list) <= 0:
+            return {}
+        tweet = tweet_list[0]
+        tweet_dic = {}
+        tweet_dic['id'] = tweet_id
+        tweet_dic['text'] = tweet[0]
+        tweet_dic['unix_time'] = tweet[1]
+        tweet_dic['time'] = self.FormatTime(tweet[1])
+        tweet_dic['user_name'] = tweet[2]
+        tweet_dic['icon_url'] = tweet[3]
+        tweet_dic['stard_count'] = tweet[4] if tweet[4] is not None else 0
+        tweet_dic['retweeted_count'] = tweet[5] if tweet[5] is not None else 0
+        return tweet_dic

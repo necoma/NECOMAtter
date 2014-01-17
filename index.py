@@ -172,13 +172,14 @@ def userFollowedGet(user_name):
 # ユーザのタイムラインを返します
 @app.route('/timeline/<user_name>.json')
 def timelinePage_Get_Rest(user_name):
+    query_user_name = GetAuthenticatedUserName()
     since_time = None
     limit = None
     if 'since_time' in request.values:
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetUserTimelineFormated(user_name, limit, since_time)
+    tweet_list = world.GetUserTimelineFormated(user_name, limit, since_time, query_user_name=query_user_name)
     return json.dumps(tweet_list)
 
 # ユーザのタイムラインページ

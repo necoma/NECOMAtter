@@ -105,24 +105,24 @@ class NECOMATterTestCase(unittest.TestCase):
             self.assertEqual(qa['result'], result_list)
 
     # 何もしていないユーザが削除できることを確認
-    def test_DelUser(self):
+    def test_DeleteUser(self):
         # ユーザが最初は誰も居ないことを確認
         self.assertEqual([], self.world.GetUserNameList())
         # ユーザの作成はしておく
         self.assertTrue(self.world.AddUser("iimura", "password"))
         self.assertEqual([u'iimura'], self.world.GetUserNameList())
         # 関係ない名前のユーザは削除できない
-        self.assertFalse(self.world.DelUser("not defined user"))
+        self.assertFalse(self.world.DeleteUser("not defined user"))
         self.assertEqual([u'iimura'], self.world.GetUserNameList())
         # 正しい名前のユーザは削除できる
-        self.assertTrue(self.world.DelUser("iimura"))
+        self.assertTrue(self.world.DeleteUser("iimura"))
         self.assertEqual([], self.world.GetUserNameList())
         # 二回目の削除は失敗する
-        self.assertFalse(self.world.DelUser("iimura"))
+        self.assertFalse(self.world.DeleteUser("iimura"))
         self.assertEqual([], self.world.GetUserNameList())
 
     # フォロー関係にあるユーザを削除した場合、フォローがなくなることを確認
-    def test_DelUser_Followed(self):
+    def test_DeleteUser_Followed(self):
         # ユーザが最初は誰も居ないことを確認
         self.assertEqual([], self.world.GetUserNameList())
         # 二人ユーザを作成
@@ -137,7 +137,7 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertTrue(self.world.IsFollowed(iimura_node, limura_node))
         self.assertTrue(self.world.IsFollowed(limura_node, iimura_node))
         # ユーザを削除します
-        self.assertTrue(self.world.DelUser("iimura"))
+        self.assertTrue(self.world.DeleteUser("iimura"))
         # follow が自分だけしか残っていないことを確認します
         query = ""
         query += 'START user=node(*) '
@@ -148,7 +148,7 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertEqual([[u'limura']], result_list)
 
     # ユーザを削除した場合、API_KEYも消えることを確認します
-    def test_DelUser_APIKey(self):
+    def test_DeleteUser_APIKey(self):
         user_name = "iimura"
         password = "password"
         # ユーザを作成する
@@ -168,7 +168,7 @@ class NECOMATterTestCase(unittest.TestCase):
             result_list = []
         self.assertEqual([[api_key]], result_list)
         # ユーザを削除する
-        self.assertTrue(self.world.DelUser(user_name))
+        self.assertTrue(self.world.DeleteUser(user_name))
         # API_KEY が存在しなくなったことを確認する
         result_list = []
         try:
@@ -181,7 +181,7 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertEqual([], result_list)
 
     # ユーザを削除した場合、tweetは消えないことを確認します
-    def test_DelUser_Tweet(self):
+    def test_DeleteUser_Tweet(self):
         pass
 
     def test_FollowUserByName(self):
@@ -280,6 +280,29 @@ class NECOMATterTestCase(unittest.TestCase):
         query += 'RETURN user.name '
         result_list, metadata = cypher.execute(gdb, query)
         self.assertEqual([[u'iimura']], result_list)
+
+    def test_Tweet_DeleteUser(self):
+        # 一度tweetしたユーザがユーザを消された場合どうなるかのテスト
+        user_name = "iimura"
+        # ユーザを作成
+        self.assertTrue(self.world.AddUser(user_name, "password"))
+        iimura_node = self.world.GetUserNode(user_name)
+        # tweet する
+        tweetText = u"test tweet 日本語も入れる"
+        tweet_node = self.world.Tweet(iimura_node, tweetText)
+        self.assertIsNotNone(tweet_node)
+        tweet_id = tweet_node._id
+        # ツイートを取得します
+        tweet = self.world.GetTweetNodeFromIDFormatted(tweet_node._id, query_user_name=user_name)[0]
+        self.assertEqual(tweet_id, tweet['id'])
+        self.assertEqual(user_name, tweet['user_name'])
+        # ユーザを消します
+        self.assertTrue(self.world.DeleteUser(user_name))
+        # ツイートを取得します
+        tweet = self.world.GetTweetNodeFromIDFormatted(tweet_node._id, query_user_name=user_name)[0]
+        # 確認します
+        self.assertEqual(tweet_id, tweet['id'])
+        self.assertIsNone(tweet['user_name'])
 
     def test_Tweet_ReplyTo(self):
         # reply-to をつけた tweet ができることを確認する
@@ -549,13 +572,13 @@ class NECOMATterTestCase(unittest.TestCase):
         # 一つだけ取得できているはずです。
         self.assertEqual(1, len(get_tweet))
         # 取得された値は text, time, user_name, node の順の配列になっているはずです
-        (tweet_text, time, user_name, icon_url, node, star_count, retweet_count, my_star_r, my_retweet_r) = get_tweet[0]
+        (tweet_text, time, user_name, icon_url, node
+                , my_star_r, my_retweet_r
+                , retweet_time, retweeet_unix_time) = get_tweet[0]
         # id 等も同じ値になっているはずです
         self.assertEqual(tweet_node['text'], tweet_text)
         self.assertEqual(iimura_node['name'], user_name)
         self.assertEqual(tweet_node._id, node._id)
-        self.assertEqual(0, star_count)
-        self.assertEqual(0, retweet_count)
         self.assertIsNone(my_star_r)
         self.assertIsNone(my_retweet_r)
 
@@ -1198,7 +1221,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         new_list_dic_list = self.world.GetUserListListFormated(follower_user_name)
         self.assertEqual(list_dic_list, new_list_dic_list)
 
-    def test_DelOtherUserListByNode(self):
+    def test_DeleteOtherUserListByNode(self):
         # 作成されるリスト名
         list_name = u"list"
         # 存在しないリスト名
@@ -1245,6 +1268,168 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, follower_user_name, list_name))
         # 自分のリストへのフォローの削除は、存在していなければもちろん失敗します
         self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, follower_user_name, undefined_list_name))
+
+
+class NECOMATter_Retweet_TestCase(unittest.TestCase):
+    def setUp(self):
+        # 全てのノードやリレーションシップを削除します
+        gdb.clear()
+        self.world = NECOMATter("http://localhost:17474")
+        # ユーザ A, B, C を作っておきます。
+        self.user_node_list = []
+        for user_name in ['A', 'B', u"しー"]:
+            self.assertTrue(self.world.AddUser(user_name, "password"))
+            user_node = self.world.GetUserNode(user_name)
+            self.assertIsNotNone(user_node)
+            self.user_node_list.append(user_node)
+
+    def tearDown(self):
+        pass
+
+    def test_RetweetByName(self):
+        # tweetするノード
+        tweet_node = self.user_node_list[0]
+        # tweetするノードの名前
+        tweet_node_name = tweet_node['name']
+        # retweet するノード
+        retweet_node = self.user_node_list[1]
+        # retweet するノードの名前
+        retweet_node_name = retweet_node['name']
+        # tweet される文章
+        tweet_text = "tweet"
+        # retweetするノードをfollowするノード
+        follow_node = self.user_node_list[2]
+        # followするノードの名前
+        follow_node_name = follow_node['name']
+        # リストに入ってるメンバ(target_user_node)がtweetします
+        target_tweet_node = self.world.TweetByName(tweet_node_name, tweet_text)
+        self.assertIsNotNone(target_tweet_node)
+        target_tweet_node_id = target_tweet_node['id']
+        # retweetするノードのtimelineにはまだ何も無いはずです
+        self.assertEqual([], self.world.GetUserTimelineFormated(retweet_node_name, query_user_name=retweet_node_name))
+        # retweetします。
+        self.assertTrue(self.world.RetweetByName(retweet_node_name, target_tweet_node_id))
+        # timelineに増えるはずです
+        timeline_tweet_list = self.world.GetUserTimelineFormated(retweet_node_name, query_user_name=retweet_node_name)
+        self.assertEqual(1, len(timeline_tweet_list))
+        self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
+        self.assertEqual(True, timeline_tweet_list[0]['own_retweeted'])
+        self.assertEqual(tweet_node_name, timeline_tweet_list[0]['user_name'])
+        self.assertEqual(retweet_node_name, timeline_tweet_list[0]['retweet_user_name'])
+        self.assertEqual(True, timeline_tweet_list[0]['is_retweet'])
+        # followするノードはまだfollowしていないので、timelineには何も無いはずです
+        self.assertEqual([], self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name))
+        # followします
+        self.assertTrue(self.world.FollowUserByName(follow_node_name, retweet_node_name))
+        # followしたのでtimelineが増えるはずです
+        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
+        self.assertEqual(1, len(timeline_tweet_list))
+        self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
+        self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
+        self.assertEqual(tweet_node_name, timeline_tweet_list[0]['user_name'])
+        self.assertEqual(retweet_node_name, timeline_tweet_list[0]['retweet_user_name'])
+        self.assertEqual(True, timeline_tweet_list[0]['is_retweet'])
+        # unfollow すると消えるはずです
+        self.assertTrue(self.world.UnFollowUserByName(follow_node_name, retweet_node_name))
+        self.assertEqual([], self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name))
+        # followしなおします
+        self.assertTrue(self.world.FollowUserByName(follow_node_name, retweet_node_name))
+        # followしたのでtimelineが増えるはずです(二度目の確認になります)
+        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
+        self.assertEqual(1, len(timeline_tweet_list))
+        self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
+        self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
+        self.assertEqual(tweet_node_name, timeline_tweet_list[0]['user_name'])
+        self.assertEqual(retweet_node_name, timeline_tweet_list[0]['retweet_user_name'])
+        self.assertEqual(True, timeline_tweet_list[0]['is_retweet'])
+        # 最初にtweetした人をfollowします
+        self.assertTrue(self.world.FollowUserByName(follow_node_name, tweet_node_name))
+        # followしたのでtimelineが増えるはずです(retweetとtweetは別エントリとして取得されます)
+        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
+        #--
+        self.assertEqual(2, len(timeline_tweet_list))
+        self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
+        self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
+        self.assertEqual(tweet_node_name, timeline_tweet_list[0]['user_name'])
+        self.assertEqual(retweet_node_name, timeline_tweet_list[0]['retweet_user_name'])
+        self.assertEqual(True, timeline_tweet_list[0]['is_retweet'])
+        #--
+        self.assertEqual(False, timeline_tweet_list[1]['own_stard'])
+        self.assertEqual(False, timeline_tweet_list[1]['own_retweeted'])
+        self.assertEqual(tweet_node_name, timeline_tweet_list[1]['user_name'])
+        self.assertIsNone(timeline_tweet_list[1]['retweet_user_name'])
+        self.assertEqual(False, timeline_tweet_list[1]['is_retweet'])
+        # followされたユーザがユーザ登録を消します
+        self.assertTrue(self.world.DeleteUser(retweet_node_name))
+        # retweetしたユーザが消えたので、timelineから減るはずです
+        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
+        self.assertEqual(1, len(timeline_tweet_list))
+        self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
+        self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
+        self.assertEqual(tweet_node_name, timeline_tweet_list[0]['user_name'])
+        self.assertIsNone(timeline_tweet_list[0]['retweet_user_name'])
+        self.assertEqual(False, timeline_tweet_list[0]['is_retweet'])
+
+class NECOMATter_Star_TestCase(unittest.TestCase):
+    def setUp(self):
+        # 全てのノードやリレーションシップを削除します
+        gdb.clear()
+        self.world = NECOMATter("http://localhost:17474")
+        # ユーザ A, B, C, D を作っておきます。
+        self.user_node_list = []
+        for user_name in ['A', 'B', u"しー", u"でぃー"]:
+            self.assertTrue(self.world.AddUser(user_name, "password"))
+            user_node = self.world.GetUserNode(user_name)
+            self.assertIsNotNone(user_node)
+            self.user_node_list.append(user_node)
+
+    def tearDown(self):
+        pass
+
+    def test_AddStarByName(self):
+        # tweet するノード
+        tweet_user_node = self.user_node_list[0]
+        # tweet するノードの名前
+        tweet_user_node_name = tweet_user_node['name']
+        # tweet の内容
+        tweet_text = "tweet"
+        # (tweet_node)がtweetします
+        tweet_result = self.world.TweetByName(tweet_user_node_name, tweet_text)
+        self.assertIsNotNone(tweet_result)
+        tweet_node_id = tweet_result['id']
+        # 最初はtweet_node にはstarがついていないはずです
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_node_id)
+        self.assertEqual(1, len(tweet_list))
+        tweet_dic = tweet_list[0]
+        self.assertEqual(tweet_node_id, tweet_dic['id'])
+        self.assertFalse(tweet_dic['own_stard'])
+        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        self.assertEqual(tweet_node_id, tweet_dic['id'])
+        self.assertEqual(tweet_text, tweet_dic['text'])
+        self.assertEqual(tweet_result['unix_time'], tweet_dic['unix_time'])
+        self.assertEqual(tweet_result['time'], tweet_dic['time'])
+        self.assertEqual(tweet_user_node_name, tweet_dic['user_name'])
+        self.assertEqual(0, tweet_dic['stard_count'])
+        self.assertEqual(0, tweet_dic['retweeted_count'])
+        # star をつけます
+        self.assertTrue(self.world.AddStarByName(self.user_node_list[1]['name'], tweet_node_id))
+        self.assertTrue(self.world.AddStarByName(self.user_node_list[2]['name'], tweet_node_id))
+        self.assertTrue(self.world.AddStarByName(self.user_node_list[3]['name'], tweet_node_id))
+        # star の数が増えているはずです
+        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        self.assertEqual(3, tweet_dic['stard_count'])
+        # star を減らします
+        self.assertTrue(self.world.DeleteStarByName(self.user_node_list[1]['name'], tweet_node_id))
+        # star の数が減っているはずです
+        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        self.assertEqual(2, tweet_dic['stard_count'])
+        # 二重にstar をつけようとすると失敗します
+        self.assertFalse(self.world.AddStarByName(self.user_node_list[2]['name'], tweet_node_id))
+        # 二重にstarを外そうとしても失敗します
+        self.assertFalse(self.world.DeleteStarByName(self.user_node_list[1]['name'], tweet_node_id))
+        # star の数に変化は無いはずです
+        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        self.assertEqual(2, tweet_dic['stard_count'])
 
 
 if __name__ == '__main__':
