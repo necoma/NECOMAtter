@@ -51,7 +51,7 @@ $(document).ready(
 	function(){
 		// tweetはページが読み込まれた後に読み込みを開始します。
 		// 最初は now loading... と書いてあるので、読み込みが終わった時点で空文字に上書きします。
-		LoadTweets(function() { $(targetID).html("<div></div>"); }, getTweetPath, targetID);
+		LoadTweets(function() { $(targetID).html(""); }, getTweetPath, targetID);
 	});
 
 // フォローとアンフォローのボタンは正しくサインインしていて、自分以外のユーザの場合にのみ表示させます
@@ -99,7 +99,7 @@ function Tweet(){
 		});
 		return;
 	}
-	PostTweet(user, text, function(data){
+	PostTweet(user, text, "", function(data){
 		//console.log("tweet post end.");
 		//console.log(data);
 		html = RenderTimelineToHTML([data]);

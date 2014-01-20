@@ -238,22 +238,34 @@ class NECOMATter():
                 }
 
     # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
-    def GetUserTweet(self, user_node, limit=None, since_time=None):
+    def GetUserTweet(self, user_node, limit=None, since_time=None, query_user_node=None):
         if user_node is None:
             logging.error("User is undefined.")
             return []
         # ユーザのID を取得します
         user_id = user_node._id
+        query_user_id = 0
+        if query_user_node is not None:
+            query_user_id = query_user_node._id
         # クエリを作ります
         query = ""
         query += "START user = node(%d) " % user_id
+        if query_user_node is not None:
+            query += ", query_user = node(%d) " % query_user_id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
-        query += ", tweet <-[my_star_r?:STAR]- (user) "
-        query += ", tweet -[my_retweet_r?:RETWEET]-> (user) "
+        query += ", tweet -[?:TWEET]-> (tweet_user) "
+        if query_user_node is not None:
+            query += ", tweet <-[my_star_r?:STAR]- (query_user) "
+            query += ", tweet -[my_retweet_r?:RETWEET]-> (query_user) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, user.name, user.icon_url?, tweet, my_star_r, my_retweet_r, null, tweet_r.time? "
-        query += "ORDER BY tweet.time DESC "
+        query += "RETURN tweet.text, tweet.time, tweet_user.name?, tweet_user.icon_url?, tweet"
+        if query_user_node is not None:
+            query += ", my_star_r, my_retweet_r, tweet_r "
+        else:
+            query += ", null, null, null"
+        query += ", user.name, tweet_r.time? "
+        query += "ORDER BY tweet_r.time? DESC, tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)
@@ -270,12 +282,15 @@ class NECOMATter():
         return result_dic
 
     # ユーザのtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
-    def GetUserTweetFormated(self, user_name, limit=None, since_time=None):
+    def GetUserTweetFormated(self, user_name, limit=None, since_time=None, query_user_name=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("User %s is undefined." % user_name)
             return []
-        tweet_list = self.GetUserTweet(user_node, limit=limit, since_time=since_time)
+        query_user_node = None
+        if query_user_name is not None:
+            query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetUserTweet(user_node, limit=limit, since_time=since_time, query_user_node=query_user_node)
         return self.FormatTweet(tweet_list)
 
     # ユーザのタイムラインを取得します。
@@ -297,13 +312,13 @@ class NECOMATter():
             query += ", tweet -[my_retweet_r?:RETWEET]-> (query_user) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
-        query += "RETURN tweet.text, tweet.time, tweet_user.name?, target.icon_url?, tweet "
+        query += "RETURN tweet.text, tweet.time, tweet_user.name?, tweet_user.icon_url?, tweet "
         if query_user_node is not None:
             query += ", my_star_r, my_retweet_r, tweet_r "
         else:
             query += ", null, null, null "
         query += ", target.name?, tweet_r.time? "
-        query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
+        query += "ORDER BY tweet_r.time? DESC, tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
         result_list, metadata = cypher.execute(self.gdb, query)

@@ -104,13 +104,14 @@ def faviconPage():
 
 @app.route('/user/<user_name>.json')
 def userPage_Get_Rest(user_name):
+    auth_user_name = GetAuthenticatedUserName()
     since_time = None
     limit = None
     if 'since_time' in request.values:
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetUserTweetFormated(user_name, limit=limit, since_time=since_time)
+    tweet_list = world.GetUserTweetFormated(user_name, limit=limit, since_time=since_time, query_user_name=auth_user_name)
     return json.dumps(tweet_list)
 
 # ユーザページ
@@ -473,8 +474,44 @@ def list_user_page(user_name, list_name):
 def list_user_page_(user_name, list_name):
     return render_template('user_list_list_page.html', user_name=user_name)
 
+# tweet に STAR をつける
+@app.route('/tweet/<int:tweet_id>/add_star.json', methods=['POST', 'PUT'])
+def add_star_post(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if world.AddStarByName(auth_user_name, tweet_id) == True:
+        return json.dumps({'result': 'ok', 'description': 'add star to tweetID %d' % tweet_id})
+    abort(400, {'result': 'error', 'description': 'add star to tweetID %d failed.' % tweet_id})
+    
+# tweet から STAR を外す
+@app.route('/tweet/<int:tweet_id>/delete_star.json', methods=['POST', 'PUT'])
+def delete_star_post(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if world.DeleteStarByName(auth_user_name, tweet_id) == True:
+        return json.dumps({'result': 'ok', 'description': 'delete star to tweetID %d' % tweet_id})
+    abort(400, {'result': 'error', 'description': 'delete star to tweetID %d failed.' % tweet_id})
+
+# tweet を RETWEET する
+@app.route('/tweet/<int:tweet_id>/retweet.json', methods=['POST', 'PUT'])
+def retweet_post(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if world.RetweetByName(auth_user_name, tweet_id) == True:
+        return json.dumps({'result': 'ok', 'description': 'retweet tweetID %d success.' % tweet_id})
+    abort(400, {'result': 'error', 'description': 'retweet tweetID %d failed.' % tweet_id})
+    
+# RETWEET を取り消す
+@app.route('/tweet/<int:tweet_id>/retweet_cancel.json', methods=['POST', 'PUT'])
+def retweet_cancel_post(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if world.UnRetweetByName(auth_user_name, tweet_id) == True:
+        return json.dumps({'result': 'ok', 'description': 'retweet cancel tweetID %d success.' % tweet_id})
+    abort(400, {'result': 'error', 'description': 'retweet cancel tweetID %d failed.' % tweet_id})
+
+
 if __name__ == '__main__':
-    #app.run('0.0.0.0', port=1000, debug=True)
-    #app.run('::', port=8000, debug=True)
-    http_server = WSGIServer(('::', 8000), app)
+    port = 8000
+    if len(sys.argv) > 1 and int(sys.argv[1]) > 1024:
+        port = int(sys.argv[1])
+    #app.run('0.0.0.0', port=port, debug=True)
+    #app.run('::', port=port, debug=True)
+    http_server = WSGIServer(('::', port), app)
     http_server.serve_forever()

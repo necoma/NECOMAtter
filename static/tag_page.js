@@ -44,7 +44,7 @@ $(document).ready(
 	function(){
 		// tweetはページが読み込まれた後に読み込みを開始します。
 		// 最初は now loading... と書いてあるので、読み込みが終わった時点で空文字に上書きします。
-		LoadTweets(function() { $('#Tweet_text').html("<div></div>"); });
+		LoadTweets(function() { $('#Tweet_text').html(""); });
 	});
 
 function ReadMoreButtonClicked(){

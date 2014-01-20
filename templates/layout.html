@@ -36,7 +36,7 @@
 			<span class="icon-bar"></span>
 			<span class="icon-bar"></span>
 		</button>
-		<a class="navbar-brand" href="/"><span class="glyphicon glyphicon-home"></span> NECOMATter</a>
+		<a class="navbar-brand" href="/"><span class="glyphicon glyphicon-home"></span> <span class="hidden-xs">NECOMATter</span></a>
 	</div>
 	<div class="collapse navbar-collapse" id="navbar-collapse">
 	{% if 'user_name' in session and 'session_key' in session %}
@@ -50,14 +50,11 @@
 				</ul>
 			</li>
 		</ul>
-		<ul class="nav navbar-nav navbar-right">
-			<li>
-				<!-- Tweet button -->
-				<button class="btn btn-default" data-toggle="modal" data-target="#GlobalTweetModal">
-					<span class="glyphicon glyphicon-pencil"></span> Tweet
-				</button>
-			</li>
-		</ul>
+		<div class="nav navbar-nav navbar-right">
+			<button class="btn btn-default" data-toggle="modal" data-target="#GlobalTweetModal">
+				<span class="glyphicon glyphicon-pencil"></span> Tweetする
+			</button>
+		</div>
 	{% endif %}
 	</div>
 </nav>
@@ -70,8 +67,11 @@
         <h4 class="modal-title" id="GlobalTweetModalLabel">Tweet</h4>
       </div>
       <div class="modal-body">
+	<div id="GlobalTweetModalReplyToTweet">
+	</div>
         <form id="GlobalTweetModalForm" method="POST" class="form-horizontal">
 		<textarea id="GlobalTweetModalText" class="form-control" rows="3" name="tweet"></textarea>
+		<input id="GlobalTweetModalReplyTo" name="reply_to" type="hidden" value="">
         </form>
 	<span class="help-block" id="GlobalTweetFormHelp"></span>
       </div>
@@ -85,12 +85,15 @@
 {% block body %}{% endblock %}
 <hr>
 <a href="/">NECOMATer</a>(<a href="http://www.necoma-project.jp/">NECOMA Project</a>)
-Powered by <a href="http://www.python.org/">Python</a>, <a href="http://www.neo4j.org/">Neo4j</a>.
+Powered by <a href="http://www.python.org/">Python</a>, <a href="http://www.neo4j.org/">Neo4j</a>, <a href="http://getbootstrap.com/">bootstrap</a>.
 illustration from <a href="http://yaplog.jp/rochirico/archive/566">ROBIN</a>, <a href="http://kage-design.com/wp/?p=711">SILHOUETTE DESIGN</a>.
 {% if 'user_name' in session and 'session_key' in session %}
 You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
 {% else %}
 <span id="AuthUserName"></span>
 {% endif %}
+<div>
+	Copyright &copy; 2013-2014 <a href="http://www.necoma-project.jp/">NECOMA Project</a> All Rights Reserved.
+</div>
 </body>
 
