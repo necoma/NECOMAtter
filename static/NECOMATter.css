@@ -101,3 +101,13 @@ body {
 #Tweet_text .tweet_column:nth-child(even){
 	background-color: #eeffff;
 }
+
+/* tweet のテキストの奇数行 reply_toのダイアログ用 */
+#GlobalTweetModalReplyToTweet .tweet_column:nth-child(odd){
+	background-color: #ffeeee;
+}
+
+/* tweet のテキストの偶数行 reply_toのダイアログ用 */
+#GlobalTweetModalReplyToTweet .tweet_column:nth-child(even){
+	background-color: #eeffff;
+}
