@@ -24,6 +24,38 @@ function ReplyButtonClick(tweet_id, tweet_index, text, target_user_name){
 		});
 }
 
+// starをつけます
+function Star(tweet_id, success_func, error_func){
+	PostJSON("/tweet/" + tweet_id + "/add_star.json"
+		, {}
+		, function(){
+			if(success_func){
+				success_func();
+			}
+		}
+		, function(){
+			if(error_func){
+				error_func();
+			}
+		});
+}
+
+// starをキャンセルします
+function StarCancel(tweet_id, success_func, error_func){
+	PostJSON("/tweet/" + tweet_id + "/delete_star.json"
+		, {}
+		, function(){
+			if(success_func){
+				success_func();
+			}
+		}
+		, function(){
+			if(error_func){
+				error_func();
+			}
+		});
+}
+
 // retweetします
 function Retweet(tweet_id, success_func, error_func){
 	PostJSON("/tweet/" + tweet_id + "/retweet.json"
@@ -54,6 +86,47 @@ function RetweetCancel(tweet_id, success_func, error_func){
 				error_func();
 			}
 		});
+}
+
+// Starボタンが押された場合の処理
+function StarButtonClick(tweet_id, star_button_id){
+	button_element_list = $('#' + star_button_id);
+	if(button_element_list.length <= 0)
+	{
+		return;
+	}
+	var star_html = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">へぇを取り消す</span>';
+	var not_star_html = '<span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">へぇ</span>';
+
+	var element = button_element_list[0];
+	var class_name = element.className;
+	// StarボタンまわりのAJAX呼び出し前にボタンをdisableにします
+	button_element_list.attr('disabled', 'disabled');
+	if(class_name.indexOf('btn-default') > 0){
+		Star(tweet_id
+			, function(){
+				// success
+				element.className = class_name.replace('btn-default', 'btn-success');
+				element.innerHTML = star_html;
+				button_element_list.removeAttr('disabled');
+			}
+			, function(){
+				// failed
+				button_element_list.removeAttr('disabled');
+			});
+	}else{
+		StarCancel(tweet_id
+			, function(){
+				// success
+				element.className = class_name.replace('btn-success', 'btn-default');
+				element.innerHTML = not_star_html;
+				button_element_list.removeAttr('disabled');
+			}
+			, function(){
+				// failed
+				button_element_list.removeAttr('disabled');
+			});
+	}
 }
 
 // リツイートボタンが押された場合の処理
@@ -186,7 +259,16 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			tweet += 'class="btn btn-default btn-mini" ';
 		}
 		tweet += 'id="' + retweet_button_id + '" href="javascript: RetweetButtonClick(' + tweet_id + ", '" + retweet_button_id + "'" + ');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">' + retweet_text + '</span></a> ';
-		tweet += '<button class="btn btn-mini" type="button"><span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">へぇ</span></button> ';
+		var star_button_id = "StarButton_ID_" + tweet_id;
+		var star_button_text = '<span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">へぇ</span>';
+		var star_button_class = 'class="btn btn-default btn-mini"';
+		if(is_own_stard){
+			star_text = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">へぇを取り消す</span>';
+			star_button_class = 'class="btn btn-success btn-mini"';
+		}
+		tweet += '<a id="' + star_button_id + '" '
+			+ 'href="javascript: StarButtonClick(' + tweet_id + ", '" + star_button_id + "'" + ');" '
+			+ star_button_class + ' type="button">' + star_button_text + '</a> ';
 	}
 	tweet += '</div>';
 	tweet += '<span class="ImageFloatClear"></span>';
