@@ -263,7 +263,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 		var star_button_text = '<span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">へぇ</span>';
 		var star_button_class = 'class="btn btn-default btn-mini"';
 		if(is_own_stard){
-			star_text = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">へぇを取り消す</span>';
+			star_button_text = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">へぇを取り消す</span>';
 			star_button_class = 'class="btn btn-success btn-mini"';
 		}
 		tweet += '<a id="' + star_button_id + '" '
