@@ -1,0 +1,62 @@
+<html>
+<head><title>NECOMATter BOT create tutorial</title>
+<link href="/static/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="/static/NECOMATter.css">
+</head>
+<body>
+<h2>How to create NECOMATter BOT</h2>
+<div>
+When you make BOT in NECOMATter, it is necessary to perform two of the making of the BOT-user and the generation of API-KEY.
+I perform the making of the BOT-user from the <a href="/signup">sign up page</a>.
+When you make a user and enter the signature in NECOMATter, a page of the <a href="/user_setting/">API-KEY setting page</a> is available. Please make API-KEY in this page.
+</div>
+<div>
+There is two kinds of BOT of NECOMATter.
+<ul>
+	<li><a href="#POST_BOT">POST BOT</a></li>
+	<li><a href="#STREAM_BOT">STREAM BOT</a></li>
+</ul>
+POST BOT is BOT to perform tweet.
+STREAM BOT is BOT to watch tweet.
+In many cases, STREAM BOT will have the function of the POST.
+</div>
+
+<h3 id="POST_BOT">POST BOT</h3>
+<div>
+	POST_BOT performs tweet by performing a POST of the data of the JSON form for the following URLs.
+	<ul>
+		<li>REST URL: <a href="/post.json">/post.json</a></li>
+		<li>HTTP METHOD: POST</li>
+		<li>required header: <code>Content-Type: application/json; charset=utf-8</code></li>
+		<li>POST data: JSON
+		<code>
+			{
+				"user": "user name string",
+				"api_key": "API-KEY string",
+				"text": "tweet text"
+			}
+		</code>
+	</ul>
+</div>
+
+<h3 id="STREAM_BOT">STREAM BOT</h3>
+<div>
+	STREAM_BOT is to perform a POST of the data of the JSON form for the following URLs and can watch tweet stream.
+	<ul>
+		<li>REST URL: <a href="/stream/regexp.json">/stream/regexp.json</a></li>
+		<li>HTTP METHOD: POST</li>
+		<li>required header: <code>Content-Type: application/json; charset=utf-8</code></li>
+		<li>POST data: JSON
+		<code>
+			{
+				"user": "user name string",
+				"api_key": "API-KEY string",
+				"regexp": "regular expression", 
+				"description": "BOT description text"
+			}
+		</code>
+	</ul>
+</div>
+</div>
+</body>
+</html>
