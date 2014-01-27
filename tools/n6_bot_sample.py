@@ -99,7 +99,7 @@ for line in req.iter_lines(chunk_size=1):
                 n6_result = "no result from n6"
             else:
                 print "n6 result got."
-            tweet_result = PostTweet(user_name, api_key, "n6 search ip=%s result: %s" % (match_result, n6_result), tweet_id)
+            tweet_result = PostTweet(user_name, api_key, "n6 search ip: #%s result: %s" % (match_result, n6_result), tweet_id)
             if tweet_result is not None and 'id' in tweet_result:
                 # 自分のtweetした番号は覚えておきます
                 my_tweet_id[tweet_result['id']] = True
