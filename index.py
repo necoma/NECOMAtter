@@ -329,6 +329,10 @@ def signinProcess():
 # サインアウトページ. このページが開いたら強制的にサインアウトさせます
 @app.route('/signout')
 def signoutPage():
+    user_name = GetAuthenticatedUserName()
+    if user_name is not None:
+        # DB側のセッションキーも消しておきます
+        world.DeleteUserSessionKey(user_name)
     session.pop('session_key', None)
     return redirect(url_for('topPage'))
 
@@ -506,6 +510,13 @@ def retweet_cancel_post(tweet_id):
         return json.dumps({'result': 'ok', 'description': 'retweet cancel tweetID %d success.' % tweet_id})
     abort(400, {'result': 'error', 'description': 'retweet cancel tweetID %d failed.' % tweet_id})
 
+#  を取り消す
+@app.route('/tweet/<int:tweet_id>/retweet_user_list.json', methods=['GET'])
+def retweet_users_get_json(tweet_id):
+    retweet_user_list = world.GetTweetRetweetUserInfoFormatted(tweet_id)
+    if retweet_user_list is None:
+        abort(500, {'result': 'error', 'description': 'get retweet users failed.'})
+    return json.dumps({'result': 'ok', 'retweet_user_list': retweet_user_list })
 
 if __name__ == '__main__':
     port = 8000

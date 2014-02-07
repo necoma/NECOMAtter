@@ -1,21 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
-<script>
-$(document).ready(function(){
-		$.getJSON('/user_name_list.json',
-			{},
-			function(user_name_list, textStatus){
-				var html = "";
-				for(var i = 0, len = user_name_list.length; i < len; i++){
-					user_name = user_name_list[i];
-					html += '<a href="/user/' + user_name + '">' + user_name + '</a> ';
-				}
-				$('#UserList').html(html);
-			}
-			);
-		}
-);
-</script>
+<script src="/static/index.js"></script>
   <h1>NECOMATter</h1>
   {% if 'user_name' not in session or 'session_key' not in session %}
     <p><a href="{{ url_for('signinPage') }}">sign in</a></p>
@@ -23,15 +8,55 @@ $(document).ready(function(){
   {% else %}
   <p><a href="/timeline/{{ session['user_name'] }}">{{ session['user_name']}} timeline</a></p>
   {% endif %}
-  User List: <span id="UserList">now loading...</span>
+  <div id="UserList"></div>
   <p>
 	  <a href="/stream/client_list">alive stream watcher list</a>
   </p>
   <a href="/static/bot_tutorial.html">How to make NECOMATter BOT</a>
   <hr>
   <div class="memo">
-	  <h3>実装状況？メモ。</h3>
-	  なんとなくできていること
+	  <h3>link</h3>
+	  <ul>
+		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=necoma.git;a=summary">git/necoma</a></li>
+		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=summary">git/NECOMATter</a></li>
+		  <li><a href="http://ns3-dev.sekiya-lab.info/ganglia/">ganglia</a></li>
+		  <li><a href="http://hadoop-master.sekiya-lab.info:8088/cluster">hadoop cluster</a></li>
+		  <li><a href="http://docs.neo4j.org/refcard/1.9/">Cypher query language for Neo4j</a>, <a href="http://docs.neo4j.org/chunked/stable/cypher-query-lang.html">other</a>, <a href="http://lewuathe.com/blog/2013/09/20/neo4jfalseshi-ifang-1/">JP doc</a></li>
+		  <li><a href="http://docs.neo4j.org/chunked/stable/data-modeling-examples.html">Neo4j data modeling examples</a></li>
+		  <li><a href="http://book.py2neo.org/en/latest/">Py2neo</a>: Python library for Neo4j</li>
+		  <li><a href="http://flask.pocoo.org/">Flask</a>: microframework for Python</li>
+		  <li><a href="https://dev.twitter.com/docs/api/1.1">Twitter REST API v1.1 Resources</a></li>
+		  <li>Neo4J上のデータのリレーションシップやらノードが増えてきたので<a href="static/data_relation.html">メモ</a>を残すようにした。</li>
+	  </ul>
+  </div>
+  <div class="memo">
+	  <h3>メモ</h3>
+	  <div class="panel-group" id="DevMemo">
+		  <div class="panel panel-default">
+			  <div class="panel-heading">
+				  <h4 class="panel-title">
+					  <a class="accordion-toggle" data-toggle="collapse" data-parent="#DevMemo" href="#DevMemo-4">BOTの作り方</a>
+				  </h4>
+			  </div>
+			  <div id="DevMemo-4" class="panel-collapse collapse in">
+				  <div class="panel-body">
+		  <ul>
+			  <li>NECOMATter にユーザ登録をする(sign up)
+			  <li>サインインした状態で<a href="/user_setting/">API key の設定ページ</a>を開く
+			  <li>create key ボタンを押してAPI keyを生成する
+			  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=blob;f=tools/hello_bot.py;h=b0e3216ca26283eeab89dd47c103e3b18b827e3f;hb=HEAD">hello_bot.py</a>を参考にしてBOTを作る
+		  </ul>
+				  </div>
+			  </div>
+		  </div>
+		  <div class="panel panel-default">
+			  <div class="panel-heading">
+				  <h4 class="panel-title">
+					  <a class="accordion-toggle" data-toggle="collapse" data-parent="#DevMemo" href="#DevMemo-1">なんとなくできていること</a>
+				  </h4>
+			  </div>
+			  <div id="DevMemo-1" class="panel-collapse collapse in">
+				  <div class="panel-body">
 	  <ul>
 	          <li>ユーザの概念</li>
 	          <li>tweet する・見る</li>
@@ -43,7 +68,17 @@ $(document).ready(function(){
 	          <li>streaming timeline (今のところpublic timeline(全ての人のtweetが流れてくる)だけ)</li>
 		  <li>listの概念</li>
           </ul>
-          まだできていないこと(できるようにしようと思っている)
+				  </div>
+			  </div>
+		  </div>
+		  <div class="panel panel-default">
+			  <div class="panel-heading">
+				  <h4 class="panel-title">
+					  <a class="accordion-toggle" data-toggle="collapse" data-parent="#DevMemo" href="#DevMemo-2">まだできていないこと(できるようにしようと思っている)</a>
+				  </h4>
+			  </div>
+			  <div id="DevMemo-2" class="panel-collapse collapse in">
+				  <div class="panel-body">
           <ul>
 		  <li>unit test</li>
 	          <li>REST interfaces(200 OK を返すのに失敗しているとかが残っている)</li>
@@ -52,38 +87,33 @@ $(document).ready(function(){
 		  <li>ユーザアイコン(初期アバターアイコンが勝手に選択されるだけになっていて、ユーザがアップロード等をするインタフェースが無い)</li>
 		  <li>@ (reply とは別の概念？単にユーザにメッセージを飛ばすだけでreplyでは無いはず)</li>
           </ul>
-	  できないこと(とりあえずは必要ないと思っている)
+				  </div>
+			  </div>
+		  </div>
+		  <div class="panel panel-default">
+			  <div class="panel-heading">
+				  <h4 class="panel-title">
+					  <a class="accordion-toggle" data-toggle="collapse" data-parent="#DevMemo" href="#DevMemo-3">できないこと(とりあえずは必要ないと思っている)</a>
+				  </h4>
+			  </div>
+			  <div id="DevMemo-3" class="panel-collapse collapse in">
+				  <div class="panel-body">
 	  <ul>
 		  <li>ユーザプロフィール</li>
 		  <li>d</li>
 		  <li>鍵付きアカウント</li>
 	  </ul>
-  </div>
-  <div class="memo">
-	  <h3>memo link</h3>
-	  <ul>
-		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=necoma.git;a=summary">git/necoma</a></li>
-		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=summary">git/NECOMATter</a></li>
-		  <li><a href="http://ns3-dev.sekiya-lab.info/ganglia/">ganglia</a></li>
-		  <li><a href="http://hadoop-master.sekiya-lab.info:8088/cluster">hadoop cluster</a></li>
-		  <li><a href="http://docs.neo4j.org/refcard/1.9/">Cypher query language for Neo4j</a>, <a href="http://docs.neo4j.org/chunked/stable/cypher-query-lang.html">other</a>, <a href="http://lewuathe.com/blog/2013/09/20/neo4jfalseshi-ifang-1/">JP doc</a></li>
-		  <li><a href="http://docs.neo4j.org/chunked/stable/data-modeling-examples.html">Neo4j data modeling examples</a></li>
-		  <li><a href="http://book.py2neo.org/en/latest/">Py2neo</a>: Python library for Neo4j</li>
-		  <li><a href="http://flask.pocoo.org/">Flask</a>: microframework for Python</li>
-		  <li><a href="https://dev.twitter.com/docs/api/1.1">Twitter REST API v1.1 Resources</a></li>
-	  </ul>
-  </div>
-  <div class="memo">
-	  実装時メモ
-	  <ul>
-		  <li>BOTの作り方
-		  <ul>
-			  <li>NECOMATter にユーザ登録をする(sign up)
-			  <li>サインインした状態で<a href="/user_setting/">API key の設定ページ</a>を開く
-			  <li>create key ボタンを押してAPI keyを生成する
-			  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=blob;f=tools/hello_bot.py;h=b0e3216ca26283eeab89dd47c103e3b18b827e3f;hb=HEAD">hello_bot.py</a>を参考にしてBOTを作る
-		  </ul>
-		  <li>XSS対策
+				  </div>
+			  </div>
+		  </div>
+		  <div class="panel panel-default">
+			  <div class="panel-heading">
+				  <h4 class="panel-title">
+					  <a class="accordion-toggle" data-toggle="collapse" data-parent="#DevMemo" href="#DevMemo-5">XSS対策</a>
+				  </h4>
+			  </div>
+			  <div id="DevMemo-5" class="panel-collapse collapse in">
+				  <div class="panel-body">
 		  <ul>
 			  <li>Python <a href="http://docs.python.jp/2.7/library/xml.sax.utils.html">xml.sax.utils.escape</a> を使って'&amp;', '&gt;', '&lt;', '&quot;' をエスケープしている</li>
 			  <li>ユーザから入力される文字列の扱い
@@ -95,6 +125,18 @@ $(document).ready(function(){
 			  という形になっているのでXSSについては大丈夫？なの？
 			  </li>
 		  </ul>
+				  </div>
+			  </div>
+		  </div>
+		  <div class="panel panel-default">
+			  <div class="panel-heading">
+				  <h4 class="panel-title">
+					  <a class="accordion-toggle" data-toggle="collapse" data-parent="#DevMemo" href="#DevMemo-6">雑多</a>
+				  </h4>
+			  </div>
+			  <div id="DevMemo-6" class="panel-collapse collapse in">
+				  <div class="panel-body">
+					  <ul>
 		  <li>SQL injection的なものへの対策
 		  <ul>
 			  <li>使っているのは<a href="http://www.neo4j.org/">Neo4j</a>というグラフデータベースの<a href="http://www.neo4j.org/learn/cypher">Cypher</a>というクエリ言語なので、SQL injection的な攻撃ができるはず。</li>
@@ -111,9 +153,22 @@ $(document).ready(function(){
 		  </ul>
 		  <li>なんちゃって API Key がまんまパスワードなので、どうしたものか……
 		  </li>
-		  <li>というか、生パスワードが飛び交ったりしている時点でもうセキュリティ関係は全然駄目……
-		  </li>
+		  <li>というか、生パスワードが飛び交ったりしている時点でもうセキュリティ関係は全然駄目……</li>
 	  </ul>
-	  <li>Neo4J上のデータのリレーションシップやらノードが増えてきたので<a href="static/data_relation.html">メモ</a>を残すようにした。
+				  </div>
+			  </div>
+		  </div>
+		  <!--div class="panel panel-default">
+			  <div class="panel-heading">
+				  <h4 class="panel-title">
+					  <a class="accordion-toggle" data-toggle="collapse" data-parent="#DevMemo" href="#DevMemo-4">BOTの作り方</a>
+				  </h4>
+			  </div>
+			  <div id="DevMemo-4" class="panel-collapse collapse in">
+				  <div class="panel-body">
+				  </div>
+			  </div>
+		  </div-->
+	  </div>
   </div>
 {% endblock %}

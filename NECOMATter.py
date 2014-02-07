@@ -365,6 +365,16 @@ class NECOMATter():
         user_node['session_expire_time'] = time.time() + self.SessionExpireSecond
         return session_key
 
+    # ユーザセッションを無効の状態にします
+    def DeleteUserSessionKey(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.warning("User %s is undefined." % user_name)
+            return None
+        user_node['session_key'] = ''
+        user_node['session_expire_time'] = time.time() - 1;
+        return user_node
+
     # DBに登録されるパスワードのハッシュ値を取得します
     def GetPasswordHash(self, user_name, password):
         if isinstance(user_name, unicode):
@@ -1438,3 +1448,60 @@ class NECOMATter():
         tweet_dic['stard_count'] = tweet[4] if tweet[4] is not None else 0
         tweet_dic['retweeted_count'] = tweet[5] if tweet[5] is not None else 0
         return tweet_dic
+
+    # tweet をretweetしたユーザの情報を取得します
+    def GetTweetRetweetUserInfoByNode(self, tweet_id):
+        query = ""
+        query += "START tweet_node=node(%d) " % tweet_id
+        query += "MATCH tweet_node -[:RETWEET]-> (retweet_user) "
+        query += "RETURN retweet_user, retweet_user.name, retweet_user.icon_url? "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # tweetをretweetしたユーザの情報を取得します(フォーマット版)
+    def GetTweetRetweetUserInfoFormatted(self, tweet_id):
+        info_list = self.GetTweetRetweetUserInfoByNode(int(tweet_id))
+        if len(info_list) <= 0:
+            return []
+        result_info_list = []
+        for info in info_list:
+            if len(info) != 3:
+                continue
+            retweet_user_node = info[0]
+            retweet_user_name = info[1]
+            retweet_user_icon_url = self.GetUserAbaterIconURL(retweet_user_node)
+            retweet_dic = {}
+            retweet_dic['id'] = retweet_user_node._id if retweet_user_node is not None else 0
+            retweet_dic['name'] = retweet_user_name
+            retweet_dic['icon_url'] = retweet_user_icon_url
+            result_info_list.append(retweet_dic)
+        return result_info_list
+
+    # tweet をstarしたユーザの情報を取得します
+    def GetTweetStardUserInfoByNode(self, tweet_id):
+        query = ""
+        query += "START tweet_node=node(%d) " % tweet_id
+        query += "MATCH tweet_node -[:STAR]-> (stard_user) "
+        query += "RETURN stard_user, stard_user.name, stard_user.icon_url? "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # tweetをstarしたユーザの情報を取得します(フォーマット版)
+    def GetTweetStaredUserInfoFormatted(self, tweet_id):
+        info_list = self.GetTweetStardUserInfoByNode(int(tweet_id))
+        if len(info_list) <= 0:
+            return []
+        result_info_list = []
+        for info in info_list:
+            if len(info) != 3:
+                continue
+            stard_user_node = info[0]
+            stard_user_name = info[1]
+            stard_user_icon_url = self.GetUserAbaterIconURL(stard_user_node)
+            stard_dic = {}
+            stard_dic['id'] = stard_user_node._id if stard_user_node is not None else 0
+            stard_dic['name'] = stard_user_name
+            stard_dic['icon_url'] = stard_user_icon_url
+            result_info_list.append(stard_dic)
+        return result_info_list
+

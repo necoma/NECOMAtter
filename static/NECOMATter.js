@@ -21,7 +21,62 @@ function ReplyButtonClick(tweet_id, tweet_index, text, target_user_name){
 		, function(data, textStatus, jqxHR){
 			var html = RenderTimelineToHTML(data, true);
 			$('#GlobalTweetModalReplyToTweet').html(html);
+			AssignTweetColumnClickEvent();
 		});
+}
+
+// tweet が追加された時に呼び出されて、tweet column がクリックされた時のイベントを追加します
+function AssignTweetColumnClickEvent(){
+	$('.tweet_column').unbind('click', TweetColumnClicked); // 一旦イベントを解除して
+	$('.tweet_column').click(TweetColumnClicked); // 再登録します
+}
+
+// ツイートで、link以外の部分をクリックした場合に反応するためのイベントハンドラです
+function TweetColumnClicked(){
+	var tweet_column = this;
+	var tweet_id_name = this.id;
+	var description_object = $("#" + tweet_id_name + " .TweetDescription");
+	var tweet_id = this.id.replace('TweetID_', '');
+	//description_object.hide().html('a<br>b<br>c<br>d').slideDown();
+	console.log(tweet_id + " clicked.");
+	if(description_object.text().length > 0)
+	{
+		description_object.slideUp().html('');
+	}
+	else
+	{
+		GetJSON('/tweet/' + tweet_id + '/retweet_user_list.json'
+			, ""
+			, function(data){
+				console.log('return: ok');
+				console.log(data);
+				var description_html = 'Retweet users: ';
+				if(!('retweet_user_list' in data)){
+					// 中身がなければ何もしません
+					return;
+				}
+				var user_list = data['retweet_user_list'];
+				if(user_list.length <= 0){
+					// ユーザがいなくてもやっぱり何もしません。
+					return;
+				}
+				for(var i in user_list){
+					var user = user_list[i];
+					if(!('icon_url' in user) || !('name' in user)){
+						// 表示できるものがなくても表示しません
+						continue;
+					}
+					var icon_url = user['icon_url'];
+					var name = user['name'];
+					var user_id = user['id'];
+					description_html += '<a href="/user/' + name + '" data-toggle="tooltip" title="' + name + '">';
+					description_html += '<img src="' + icon_url + '" ' + 'height="16px">';
+					description_html += '</a> ';
+				}
+				console.log("add html: " + description_html);
+				description_object.html(description_html).slideDown();
+			});
+	}
 }
 
 // starをつけます
@@ -271,6 +326,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			+ star_button_class + ' type="button">' + star_button_text + '</a> ';
 	}
 	tweet += '</div>';
+	tweet += '<div class="TweetDescription"></div>';
 	tweet += '<span class="ImageFloatClear"></span>';
 	tweet += '</div>';
 
@@ -307,6 +363,7 @@ function StartReadTweets(resource, append_to, limit, since_time, success_func, e
 				success_func(data, textStatus);
 			}
 			$(append_to).append(RenderTimelineToHTML(data));
+			AssignTweetColumnClickEvent();
 		}).fail(function(jqXHR, textStatus, errorThrown){
 			if(error_func){
 				error_func(textStatus, errorThrown);
@@ -458,6 +515,7 @@ $(document).ready(function(){
 	// bootstrap でいろんなものを enable にするための呪文
 	$(".collapse").collapse();
 	$(".alert").alert();
+	$('.dropdown-toggle').dropdown();
 	// ページを読んでいるユーザ名を更新します
 	authUserName = $("#AuthUserName").text();
 
@@ -491,6 +549,7 @@ $(document).ready(function(){
 			$('#GlobalTweetModal').modal('hide');
 			html = RenderTimelineToHTML([data]);
 			$('#Tweet_text > div:first').before(html).fadeIn("slow");
+			AssignTweetColumnClickEvent();
 		}, function(data){
 			$('#GlobalTweetFormHelp').text("tweet failed.").fadeIn("slow").fadeOut("slow");
 		});
