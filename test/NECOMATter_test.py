@@ -572,15 +572,16 @@ class NECOMATterTestCase(unittest.TestCase):
         # 一つだけ取得できているはずです。
         self.assertEqual(1, len(get_tweet))
         # 取得された値は text, time, user_name, node の順の配列になっているはずです
-        (tweet_text, time, user_name, icon_url, node
+        (tweet_text, time, user_name, icon_url, node_id
                 , my_star_r, my_retweet_r
-                , retweet_time, retweeet_unix_time) = get_tweet[0]
+                , retweet_time, retweeet_unix_time, retweet_type) = get_tweet[0]
         # id 等も同じ値になっているはずです
         self.assertEqual(tweet_node['text'], tweet_text)
         self.assertEqual(iimura_node['name'], user_name)
-        self.assertEqual(tweet_node._id, node._id)
+        self.assertEqual(tweet_node._id, node_id)
         self.assertIsNone(my_star_r)
         self.assertIsNone(my_retweet_r)
+        self.assertEqual("TWEET", retweet_type)
 
     def test_CheckUserPasswordIsValid(self):
         # パスワードのチェックが正しく行えることを確認します
@@ -1286,6 +1287,50 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_RetweetMany(self):
+        # ユーザを増やします
+        for user_name in [u'D']:
+            self.assertTrue(self.world.AddUser(user_name, "password"))
+            user_node = self.world.GetUserNode(user_name)
+            self.assertIsNotNone(user_node)
+            self.user_node_list.append(user_node)
+        # tweetするノード
+        tweet_node = self.user_node_list[0]
+        # tweetするノードの名前
+        tweet_node_name = tweet_node['name']
+        # tweet される文章
+        tweet_text = "tweet"
+        # tweetします
+        target_tweet_node = self.world.TweetByName(tweet_node_name, tweet_text)
+        self.assertIsNotNone(target_tweet_node)
+        target_tweet_node_id = target_tweet_node['id']
+        # 残りの全員でretweetします
+        for retweet_node in self.user_node_list:
+            retweet_node_name = retweet_node['name']
+            if retweet_node_name == tweet_node_name:
+                continue
+            self.assertTrue(self.world.RetweetByName(retweet_node_name, target_tweet_node_id))
+        # 同じくその全員をフォローしているノードを指定します(retweetしたノードの一つにします)
+        follow_user_node = self.user_node_list[len(self.user_node_list) - 1]
+        follow_user_name = follow_user_node['name']
+        self.assertIsNotNone(follow_user_node)
+        # そのノードで全員をフォローします
+        for node in self.user_node_list:
+            if node['name'] == follow_user_name:
+                continue
+            self.assertTrue(self.world.FollowUserByName(follow_user_name, node['name']))
+        # 全員をフォローしたユーザのタイムラインを取得します
+        tweet_list = self.world.GetUserTimelineFormated(follow_user_name, query_user_name=follow_user_name)
+        # 全員分の数だけ見えるはずです
+        self.assertEqual(len(self.user_node_list), len(tweet_list))
+        # tweetした人はもう一回tweetします
+        tweet_text_2nd = '2nd tweet'
+        target_tweet_node = self.world.TweetByName(tweet_node_name, tweet_text_2nd)
+        # tweet は全員分+1個見えるはずです
+        tweet_list = self.world.GetUserTimelineFormated(follow_user_name, query_user_name=follow_user_name)
+        self.assertEqual(len(self.user_node_list) + 1, len(tweet_list))
+
+
     def test_RetweetByName(self):
         # tweetするノード
         tweet_node = self.user_node_list[0]
@@ -1301,7 +1346,7 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         follow_node = self.user_node_list[2]
         # followするノードの名前
         follow_node_name = follow_node['name']
-        # リストに入ってるメンバ(target_user_node)がtweetします
+        # tweetします
         target_tweet_node = self.world.TweetByName(tweet_node_name, tweet_text)
         self.assertIsNotNone(target_tweet_node)
         target_tweet_node_id = target_tweet_node['id']
