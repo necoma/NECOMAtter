@@ -81,7 +81,7 @@ class NECOMATter():
     # user_node に設定されている icon_url を取り出します。存在しなければdefault値を返します
     def GetUserAbaterIconURL(self, user_node):
         icon_url = "/static/img/footprint3.2.png"
-        if 'icon_url' in user_node:
+        if user_node is not None and 'icon_url' in user_node:
             icon_url = user_node['icon_url']
         return icon_url
 
@@ -1399,6 +1399,7 @@ class NECOMATter():
             return False
         relationship = self.gdb.create((user_node, "STAR", tweet_node))
         if relationship is None:
+            logging.warn("relationship create failed.")
             return False
         relationship[0]['time'] = time.time()
         return True
@@ -1407,7 +1408,7 @@ class NECOMATter():
     def AddStarByName(self, user_name, tweet_id):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
-            logging.error("User '%s' is undefined." % owner_name)
+            logging.error("User '%s' is undefined." % user_name)
             return False
         tweet_node = self.GetTweetNodeFromID(int(tweet_id))
         return self.AddStarByNode(user_node, tweet_node)
