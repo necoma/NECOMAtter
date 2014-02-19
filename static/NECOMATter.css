@@ -8,6 +8,7 @@ body {
 	background-repeat: no-repeat;
 	background-position: right bottom;
 	background-attachment: fixed;
+	background-size: 50% auto;
 }
 
 .error {
@@ -61,6 +62,14 @@ body {
 	//padding: 2px;
 }
 
+.ImageFloat {
+	float: left;
+	margin-right: 1em;
+}
+.ImageFloatClear {
+	clear: both;
+}
+
 .OneStreamClient {
 	border: solid 1px #cccccc;
 	position: relative;
@@ -90,5 +99,15 @@ body {
 
 /* tweet のテキストの偶数行 */
 #Tweet_text .tweet_column:nth-child(even){
+	background-color: #eeffff;
+}
+
+/* tweet のテキストの奇数行 reply_toのダイアログ用 */
+#GlobalTweetModalReplyToTweet .tweet_column:nth-child(odd){
+	background-color: #ffeeee;
+}
+
+/* tweet のテキストの偶数行 reply_toのダイアログ用 */
+#GlobalTweetModalReplyToTweet .tweet_column:nth-child(even){
 	background-color: #eeffff;
 }
