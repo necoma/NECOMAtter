@@ -1,39 +1,20 @@
 {% extends "layout.html" %}
 {% block title %}user setting page{% endblock %}
 {% block body %}
-<script>
-function DeleteKeyButtonClicked(key){
-	DeleteJSON("/user_setting/key/" + key + ".json", {}, function(data, textStatus, xhr)
-		{
-			$('#DeleteKey_' + key).fadeOut('slow');
-		});
-}
-function CreateNewKeyButtonClicked(){
-	PostJSON("/user_setting/create_new_key.json", {}, function(data, textStatus, xhr)
-		{
-			if('key' in data){
-				var key = data['key'];
-				var html = '<li id="DeleteKey_' + key + '">';
-				html += '<code>' + key + '</code>';
-				html += ' <input type="button" value="delete key" onClick="DeleteKeyButtonClicked("' + key + '");">(NEW!)</li>';
-				$('#KeyList').prepend(html);
-			}
-		}
-		, function(xhr, textStatus){
-			$('#error_fade').remove();
-			$('#KeyList').prepend('<div class="error" id="error_fade">Create New Key failed.</div>');
-			$('#error_fade').fadeIn('slow', function(){
-				$('#error_fade').fadeOut('slow', function(){
-					$('#error_fade').remove();
-				});
-			});
-		});
-}
-</script>
+<script src="/static/user_setting_page.js"></script>
 <div class="normal_body">
+  <h2>User settings</h2>
+  {% if error %}<p class=error><strong>Error:</strong>{{ error }}</p>{% endif %}
+  <div class="IconSettings">
+	  current icon：<img src="{{icon_url}}" width="64">
+	  <br>
+	  <form action="/user/icon_upload.html" method="POST" enctype="multipart/form-data"><input type="file" name="icon">
+		  <input type="submit">
+	  </form>
+  </div>
+  <p>
   <h2>API key list</h2>
   ここに表示されている API Key とユーザ名を使うことで、BOT等から tweet することができるようになります。
-  {% if error %}<p class=error><strong>Error:</strong>{{ error }}</p>{% endif %}
   <div class="CreateNewKey"><input type="button" value="create a new key" onClick="CreateNewKeyButtonClicked();"><div>
   <ul id="KeyList">
   {% for key in key_list %}
