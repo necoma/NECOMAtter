@@ -5,7 +5,7 @@ var lastReadUnixTime = -1;
 var readTweetNum = 10;
 
 var location_href = location.href;
-var pathList = location_href.match("http://[^/]+:?\d*/([^/]+)/([^/]+)+").slice(1);
+var pathList = location_href.match("://[^/]+:?\d*/([^/]+)/([^/]+)+").slice(1);
 
 // tweet を読み込むURL
 var getTweetPath = '/' + pathList.join('/') + ".json";
