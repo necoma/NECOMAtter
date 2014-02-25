@@ -44,7 +44,7 @@ def PostTweet(user_name, api_key, text, reply_to=None):
     if reply_to is not None:
         request_data['reply_to'] = reply_to
 
-    req = requests.post('http://[::1]:8000/post.json',
+    req = requests.post('https://necomatter.necoma-project.jp/post.json',
             headers={'content-type': 'application/json; charset=utf-8'},
             data=json.dumps(request_data))
     if req.status_code != 200:
@@ -63,7 +63,7 @@ request_data['regexp'] = regexp
 request_data['description'] = "n6 BOT sample. use regexp: %s" % regexp
 
 # streaming API越しに監視を開始します
-req = requests.post('http://[::1]:8000/stream/regexp.json',
+req = requests.post('https://necomatter.necoma-project.jp/stream/regexp.json',
         headers={'content-type': 'application/json; charset=utf-8'},
         data=json.dumps(request_data),
         stream=True)
