@@ -1,3 +1,9 @@
+// インラインフレームで呼び出されているか否かを示す真偽値
+// どうやら document と、window.parent.document(インラインフレームだったら一つ上のdocument) を == で比較すると、
+// chrome であれば自分がインラインフレームで呼び出されているか否かが取得できるみたい。
+// IEとかFirefoxはわかりません。(ﾟ∀ﾟ)
+var isInlineFrame = window.parent.document != document;
+
 // GlobalTweetModal をreplyモードにします
 function GlobalTweetModal_SetReplyMode(tweet_id, target_user_name){
 	$('#GlobalTweetModalLabel').html(target_user_name + ' への返信');
@@ -292,6 +298,9 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 				at_list.push(user_name);
 				return '<a href="/user/'
 					+ user_name + '">' + str + '</a>';
+			}
+			if(isInlineFrame){
+				return '<a href="' + str + '" target="frame_upper_right">' + str + '</a>';
 			}
 			return '<a href="' + str + '">' + str + '</a>';
 		});
