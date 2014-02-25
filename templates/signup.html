@@ -32,11 +32,11 @@ function SignUp_checkPassword(text){
   {% if error %}<p class=error><strong>Error:</strong>{{ error }}</p>{% endif %}
   <form action="{{ next }}" method="POST">
     <p>
-      user_name: <input type=text name=user_name>
-      <br><span>password: <input id="sign_up_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)"></span>
+      user_name: <input type=text name=user_name placeholder="user name">
+      <br><span>password: <input id="sign_up_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)" placeholder="password"></span>
       強度：<span id="password_strength">弱い</span>
       (注：生文字列がnetworkを飛んでいきますのでしょぼいパスワードがいいかもしれません)
-      <br><span>password(確認用): <input id="sign_up_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)"></span>
+      <br><span>password(確認用): <input id="sign_up_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)" placeholder="password (again)"></span>
       <br><input id="sign_up_submit_button" type=submit value="Sign up" disabled>
   </form>
 </div>

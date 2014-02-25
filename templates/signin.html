@@ -5,8 +5,8 @@
   {% if error %}<p class=error><strong>Error:</strong>{{ error }}</p>{% endif %}
   <form action="{{ next }}" method="POST">
     <p>
-      user_name: <input type=text name=user_name>
-      <br>password: <input type=password name=password autocomplete="off">
+      user_name: <input type=text name=user_name placeholder="user name">
+      <br>password: <input type=password name=password autocomplete="off" placeholder="password">
       <br><input type=submit value="Sign in">
   </form>
 {% endblock %}
