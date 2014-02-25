@@ -12,12 +12,19 @@ import re
 import gevent
 from gevent.wsgi import WSGIServer
 import gevent.queue
+from werkzeug.utils import secure_filename
+
+from OpenSSL import SSL
+ssl_context = SSL.Context(SSL.SSLv23_METHOD)
+ssl_context.use_privatekey_file('ssl_keys/NECOMATter_server.key')
+ssl_context.use_certificate_file('ssl_keys/NECOMATter_server.crt')
 
 #logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig()
 
 app = Flask(__name__)
 app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
 world = NECOMATter("http://localhost:7474")
 
@@ -77,14 +84,14 @@ def GetAuthenticatedUserName():
     session_key = session.get('session_key')
     if world.CheckUserSessionKeyIsValid(user_name, session_key):
         return user_name
-    #print 'session_key failed', user_name, session_key
     if ( request.method == 'POST' and
         request.json is not None and
         'user_name' in request.json and
         'api_key' in request.json and
         world.CheckUserAPIKeyByName(request.json['user_name'], request.json['api_key']) ):
             return request.json['user_name']
-    #print 'request has no valid API key failed'
+    # 失敗したのでcookie上のセッションキーは消しておきます
+    session.pop('session_key', None)
     return None
 
 @app.after_request
@@ -105,6 +112,8 @@ def faviconPage():
 @app.route('/user/<user_name>.json')
 def userPage_Get_Rest(user_name):
     auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     since_time = None
     limit = None
     if 'since_time' in request.values:
@@ -117,23 +126,33 @@ def userPage_Get_Rest(user_name):
 # ユーザページ
 @app.route('/user/<user_name>')
 def userPage_Get(user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return render_template('timeline_page.html', user_name=user_name, do_target="Tweet", request_path="user")
 
 # 個別のツイートページ
 @app.route('/tweet/<int:tweet_id>')
 def userTweet_Get(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return render_template('tweet_tree.html', tweet_id=tweet_id)
 
 # 対象のtweetID の tweet のみを取得します
 @app.route('/tweet/<int:tweet_id>.json')
 def userTweet_Get_Rest(tweet_id):
     user_name = GetAuthenticatedUserName()
+    if user_name is None:
+        abort(401)
     return json.dumps(world.GetTweetNodeFromIDFormatted(tweet_id, query_user_name=user_name))
 
 # 対象のtweetID の返信関係の木構造を返します
 @app.route('/tweet/<int:tweet_id>_tree.json')
 def userTweetTree_Get_Rest(tweet_id):
     user_name = GetAuthenticatedUserName()
+    if user_name is None:
+        abort(401)
     tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, query_user_name=user_name)
     tweet_list.extend(world.GetTweetNodeFromIDFormatted(tweet_id, query_user_name=user_name))
     tweet_list.extend(world.GetChildTweetAboutTweetIDFormatted(tweet_id, query_user_name=user_name))
@@ -143,6 +162,8 @@ def userTweetTree_Get_Rest(tweet_id):
 @app.route('/tweet/<int:tweet_id>_parent.json')
 def userTweetTreeParent_Get_Rest(tweet_id):
     user_name = GetAuthenticatedUserName()
+    if user_name is None:
+        abort(401)
     since_time = None
     limit = None
     if 'since_time' in request.values:
@@ -156,6 +177,8 @@ def userTweetTreeParent_Get_Rest(tweet_id):
 @app.route('/tweet/<int:tweet_id>_child.json')
 def userTweetTreeChild_Get_Rest(tweet_id):
     user_name = GetAuthenticatedUserName()
+    if user_name is None:
+        abort(401)
     since_time = None
     limit = None
     if 'since_time' in request.values:
@@ -168,11 +191,17 @@ def userTweetTreeChild_Get_Rest(tweet_id):
 # 対象のユーザがフォローしているユーザ名のリストを返します
 @app.route('/user/<user_name>/followed_user_name_list.json')
 def userFollowedGet(user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return json.dumps(world.GetUserFollowedUserNameList(user_name))
 
 # ユーザのタイムラインを返します
 @app.route('/timeline/<user_name>.json')
 def timelinePage_Get_Rest(user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     query_user_name = GetAuthenticatedUserName()
     since_time = None
     limit = None
@@ -186,16 +215,49 @@ def timelinePage_Get_Rest(user_name):
 # ユーザのタイムラインページ
 @app.route('/timeline/<user_name>')
 def timelinePage_Get(user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return render_template('timeline_page.html', user_name=user_name, do_target="Timeline", request_path="timeline")
+
+# すべてのユーザのタイムラインを返します
+@app.route('/alluser/timeline.json')
+def alluserTimelinePage_Get_Rest():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    query_user_name = GetAuthenticatedUserName()
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    tweet_list = world.GetAllUserTimelineFormated(limit, since_time, query_user_name=query_user_name)
+    return json.dumps(tweet_list)
+
+# すべてのユーザのタイムラインページ
+@app.route('/alluser/timeline')
+def alluserTimelinePage_Get():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    return render_template('all_user_timeline_page.html')
 
 # タグページ
 @app.route('/tag/<tag_name>')
 def tagPage_Get(tag_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return render_template('tag_page.html', tag_name=tag_name)
 
 # タグのタイムラインを返します
 @app.route('/tag/<tag_name>.json')
 def tagPage_Get_Rest(tag_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     since_time = None
     limit = None
     if 'since_time' in request.values:
@@ -212,7 +274,8 @@ def userSettingsPage_Get():
     if user_name is None:
         return render_template('user_setting_page.html', error="authenticate required")
     key_list = world.GetUserAPIKeyListByName(user_name)
-    return render_template('user_setting_page.html', user=user_name, key_list=key_list)
+    icon_url = world.GetUserAbaterIconURLByName(user_name)
+    return render_template('user_setting_page.html', user=user_name, key_list=key_list, icon_url=icon_url)
 
 # API Key の削除
 @app.route('/user_setting/key/<key>.json', methods=['DELETE', 'POST'])
@@ -339,16 +402,25 @@ def signoutPage():
 # 登録されているユーザ名をリストで返します
 @app.route('/user_name_list.json')
 def userNameList():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return json.dumps(world.GetUserNameList())
 
 # 現在稼働中のstreaming API client の情報リストを出力します
 @app.route('/stream/client_list.json')
 def streamClientList_Rest():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return json.dumps(watchDogManager.GetWatcherDescriptionList())
 
 # 現在稼働中のstreaming API client の情報リストページ
 @app.route('/stream/client_list')
 def streamClientList():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return render_template('stream_client.html')
 
 # streaming AIP での正規表現マッチの待機用関数
@@ -448,7 +520,9 @@ def list_user_delete_rest(user_name, list_name, target_user_name):
 #TODO: 非公開リストに未対応
 @app.route('/list/<user_name>.json', methods=['GET'])
 def list_get(user_name):
-    #auth_user_name = GetAuthenticatedUserName()
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     list_name_list = world.GetListNameListByName(user_name)
     if list_name_list is None:
         abort(500, {'result': 'error', 'description': 'user list get failed.'})
@@ -458,7 +532,9 @@ def list_get(user_name):
 #TODO: 非公開リストに未対応
 @app.route('/list/<user_name>/<list_name>.json', methods=['GET'])
 def list_user_get(user_name, list_name):
-    #auth_user_name = GetAuthenticatedUserName()
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     since_time = None
     limit = None
     if 'since_time' in request.values:
@@ -471,17 +547,25 @@ def list_user_get(user_name, list_name):
 # ユーザのリストページ
 @app.route('/list/<user_name>/<list_name>', methods=['GET'])
 def list_user_page(user_name, list_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return render_template('timeline_page_v2.html', user_name=user_name, list_name=list_name)
 
 # ユーザのリストのリストページ
 @app.route('/list/<user_name>', methods=['GET'])
 def list_user_page_(user_name, list_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     return render_template('user_list_list_page.html', user_name=user_name)
 
 # tweet に STAR をつける
 @app.route('/tweet/<int:tweet_id>/add_star.json', methods=['POST', 'PUT'])
 def add_star_post(tweet_id):
     auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     if world.AddStarByName(auth_user_name, tweet_id) == True:
         return json.dumps({'result': 'ok', 'description': 'add star to tweetID %d' % tweet_id})
     abort(400, {'result': 'error', 'description': 'add star to tweetID %d failed.' % tweet_id})
@@ -490,6 +574,8 @@ def add_star_post(tweet_id):
 @app.route('/tweet/<int:tweet_id>/delete_star.json', methods=['POST', 'PUT'])
 def delete_star_post(tweet_id):
     auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     if world.DeleteStarByName(auth_user_name, tweet_id) == True:
         return json.dumps({'result': 'ok', 'description': 'delete star to tweetID %d' % tweet_id})
     abort(400, {'result': 'error', 'description': 'delete star to tweetID %d failed.' % tweet_id})
@@ -498,6 +584,8 @@ def delete_star_post(tweet_id):
 @app.route('/tweet/<int:tweet_id>/retweet.json', methods=['POST', 'PUT'])
 def retweet_post(tweet_id):
     auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     if world.RetweetByName(auth_user_name, tweet_id) == True:
         return json.dumps({'result': 'ok', 'description': 'retweet tweetID %d success.' % tweet_id})
     abort(400, {'result': 'error', 'description': 'retweet tweetID %d failed.' % tweet_id})
@@ -506,17 +594,40 @@ def retweet_post(tweet_id):
 @app.route('/tweet/<int:tweet_id>/retweet_cancel.json', methods=['POST', 'PUT'])
 def retweet_cancel_post(tweet_id):
     auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     if world.UnRetweetByName(auth_user_name, tweet_id) == True:
         return json.dumps({'result': 'ok', 'description': 'retweet cancel tweetID %d success.' % tweet_id})
     abort(400, {'result': 'error', 'description': 'retweet cancel tweetID %d failed.' % tweet_id})
 
-#  を取り消す
+# retweet したユーザのリスト を取り消す
 @app.route('/tweet/<int:tweet_id>/retweet_user_list.json', methods=['GET'])
 def retweet_users_get_json(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
     retweet_user_list = world.GetTweetRetweetUserInfoFormatted(tweet_id)
     if retweet_user_list is None:
         abort(500, {'result': 'error', 'description': 'get retweet users failed.'})
     return json.dumps({'result': 'ok', 'retweet_user_list': retweet_user_list })
+
+# ユーザのアイコンをアップロードする
+@app.route('/user/icon_upload.html', methods=["POST"])
+def post_user_icon_image():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        return render_template('user_setting_page.html', error="authentication required")
+    if 'icon' not in request.files:
+        return render_template('user_setting_page.html', error="post data invalid")
+    print request.files
+    file = request.files['icon']
+    print file
+    key_list = world.GetUserAPIKeyListByName(auth_user_name)
+    icon_url = world.GetUserAbaterIconURLByName(auth_user_name)
+    if not world.UpdateAbaterIconByName(auth_user_name, file):
+        return render_template('user_setting_page.html', error="icon save error", user=auth_user_name, key_list=key_list, icon_url=icon_url)
+    return redirect(url_for('userSettingsPage_Get'))
+    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url)
 
 if __name__ == '__main__':
     port = 8000
@@ -524,5 +635,20 @@ if __name__ == '__main__':
         port = int(sys.argv[1])
     #app.run('0.0.0.0', port=port, debug=True)
     #app.run('::', port=port, debug=True)
+    https_server_1 = WSGIServer(('::', port + 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
+    https_server_1_greenlet = gevent.spawn(https_server_1.start)
+    https_server = WSGIServer(('::', 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
+    https_server_greenlet = gevent.spawn(https_server.start)
+    #https_server_v4 = WSGIServer(('0.0.0.0', 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
+    #https_server_v4_greenlet = gevent.spawn(https_server_v4.start)
     http_server = WSGIServer(('::', port), app)
-    http_server.serve_forever()
+    http_server_greenlet = gevent.spawn(http_server.start)
+    #https_server.serve_forever()
+    #http_server.serve_forever()
+    gevent.sleep(3)
+    #os.setgid(1001)
+    #os.setuid(1001)
+    gevent.sleep(60*60*24*365*3)
+    #gevent.joinall([https_server_greenlet])
+    #gevent.joinall([https_server_greenlet, http_server_greenlet, https_server_v4_greenlet, https_server_1_greenlet])
+    gevent.joinall([https_server_greenlet, http_server_greenlet, https_server_1_greenlet])

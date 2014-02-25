@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block title %}all user timeline{% endblock %}
+{% block body %}
+<script src="/static/timeline_page.js"></script>
+<h2>all user timline</h2>
+  {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
+  <div id="Tweet_text">
+	now loading...
+  </div>
+  <div><input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();"><div>
+{% endblock %}

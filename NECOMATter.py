@@ -10,9 +10,10 @@ import time
 import hashlib
 import random
 import re
+import os
 from xml.sax.saxutils import *
 from py2neo import neo4j, cypher
-
+from werkzeug.utils import secure_filename
 
 class NECOMATter():
     def __init__(self, url=None):
@@ -84,6 +85,41 @@ class NECOMATter():
         if user_node is not None and 'icon_url' in user_node:
             icon_url = user_node['icon_url']
         return icon_url
+    
+    # user_node に設定されている icon_url を取り出します。存在しなければdefault値を返します
+    def GetUserAbaterIconURLByName(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User %s is undefined." % user_name)
+            return None
+        return self.GetUserAbaterIconURL(user_node)
+
+    # user_node にアバターアイコンを設定します
+    # 成否をTrue/Falseで返します
+    # TODO: file_object は .filename や .save() を持つ必要があります……
+    def UpdateAbaterIconByName(self, user_name, file_object):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("User %s is undefined." % user_name)
+            return False
+        if user_node is None or file_object is None:
+            return False
+        # とりあえずファイルは保存します
+        file_name = secure_filename(file_object.filename)
+        file_path = os.path.join("/static/user_icon", "%s_%s" % (user_name, file_name))
+        file_object.save("./%s" % (file_path, ))
+
+        icon_url = self.GetUserAbaterIconURL(user_node)
+        if "static/user_icon/" in icon_url:
+            # 現在設定されているアイコンはユーザがアップロードしたものだった
+            # ので、前にあったアイコンファイルを消す
+            if icon_url == file_path:
+                # ただ、同じ名前のファイルだったようなので上書きしているのでこのまま終了
+                return True
+            os.remove("%s/%s" % (".", icon_url) )
+        # 状態を更新して終了
+        user_node['icon_url'] = file_path
+        return True
 
     # tweet のクエリ結果からフォーマットされた辞書の配列にして返します
     def FormatTweet(self, tweet_list):
@@ -137,6 +173,8 @@ class NECOMATter():
     # ユーザのノードを取得します。
     # 何か問題があった場合はNone を返します。
     def GetUserNode(self, user_name):
+        if user_name is None:
+            return None
         user_index = self.GetUserIndex()
         # 取得する
         user_list = user_index.get("name", user_name)
@@ -266,9 +304,9 @@ class NECOMATter():
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
         if query_user_node is not None:
-            query += "WITH tweet, tweet_r, user_query_user, tweet_user "
+            query += "WITH tweet, tweet_r, user, query_user, tweet_user "
             query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
-            query += "WITH tweet, tweet_r, user_query_user, tweet_user, my_star_r "
+            query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
             query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
         if query_user_node is not None:
@@ -352,8 +390,49 @@ class NECOMATter():
         tweet_list = self.GetUserTimeline(user_node, limit, since_time, query_user_node=query_user_node)
         return self.FormatTweet(tweet_list)
 
+    # すべてのユーザのタイムラインを取得します。
+    # 取得されるのは [text(0), time(1), user_name(2), icon_url(3), tweet_node_id(4), 自分がつけたスターのリレーションシップ(5), 自分がつけたリツイートのリレーションシップ(6), ツイートかリツイートした人の名前(7), リツイートかリツイートされた時間(8), ツイートであった(TWEET)かリツイートであった(RETWEET)か(9)] のリストです。
+    def GetAllUserTimeline(self, limit=None, since_time=None, query_user_node=None):
+        # クエリを作ります
+        query = ""
+        if query_user_node is not None:
+            query += "START query_user = node(%d) " % query_user_node._id
+        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) "
+        query += "WITH tweet, tweet_r, tweet_retweet_node "
+        if query_user_node is not None:
+            query += ", query_user "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "OPTIONAL MATCH (tweet) -[:TWEET]-> (tweet_user) " # tweet_user は消える可能性があるので OPTIONAL MATCH にします
+        if query_user_node is not None:
+            query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user "
+            query += "OPTIONAL MATCH (tweet) <-[my_star_r:STAR]- (query_user) "
+            query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user "
+            query += "OPTIONAL MATCH (tweet) -[my_retweet_r:RETWEET]-> (query_user) "
+        query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet) "
+        if query_user_node is not None:
+            query += ", my_star_r, my_retweet_r "
+        else:
+            query += ", null, null "
+        query += ", tweet_retweet_node.name, tweet_r.time, type(tweet_r) "
+        query += "ORDER BY tweet_r.time DESC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # すべてのユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
+    def GetAllUserTimelineFormated(self, limit=None, since_time=None, query_user_name=None):
+        query_user_node = None
+        if query_user_name is not None:
+            query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetAllUserTimeline(limit, since_time, query_user_node=query_user_node)
+        return self.FormatTweet(tweet_list)
+
     # ユーザ名とセッションキーから、そのセッションが有効かどうかを判定します。
     def CheckUserSessionKeyIsValid(self, user_name, session_key):
+        if user_name is None or session_key is None:
+            return False
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.warning("User %s is undefined." % user_name)
@@ -370,6 +449,8 @@ class NECOMATter():
 
     # ユーザセッションを新規作成して返します
     def UpdateUserSessionKey(self, user_name):
+        if user_name is None:
+            return None
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.warning("User %s is undefined." % user_name)
@@ -383,6 +464,8 @@ class NECOMATter():
 
     # ユーザセッションを無効の状態にします
     def DeleteUserSessionKey(self, user_name):
+        if user_name is None:
+            return None
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.warning("User %s is undefined." % user_name)
@@ -401,6 +484,8 @@ class NECOMATter():
 
     # ユーザのパスワードを確認します
     def CheckUserPasswordIsValid(self, user_name, password):
+        if user_name is None or password is None:
+            return False
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.warning("User %s is undefined." % user_name)
@@ -411,6 +496,8 @@ class NECOMATter():
 
     # ユーザのパスワードを更新します
     def UpdateUserPassword(self, user_name, old_password, new_password):
+        if user_name is None or old_password is None or new_password is None:
+            return False
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.warning("User %s is undefined." % user_name)
