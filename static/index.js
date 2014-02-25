@@ -7,7 +7,7 @@ $(document).ready(function(){
 		function(user_name_list, textStatus){
 			var html = "";
 			html += '<div class="btn-group">';
-			html += '<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">';
+			html += '<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">';
 			html += 'UserList <span class="caret"></span>';
 			html += '</button>';
 			html += '<ul class="dropdown-menu">';
