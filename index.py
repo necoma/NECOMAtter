@@ -26,7 +26,7 @@ app = Flask(__name__)
 app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
-world = NECOMATter("http://localhost:7474")
+world = NECOMATter("http://localhost:17474")
 
 # streaming API で監視を走らせる時のwatcherを管理するclass
 # ストリーミングのクライアントが現れる毎にwatchdogリストに登録する
@@ -628,6 +628,60 @@ def post_user_icon_image():
         return render_template('user_setting_page.html', error="icon save error", user=auth_user_name, key_list=key_list, icon_url=icon_url)
     return redirect(url_for('userSettingsPage_Get'))
     #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url)
+
+# NECOMAtome json
+@app.route('/matome/<int:id>.json', methods=['GET', 'POST'])
+def necomatome_Get_Json(id):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    since_time = None
+    limit = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    matome_tweet_list = world.GetNECOMAtomeTweetListByIDFormatted(id, limit=limit, since_time=since_time, query_user_name=auth_user_name)
+    return json.dumps(matome_tweet_list)
+
+# NECOMAtome ページ
+@app.route('/matome/<int:id>')
+def necomatome_Get(id):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    return render_template('necomatome_page.html', matome_id=id)
+
+# NECOMAtome 作成
+@app.route('/matome.json', methods=['POST'])
+def necomatome_POST():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    matome_id = 0
+    tweet_id_list = []
+    description = None
+    if 'tweet_id_list' in request.json:
+        tweet_id_list = request.json['tweet_id_list']
+    if 'description' in request.json:
+        description = request.json['description']
+    if len(tweet_id_list) <= 0:
+        abort(400, {'result': 'error', 'description': 'tweet_id_list not found.'})
+    if len(description) <= 0:
+        abort(400, {'result': 'error', 'description': 'description not found.'})
+    matome_id = world.CreateNewNECOMAtomeByName(auth_user_name, tweet_id_list, description)
+    if matome_id < 0:
+        abort(400, {'result': 'error', 'description': 'create NECOMAtome failed.'})
+    return json.dumps({'result': 'ok', 'matome_id': matome_id})
+
+# テスト用：ユーザのタイムラインページ
+@app.route('/test_timeline/<user_name>')
+def test_timelinePage_Get(user_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    return render_template('test_timeline_page.html', user_name=user_name, do_target="Timeline", request_path="timeline")
+
 
 if __name__ == '__main__':
     port = 8000

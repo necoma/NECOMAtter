@@ -2,12 +2,31 @@
 {% block title %}{{ user_name}}'s {{do_target}}{% endblock %}
 {% block body %}
 <script src="/static/timeline_page.js"></script>
+<link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/ui-lightness/jquery-ui.css">
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
+<script src="/static/jQuery.equalHeights.js"></script>
+
 <h2>{{ user_name }}'s {{do_target}}</h2>
   {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
   <span class="FollowButton"><input id="FollowButton" type="button" value="follow {{user_name}}" onClick="FollowClicked('{{ user_name }}');" disabled></span>
   <span class="UnFollowButton"><input id="UnFollowButton" type="button" value="unfollow {{user_name}}" onClick="UnFollowClicked('{{ user_name }}');" disabled></span>
-  <div id="Tweet_text">
+  <div class="container">
+    <div id="NECOMAtome_top" class="row">
+      <div id="Tweet_text" class="col-xs-8">
 	now loading...
+      </div>
+      <div id="NECOMAtome_sidebar">
+        <div>
+	  <input type="text" id="NECOMATome_name" placeholder="まとめの名前">
+	  <button class="btn btn-default" id="NECOMAtome_create_button">まとめを作成する</button>
+	</div>
+	<div id="NECOMAtome_list" class="sortable ui-sortable">
+	  ここにtweetをドロップします
+	</div>
+      </div>
+      <div class="col-md-8">
+	<input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();">
+      </div>
+    </div>
   </div>
-  <div><input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();"><div>
 {% endblock %}

@@ -28,6 +28,7 @@ function ReplyButtonClick(tweet_id, tweet_index, text, target_user_name){
 			var html = RenderTimelineToHTML(data, true);
 			$('#GlobalTweetModalReplyToTweet').html(html);
 			AssignTweetColumnClickEvent();
+			AssignTweetColumnDraggable();
 		});
 }
 
@@ -36,6 +37,69 @@ function AssignTweetColumnClickEvent(){
 	$('.tweet_column').unbind('click', TweetColumnClicked); // 一旦イベントを解除して
 	$('.tweet_column').click(TweetColumnClicked); // 再登録します
 	$('.tweet_column .btn').click(function(event){event.stopPropagation();}); // このdivにはボタンも含むので、ボタンについてはクリックイベントを親に伝えないようにします
+}
+
+// NECOMAtome でまとめられているもののIDをリストします
+function GetNECOMATomeTweetIDs(){
+	var res = [];
+	$("#NECOMAtome_list > .tweet_column").each(function(){
+		var tmp = $(this).attr('id');
+		if(tmp != null){
+			res.push(tmp.replace("dropTweetID_", ""));
+		}
+	});
+	return res;
+}
+
+// ドラッグしているtweet の tweetID
+var dragging_tweet_id = "";
+// tweet が追加された時に呼び出されて、tweet column をドラッグできるようにします
+function AssignTweetColumnDraggable(){
+	$('.tweet_column').draggable({
+		connectToSortable: "#NECOMAtome_list"
+		, scope: "NECOMAtome_drop"
+		//, containment: "#NECOMAtome_top"
+		, helper: "clone"
+		, revert: "invalid"
+		, handle: ".drag_handle"
+		, cursor: "move"
+		//, cursorAt: { left: 0, top: 0 }
+		, start: function(e){
+			// 怪しくドラッグを開始する時につまみ上げられたもののIDを保存しておきます……
+			srcID = e.target.id;
+			dragging_tweet_id = srcID;
+		}
+		// XXXX
+	});
+	//$("#NECOMAtome_block, #Tweet_text").equalHeights();
+}
+
+// まとめを新しく作成するためにpostします
+function PostMatome(description, tweet_id_list){
+	console.log("post NECOMAtome: " + description);
+	PostJSON('/matome.json', {
+		'tweet_id_list': tweet_id_list,
+		'description': description
+	},
+	function(data){
+		if('matome_id' in data){
+			var matome_id = data['matome_id'];
+			if(matome_id >= 0)
+			{
+				document.location = '/matome/' + data['matome_id'];
+			}
+			else
+			{
+				console.log('ERROR: NECOMAtome post success. but matome_id is invalid(' + matome_id + ')');
+			}
+		}
+		else
+		{
+			console.log('ERROR: NECOMAtome post success. but matome_id is not found in result.');
+		}
+	}, function(){
+		console.log('NECOMAtome post failed.');
+	});
 }
 
 // ツイートで、link以外の部分をクリックした場合に反応するためのイベントハンドラです
@@ -269,6 +333,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	var tweet = "";
 	//tweet += '<div class="tweet_column pull-right img-responsive" id="TweetID_' + tweet_id + '">';
 	tweet += '<div class="tweet_column img-responsive" id="' + tweet_index + '">';
+	tweet += '<div class="drag_handle text-right">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>';
 	tweet += '<a href="/user/' + user + '">';
 	tweet += '<div class="ImageFloat"><img src="' + icon_url + '" width="40" alt=""></div>';
 	tweet += ' <span class="tweet_name">';
@@ -303,6 +368,11 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 				return '<a href="' + str + '" target="frame_upper_right">' + str + '</a>';
 			}
 			return '<a href="' + str + '">' + str + '</a>';
+		}).replace(/__iframe\[([^\]"]+)\]__/g, function(str){
+			str = str.replace(/^__iframe\[/, '').replace(/\]__$/, '');
+			url = str.replace(/^([a-z]+)\/\//, "$1://");
+			return '<iframe src="' + url + '" frameborder="1" style="-webkit-transform: scale(0.8); -webkit-transform-origin: 0 0;" width="120%" height="300px"></iframe>'
+			+ '<a href="' + url + '">' + url + '</a><br>';
 		});
 	tweet += '</div>';
 	tweet += '<div class="tweet_footer text-right">';
@@ -370,6 +440,7 @@ function StartReadTweets(resource, append_to, limit, since_time, success_func, e
 			}
 			$(append_to).append(RenderTimelineToHTML(data));
 			AssignTweetColumnClickEvent();
+			AssignTweetColumnDraggable();
 		}).fail(function(jqXHR, textStatus, errorThrown){
 			if(error_func){
 				error_func(textStatus, errorThrown);
@@ -414,8 +485,17 @@ function PostJSON(url, data, success_func, error_func){
 		, data: JSON.stringify(data)
 		, contentType: "application/json; charset=utf-8"
 		, dataType: "json"
-		, success: success_func
-		, error: error_func
+	}).done(function(data, textStatus, jqxHR){
+		if(success_func){
+			success_func(data, textStatus, jqxHR);
+		}
+	}).fail(function(jqXHR, textStatus, errorThrown){
+		if(error_func){
+			error_func(jqXHR, textStatus, errorThrown);
+		}
+		console.log('post failed.');
+		console.log(textStatus);
+		console.log(errorThrown);
 	});
 }
 
@@ -556,6 +636,7 @@ $(document).ready(function(){
 			html = RenderTimelineToHTML([data]);
 			$('#Tweet_text > div:first').before(html).fadeIn("slow");
 			AssignTweetColumnClickEvent();
+			AssignTweetColumnDraggable();
 		}, function(data){
 			$('#GlobalTweetFormHelp').text("tweet failed.").fadeIn("slow").fadeOut("slow");
 		});

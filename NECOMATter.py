@@ -26,6 +26,7 @@ class NECOMATter():
         self.TagIndex = None
         self.APIKeyIndex = None
         self.ListIndex = None
+        self.NECOMAtomeIndex = None
         self.SessionExpireSecond = 60*60*24*7
         # Cypher transactions are not supported by this server version
         # と言われたのでとりあえずの所はtransaction は封印します
@@ -74,6 +75,12 @@ class NECOMATter():
         if self.ListIndex is None:
             self.ListIndex = self.gdb.get_or_create_index(neo4j.Node, "list")
         return self.ListIndex
+
+    # NECOMAtome用のインデックスを取得します
+    def GetNECOMAtomeIndex(self):
+        if self.NECOMAtomeIndex is None:
+            self.NECOMAtomeIndex = self.gdb.get_or_create_index(neo4j.Node, "NECOMATome")
+        return self.NECOMATomeIndex
 
     # time.time() で得られたエポックからの時間をフォーマットします
     def FormatTime(self, time_epoc):
@@ -1583,7 +1590,10 @@ class NECOMATter():
     def GetTweetRetweetUserInfoByNode(self, tweet_id):
         query = ""
         query += "START tweet_node=node(%d) " % tweet_id
+        query += "MATCH (tweet_node) -[:TWEET]-> (tweet_user) "
+        query += "WITH tweet_node, tweet_user "
         query += "OPTIONAL MATCH tweet_node -[:RETWEET]-> (retweet_user) "
+        query += "WHERE tweet_user <> retweet_user "
         query += "RETURN retweet_user, retweet_user.name, retweet_user.icon_url "
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
@@ -1634,4 +1644,79 @@ class NECOMATter():
             stard_dic['icon_url'] = stard_user_icon_url
             result_info_list.append(stard_dic)
         return result_info_list
+
+    # まとめを作る.
+    # NECOMAtome node を返します
+    def CreateNewNECOMAtome(self, owner_user_node, tweet_id_list, description):
+        if owner_user_node is None or tweet_id_list is None or len(tweet_id_list) <= 0:
+            print owner_user_node
+            print tweet_id_list
+            print "CreateNewNECOMAtome() return None"
+            return None
+        matome_node, = self.gdb.create({"NECOMAtome": description})
+        matome_node.create_path("Owner", owner_user_node)
+        n = 0
+        for tweet_id in tweet_id_list:
+            tweet_node = self.GetTweetNodeFromID(tweet_id)
+            if tweet_node is not None:
+                n = n + 1
+                matome_node.create_path(("NECOMAtome", {"number": n}), tweet_node)
+        return matome_node
+
+    # まとめを作る(名前指定版)
+    def CreateNewNECOMAtomeByName(self, owner_user_name, tweet_id_list, description):
+        user_node = None
+        if owner_user_name is not None:
+            user_node = self.GetUserNode(owner_user_name)
+        matome_node = self.CreateNewNECOMAtome(user_node, tweet_id_list, description)
+        if matome_node is None:
+            return -1
+        print "NECOMAtome created. %d" % (matome_node._id, )
+        return matome_node._id
+
+    # まとめのtweetリストを取得する
+    def GetNECOMAtomeTweetListByID(self, matome_id, limit=None, since_time=None, user_node=None):
+        user_node_id = 0
+        if user_node is not None:
+            user_node_id = user_node._id
+        query = ""
+        query += "START matome_node=node(%d) " % matome_id
+        if user_node is not None:
+            query += ", query_user=node(%d) " % user_node_id
+        query += "MATCH tweet <-[matome_r:NECOMAtome]- (matome_node) "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "WITH tweet, matome_r "
+        if user_node is not None:
+            query += ", query_user "
+        query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
+        if user_node is not None:
+            query += "WITH tweet, matome_r, user, query_user "
+            query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
+            query += "WITH tweet, matome_r, user, star_r, query_user "
+            query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
+        query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
+        if user_node is not None:
+            query += ", star_r, retweet_r"
+        else:
+            query += ", null, null "
+        query += ", null, null, \"TWEET\" "
+        query += "ORDER BY matome_r.number ASC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list[::-1]
+
+    # まとめのtweetリストを取得します(フォーマット済み版)
+    def GetNECOMAtomeTweetListByIDFormatted(self, matome_id, limit=None, since_time=None, query_user_name=None):
+        user_node = None
+        if query_user_name is not None:
+            user_node = self.GetUserNode(query_user_name)
+        tweet_list = []
+        try:
+            tweet_list = self.GetNECOMAtomeTweetListByID(matome_id, limit, since_time, user_node=user_node)
+        except neo4j.CypherError:
+            return [] 
+        return self.FormatTweet(tweet_list)
+        
 

@@ -1,3 +1,5 @@
+/* { font-weight: bold; }*/
+
 /* body */
 body {
 	background-color: #ffffff;
@@ -111,3 +113,32 @@ body {
 #GlobalTweetModalReplyToTweet .tweet_column:nth-child(even){
 	background-color: #eeffff;
 }
+
+/* fixed-sidebar については固定にします */
+#NECOMAtome_sidebar {
+	margin-right: -33.33%;
+	width: 33.33%;
+	right: 0;
+	height: 80%;
+	position: fixed;
+	overflow-y: auto;
+	transition: all 0.4s ease 0s;
+	background-color: #eeeeee;
+	opacity: 0.95;
+}
+
+#Tweet_text {
+	width: 100%;
+	transition: all 0.4s ease 0s;
+}
+
+#NECOMAtome_top.matome_active #NECOMAtome_sidebar {
+	margin-right: 0%;
+	transition: all 0.4s ease 0s;
+}
+
+#NECOMAtome_top.matome_active #Tweet_text {
+	width: 66.67%;
+	transition: all 0.4s ease 0s;
+}
+

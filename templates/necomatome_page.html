@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+{% block title %}NECOMAtome{% endblock %}
+{% block body %}
+<script src="/static/necomatome_page.js"></script>
+<h2>NECOMAtome</h2>
+<div class="NECOMAtome memo">
+  {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
+  <div id="Tweet_text">
+	now loading...
+  </div>
+  <div><input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();"><div>
+</div>
+{% endblock %}

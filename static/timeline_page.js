@@ -9,6 +9,7 @@ var pathList = location_href.match("://[^/]+:?\d*/([^/]+)/([^/]+)+").slice(1);
 
 // tweet を読み込むURL
 var getTweetPath = '/' + pathList.join('/') + ".json";
+getTweetPath = getTweetPath.replace("/test_", "/"); // テストページ用に書き換えてます……
 // 表示されているユーザ名
 var userName = "undefined";
 if(pathList.length > 1){
@@ -44,6 +45,13 @@ function LoadTweets(func, path, target){
 					func(data);
 				}
 			} );
+}
+
+// NECOMAtome に登録されたtweetのdeleteボタンがクリックされた時
+function NECOMATomeTweetDeleteButtonClicked(selector) {
+	console.log('NECOMATomeTweetDeleteButtonClicked: ', selector);
+	var target = $(selector);
+	target.hide('slow', function(){target.remove();});
 }
 
 // ページの読み込みが終わった時点で起動するfunction をjQueryから呼び出しています。
@@ -83,6 +91,29 @@ $(document).ready(function()
 			}
 			);
 	}
+	$("#NECOMAtome_list").droppable({
+		activeClass: "grap"
+		, scope: "NECOMAtome_drop"
+		, drop: function(e, u){
+			// dropされたdivに対して、ドラッグ開始時に設定されたであろう値からtweetID をIDに設定します
+			var new_id = 'drop' + dragging_tweet_id;
+			u.draggable.attr('id', new_id);
+			var target_selector = '#' + new_id + ' .NECOMAtome_tweet_delete_button';
+			$(target_selector).show();
+			$(target_selector).click(function(){NECOMATomeTweetDeleteButtonClicked('#' + new_id);});
+			console.log(GetNECOMATomeTweetIDs());
+		}
+	});
+	$("#NECOMAtome_list").sortable();
+	//$("#NECOMAtome_block, #Tweet_text").equalHeights();
+	$("#NECOMAtome_create_button").click(function(){
+		console.log(GetNECOMATomeTweetIDs());
+		$('#NECOMAtome_top').toggleClass('matome_active');
+		PostMatome($('#NECOMATome_name').val(), GetNECOMATomeTweetIDs());
+	});
+	$(".NECOMAtome_toggle_button").click(function(){
+		$('#NECOMAtome_top').toggleClass('matome_active');
+	});
 });
 
 // ツイートさせます。TODO: ツイートに失敗した時などのエラーチェックはしないとユーザは何が起こったかわかりません。
