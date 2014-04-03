@@ -26,7 +26,7 @@ app = Flask(__name__)
 app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
-world = NECOMATter("http://localhost:17474")
+world = NECOMATter("http://localhost:7474")
 
 # streaming API で監視を走らせる時のwatcherを管理するclass
 # ストリーミングのクライアントが現れる毎にwatchdogリストに登録する
