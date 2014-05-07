@@ -1477,7 +1477,122 @@ class NECOMATter_Star_TestCase(unittest.TestCase):
         self.assertEqual(2, tweet_dic['stard_count'])
 
 
+# 検索のテストケース
+class NECOMATter_Search_TestCase(unittest.TestCase):
+    def setUp(self):
+        # 全てのノードやリレーションシップを削除します
+        gdb.clear()
+        self.world = NECOMATter("http://localhost:17474")
+        # ユーザ A, B, C, D を作っておきます。
+        self.user_node_list = []
+        for user_name in ['A', 'B', u"しー", u"でぃー"]:
+            self.assertTrue(self.world.AddUser(user_name, "password"))
+            user_node = self.world.GetUserNode(user_name)
+            self.assertIsNotNone(user_node)
+            self.user_node_list.append(user_node)
+
+    def tearDown(self):
+        pass
+
+    def test_SearchTweet(self):
+        # tweet するノード
+        tweet_user_node = self.user_node_list[0]
+        # tweet するノードの名前
+        tweet_user_node_name = tweet_user_node['name']
+        # tweet の内容
+        tweet_text = u"tweet ついーと 日本語 1x*#tag() "
+        # (tweet_node)がtweetします
+        tweet_result = self.world.TweetByName(tweet_user_node_name, tweet_text)
+        tweet_list = self.world.SearchTweet([".*"])
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0][0])
+
+        tweet_list = self.world.SearchTweet([".*", "tweet.*"])
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0][0])
+
+        tweet_list = self.world.SearchTweet([".*", ".*ついーと.*"])
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0][0])
+
+# ダミーデータを突っ込むためのテストケース
+class NECOMATter_CreateDummyData(unittest.TestCase):
+    def setUp(self):
+        # 全てのノードやリレーションシップを削除します
+        gdb.clear()
+        self.world = NECOMATter("http://localhost:17474")
+        # ユーザ A, B, C, D を作っておきます。
+        self.user_node_list = []
+        # それらしく寝る時間の倍率。
+        self.sleep_mag = 1
+
+    def tearDown(self):
+        pass
+
+    def Tweet(self, name, text):
+        tweet_result = self.world.TweetByName(name, text)
+        self.assertIsNotNone(tweet_result)
+        return tweet_result
+
+    def Reply(self, name, text, tweet_result):
+        tweet_result = self.world.TweetByName(name, text, tweet_result['id'])
+        self.assertIsNotNone(tweet_result)
+        return tweet_result
+
+    # 指定された秒だけ寝て、logをそれらしく並べます。
+    def Sleep(self, second):
+        time.sleep(second * self.sleep_mag)
+
+    def test_Scenario1(self):
+        for user_name in ['iimura', 'hadoop team', u"NECOMATter System", u"tarou"]:
+            self.assertTrue(self.world.AddUser(user_name, "password"))
+            user_node = self.world.GetUserNode(user_name)
+            self.assertIsNotNone(user_node)
+            self.user_node_list.append(user_node)
+
+        self.Tweet("hadoop team", """hadoop team discovered a sign of #ZEUS-DGA filter on dns query.
+date: from 2014/04/20 to 2014/04/22
+  f528764d624db129b32c21fbca0cb8d6.com
+  gcqsjy2111ybiibq96yxixixduny7tdf6f94czn.com
+  rotzfrech360grad24hnonstopshoutcastradio.net
+  eef795a4eddaf1e7bd79212acc9dde16.net
+  www.gan24ql0lf558kn66l376079sy9qxr6bs.org""")
+        self.Sleep(63)
+        self.Tweet("hadoop team", """hadoop team discovered a sign of the phishing.
+date: from 2014/04/20 to 2014/04/22
+paypal #phishing :
+  paypal.com.cgi.bin.webscr.cmd.login.submit.dispatch.c13c0dn63663d3faee8db2b24f7
+  paypal.com.ddcfa29tjh8dna9.gcqsjy2111ybiibq96yxixixduny7tdf6f94czn.com
+  paypal.com.de.bin.webscr.cmd.login.submit.dispatch.c13c0dn63663d3faee8db2b24f7l
+  paypal.com.verify.securearea.billing.confirm.update.information.service.5885d80
+  paypal.fr.cgi.bin.webscr.cmd.login.submit.dispatch.5885d80a13c0db1f8e263663d3fa
+  paypal-update.848cdd7e94f206f9de2ab99f072709fb91461cb553bde1e86ae4d.com.techice
+  paypal-update.848cdd7e94f206f9de2ab99f072709fb91461cb553bde1e86ae4d.com.techice
+  www.paypal.com.verify.securearea.billing.confirm.update.information.service.588""")
+        self.Sleep(32)
+        tweet_node = self.Tweet("iimura", u"""#ZEUS-DGA 周りで何か出ているね。Agurim 側で出てるこれって何かの兆候？
+__iframe[http//mawi.wide.ad.jp/members_only/aguri2/agurim/detail.html?&criteria=packet&duration=64800&endTimeStamp=2014-01-15]__""")
+        self.Sleep(4)
+        self.Tweet("NECOMATter System", """node link summary:
+__iframe[/static/img/Neo4J.png]__""")
+        self.Sleep(43)
+        self.Reply("tarou", u"""@iimura #ZEUS-DGA でヒットした結果を見ると前に比べて最近は落ち着いているみたいに見えるけれど、どうなのかなこれ。
+__iframe[http//hadoop-master.sekiya-lab.info/matatabi/zeus-dga/query_count/?time.min=20140101&time.max=20141231]__""", tweet_node)
+        self.Sleep(23)
+        self.Reply("tarou", u"""@limura PhishTank のこれとかが近いかも。
+https://www.phishtank.com/phish_detail.php?phish_id=2431357""", tweet_node)
+        self.Sleep(72)
+        self.Tweet("iimura", u"""とりあえずまとめを作ってみたよ。
+http://necomatter.necoma-project.jp/matome/85""")
+
+
 if __name__ == '__main__':
     assert StartNeo4J()
     unittest.main()
     assert StopNeo4J()
+
+
+
+
+
+

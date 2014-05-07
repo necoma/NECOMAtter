@@ -131,9 +131,39 @@ def userPage_Get(user_name):
         abort(401)
     return render_template('timeline_page.html', user_name=user_name, do_target="Tweet", request_path="user")
 
+# ツイートの削除
+@app.route('/tweet/<int:tweet_id>', methods=['DELETE'])
+def userTweet_Delete(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    result = world.DeleteTweetByTweetID(tweet_id, auth_user_name)
+    if result == False:
+        abort(404)
+    return json.dumps({"result": "ok", "description": "tweet %d deleted." % (tweet_id, )})
+
+# ツイートの削除
+@app.route('/tweet/<int:tweet_id>_delete.json', methods=['GET'])
+def userTweet_Delete_Get(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    result = world.DeleteTweetByTweetID(tweet_id, auth_user_name)
+    if result == False:
+        abort(404)
+    return json.dumps({"result": "ok", "description": "tweet %d deleted." % (tweet_id, )})
+
 # 個別のツイートページ
 @app.route('/tweet/<int:tweet_id>')
 def userTweet_Get(tweet_id):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    return render_template('tweet_tree.html', tweet_id=tweet_id)
+
+# 個別のツイートページ
+@app.route('/tweet/<int:tweet_id>_tree')
+def userTweet_Get_Tree(tweet_id):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401)
@@ -674,13 +704,23 @@ def necomatome_POST():
         abort(400, {'result': 'error', 'description': 'create NECOMAtome failed.'})
     return json.dumps({'result': 'ok', 'matome_id': matome_id})
 
-# テスト用：ユーザのタイムラインページ
-@app.route('/test_timeline/<user_name>')
-def test_timelinePage_Get(user_name):
+# 検索
+@app.route('/search.json', methods=['GET', 'POST'])
+def search_json_POST():
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401)
-    return render_template('test_timeline_page.html', user_name=user_name, do_target="Timeline", request_path="timeline")
+    limit = None
+    since_time = None
+    if 'since_time' in request.values:
+        since_time = float(request.values['since_time'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    search_text = ""
+    if 'search_text' in request.values:
+        search_text = request.values['search_text']
+    search_text_list = search_text.split(' ')
+    return json.dumps(world.SearchTweetFormatted(search_text_list, since_time=since_time, limit=limit, query_user_name=auth_user_name))
 
 
 if __name__ == '__main__':

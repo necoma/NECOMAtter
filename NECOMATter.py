@@ -287,6 +287,21 @@ class NECOMATter():
                 , "retweet_unix_time": None
                 }
 
+    # tweet ID から tweet を削除します。一応書き込んだユーザを名乗らせて、同じユーザである必要をもたせます
+    def DeleteTweetByTweetID(self, tweet_id, delete_user_name):
+        user_node = self.GetUserNode(delete_user_name)
+        if user_node is None:
+            logging.error("User %s is undefined." % user_name)
+            return False
+        query = ""
+        query += "START tweet_node = node(%d), user_node = node(%d) " % (tweet_id, user_node._id)
+        query += "MATCH (user_node) <-[:TWEET]- (tweet_node) "
+        query += "WITH tweet_node "
+        query += "MATCH () -[r]- (tweet_node) "
+        query += "DELETE r, tweet_node"
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return True
+
     # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
     # 取得されるのは [text(0), time(1), user_name(2), icon_url(3), tweet_node_id(4), 自分がつけたスターのリレーションシップ(5), 自分がつけたリツイートのリレーションシップ(6), ツイートかリツイートした人の名前(7), リツイートかリツイートされた時間(8), ツイートであった(TWEET)かリツイートであった(RETWEET)か(9)] のリストです。
     def GetUserTweet(self, user_node, limit=None, since_time=None, query_user_node=None):
@@ -511,6 +526,18 @@ class NECOMATter():
             return False
         if not self.CheckUserPasswordIsValid(user_name, old_password):
             logging.warning("User %s password authenticate failed." % user_name)
+            return False
+        user_node['password_hash'] = self.GetPasswordHash(user_name, new_password)
+        user_node['session_expire_time'] = 0.0
+        return True
+
+    # ユーザのパスワードを更新します(旧パスワードを聞かずに強制上書きする版)
+    def UpdateUserPasswordForce(self, user_name, new_password):
+        if user_name is None or new_password is None:
+            return False
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.warning("User %s is undefined." % user_name)
             return False
         user_node['password_hash'] = self.GetPasswordHash(user_name, new_password)
         user_node['session_expire_time'] = 0.0
@@ -1719,4 +1746,60 @@ class NECOMATter():
             return [] 
         return self.FormatTweet(tweet_list)
         
+    # 指定された文字(複数の場合はAND検索)が書かれているtweet を取得します。
+    # 取得された結果は GetUserTweet() と同じ形式です
+    def SearchTweet(self, string_list, limit=None, since_time=None, query_user_node=None):
+        if string_list is None or len(string_list) <= 0:
+            logging.error("string_list is undefined or length <= 0.")
+            return []
+        query_user_id = 0
+        if query_user_node is not None:
+            query_user_id = query_user_node._id
+        # クエリを作ります
+        query = ""
+        if query_user_node is not None:
+            query += "START query_user = node(%d) " % query_user_id
+        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
+        query += "WITH tweet, tweet_r, user "
+        if query_user_node is not None:
+            query += ", query_user "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f AND " % since_time
+        else:
+            query += "WHERE "
+        and_text = ""
+        for search_string in string_list:
+            escaped_string = self.EscapeForXSS(search_string)
+            query += "%stweet.text =~ \".*%s.*\" " % (and_text, escaped_string)
+            and_text = "AND "
+        query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
+        if query_user_node is not None:
+            query += "WITH tweet, tweet_r, user, query_user, tweet_user "
+            query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
+            query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
+            query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
+        query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
+        if query_user_node is not None:
+            query += ", my_star_r, my_retweet_r "
+        else:
+            query += ", null, null"
+        query += ", user.name, tweet_r.time, type(tweet_r) "
+        query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        #print "query: ", query
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # 検索のtweetリストを取得します(フォーマット済み版)
+    def SearchTweetFormatted(self, string_list, limit=None, since_time=None, query_user_name=None):
+        query_user_node = None
+        if query_user_name is not None:
+            query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = []
+        try:
+            tweet_list = self.SearchTweet(string_list, limit, since_time, query_user_node=query_user_node)
+        except neo4j.CypherError:
+            return []
+        return self.FormatTweet(tweet_list)
 

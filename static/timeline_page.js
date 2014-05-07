@@ -9,7 +9,7 @@ var pathList = location_href.match("://[^/]+:?\d*/([^/]+)/([^/]+)+").slice(1);
 
 // tweet を読み込むURL
 var getTweetPath = '/' + pathList.join('/') + ".json";
-getTweetPath = getTweetPath.replace("/test_", "/"); // テストページ用に書き換えてます……
+//getTweetPath = getTweetPath.replace("/test_", "/"); // テストページ用に書き換えてます……
 // 表示されているユーザ名
 var userName = "undefined";
 if(pathList.length > 1){

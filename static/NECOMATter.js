@@ -29,6 +29,7 @@ function ReplyButtonClick(tweet_id, tweet_index, text, target_user_name){
 			$('#GlobalTweetModalReplyToTweet').html(html);
 			AssignTweetColumnClickEvent();
 			AssignTweetColumnDraggable();
+			$('.dropdown-toggle').dropdown();
 		});
 }
 
@@ -309,7 +310,7 @@ function CreateAtText(toplevel_user, user_list){
 }
 
 // /timeline/<<user_name>>.json から取得した一つのobject(tweet) をHTMLにします。
-// TODO: 何かテンプレートを使ったようなものにしたほうがよかったような……
+// テンプレート(jsrender)を使った版のtweetレンダラ
 function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	if( !('id' in target_tweet)
 	 || !('user_name' in target_tweet)
@@ -319,38 +320,20 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 		html += '<div class="tweet_column">broken tweet.</div>';
 		return html;
 	}
-	var tweet_id = target_tweet['id'];
-	var tweet_index = "TweetID_" + tweet_id;
-	var user = target_tweet['user_name'];
-	var time = target_tweet['time'];
-	var text = target_tweet['text'];
 	var icon_url = "/static/img/footprint3.1.png"; // 移行期用？アイコン未設定の場合のアイコンはこれにします
-	var is_own_stard = target_tweet['own_stard'];
 	var is_own_retweeted = target_tweet['own_retweeted'];
+	var is_own_stard = target_tweet['own_stard'];
 	if('icon_url' in target_tweet){
 		icon_url = target_tweet['icon_url'];
 	}
-	var tweet = "";
-	//tweet += '<div class="tweet_column pull-right img-responsive" id="TweetID_' + tweet_id + '">';
-	tweet += '<div class="tweet_column img-responsive" id="' + tweet_index + '">';
-	tweet += '<div class="drag_handle text-right">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>';
-	tweet += '<a href="/user/' + user + '">';
-	tweet += '<div class="ImageFloat"><img src="' + icon_url + '" width="40" alt=""></div>';
-	tweet += ' <span class="tweet_name">';
-	tweet += user;
-	tweet += '</a></span> <span class="tweet_time"><a href="/tweet/';
-	tweet += tweet_id;
-	tweet += '">';
-	tweet += time;
-	tweet += '</a></span"><div class="tweet_body">';
-	// 怪しくこの時点で文字列を書き換えます。
+	// 怪しくこの時点でtweet文字列を書き換えます。
 	// ・改行は<br>に
 	// ・URLっぽい文字列はlinkに
 	// ・#タグ ぽい文字列はタグ検索用のURLへのlinkに
 	// します。
 	// ついでに、@～ が出てきていた場合は覚えておきます
 	at_list = new Array();
-	tweet += text
+	replaced_text = target_tweet.text
 		.replace(/\r\n/g, "<br>")
 		.replace(/(\n|\r)/g, "<br>")
 		.replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^< ]+)|(@[^< ]+)/gi, function(str){
@@ -374,40 +357,23 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			return '<iframe src="' + url + '" frameborder="1" style="-webkit-transform: scale(0.8); -webkit-transform-origin: 0 0;" width="120%" height="300px"></iframe>'
 			+ '<a href="' + url + '">' + url + '</a><br>';
 		});
-	tweet += '</div>';
-	tweet += '<div class="tweet_footer text-right">';
-	if(!is_not_need_reply_button){
-		tweet += '<a href="javascript: ReplyButtonClick(' + tweet_id + ", '" + tweet_index + "', '" + CreateAtText(user, at_list) + "', '" + user + "'" + ');"';
-		tweet += ' class="btn btn-default btn-mini" type="button">';
-		tweet += '<span class="glyphicon glyphicon-pencil"></span> <span class="hidden-xs">返信</span></a> ';
-		var retweet_button_id = "RetweetButton_ID_" + tweet_id;
-		tweet += '<a ';
-		var retweet_text = "リツイート";
-		if(is_own_retweeted){
-			tweet += 'class="btn btn-success btn-mini" ';
-			retweet_text = "リツートを取り消す";
-		}else{
-			tweet += 'class="btn btn-default btn-mini" ';
-		}
-		tweet += 'id="' + retweet_button_id + '" href="javascript: RetweetButtonClick(' + tweet_id + ", '" + retweet_button_id + "'" + ');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">' + retweet_text + '</span></a> ';
-		var star_button_id = "StarButton_ID_" + tweet_id;
-		var star_button_text = '<span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">へぇ</span>';
-		var star_button_class = 'class="btn btn-default btn-mini"';
-		if(is_own_stard){
-			star_button_text = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">へぇを取り消す</span>';
-			star_button_class = 'class="btn btn-success btn-mini"';
-		}
-		tweet += '<a id="' + star_button_id + '" '
-			+ 'href="javascript: StarButtonClick(' + tweet_id + ", '" + star_button_id + "'" + ');" '
-			+ star_button_class + ' type="button">' + star_button_text + '</a> ';
-	}
-	tweet += '</div>';
-	tweet += '<div class="TweetDescription"></div>';
-	tweet += '<span class="ImageFloatClear"></span>';
-	tweet += '</div>';
 
-	return tweet;
+	// jsrender で使うための情報を作ります
+	data = {
+		"id": target_tweet.id
+		, "user_id": target_tweet.user_name
+		, "user_icon_url": icon_url
+		, "tweet_body": replaced_text
+		, "time": target_tweet.time
+		, "is_display_footer": !is_not_need_reply_button
+		, "is_own_retweeted": is_own_retweeted
+		, "is_own_stard": is_own_stard
+		, "is_not_owner": userName == "timeline" || userName != target_tweet.user_name
+	};
+	// jsrender でレンダリングして返します
+	return $("#Template_TweetBlock").render(data);
 }
+
 // /timeline/<<user_name>>.json から取得したobject(tweetのリスト) をHTMLにします。
 function RenderTimelineToHTML(tweet_list, is_not_need_reply_button){
 	var html = "";
@@ -441,6 +407,7 @@ function StartReadTweets(resource, append_to, limit, since_time, success_func, e
 			$(append_to).append(RenderTimelineToHTML(data));
 			AssignTweetColumnClickEvent();
 			AssignTweetColumnDraggable();
+			$('.dropdown-toggle').dropdown();
 		}).fail(function(jqXHR, textStatus, errorThrown){
 			if(error_func){
 				error_func(textStatus, errorThrown);
@@ -548,7 +515,7 @@ function CreateColor(normalized_value
 	var middleRed = middle_red || 255;
 	var middleGreen = middle_green || 255;
 	var middleBlue = middle_blue || 128;
-        
+
 	var rightRed = right_red || 0;
 	var rightGreen = right_green || 255;
 	var rightBlue = right_blue || 128;
@@ -637,6 +604,7 @@ $(document).ready(function(){
 			$('#Tweet_text > div:first').before(html).fadeIn("slow");
 			AssignTweetColumnClickEvent();
 			AssignTweetColumnDraggable();
+			$('.dropdown-toggle').dropdown();
 		}, function(data){
 			$('#GlobalTweetFormHelp').text("tweet failed.").fadeIn("slow").fadeOut("slow");
 		});

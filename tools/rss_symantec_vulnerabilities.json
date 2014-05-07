@@ -1,0 +1,10 @@
+{
+	"rss_url": "http://www.symantec.com/ja/jp/xml/rss/listings.jsp?lid=advisories"
+	, "cache_file_path": "Symantec_vulnerabilities.pickle"
+	, "target_list": [
+		{"target_key": "title", "type": "string"}
+		, {"target_key": "summary", "type": "string"}
+		, {"target_key": "link", "type": "string"}
+		, {"target_key": "updated_parsed", "type": "time"}
+	]
+}
