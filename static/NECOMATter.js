@@ -598,6 +598,32 @@ function ApplyUserNameTypeAhead(target, user_name){
 	);
 }
 
+// パスワードの強さを確認してテキトーに表示を変えます。
+function SignUp_checkPassword(text){
+	var password = $("#sign_up_password_1").val();
+	var strength = testPassword(password);
+
+	$("#password_strength").css("background-color", CreateColor(strength));
+
+	var strength_disp = $("#password_strength");
+	if(strength > 2/3){
+		strength_disp.text("強い");
+		$("#password_submit_button").removeAttr("disabled");
+	}else if(strength > 1/3){
+		strength_disp.text("普通");
+		$("#password_submit_button").removeAttr("disabled");
+	}else{
+		strength_disp.text("弱い");
+		$("#password_submit_button").attr("disabled", true);
+	}
+	// パスワードが2つ同じかどうかを確認します。
+	var password_2 = $("#sign_up_password_2").val();
+	if(password != password_2){
+		$("#password_submit_button").attr("disabled", true);
+	}
+}
+
+
 $(document).ready(function(){
 	// bootstrap でいろんなものを enable にするための呪文
 	$(".collapse").collapse();

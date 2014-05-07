@@ -2,15 +2,27 @@
 {% block title %}user setting page{% endblock %}
 {% block body %}
 <script src="/static/user_setting_page.js"></script>
+<script src="/static/passwordmeter.js"></script>
 <div class="normal_body">
   <h2>User settings</h2>
-  {% if error %}<p class=error><strong>Error:</strong>{{ error }}</p>{% endif %}
+  {% if error %}<p class="bg-danger"><strong>Error:</strong>{{ error }}</p>{% endif %}
+  {% if success %}<p class="bg-success">{{ success }}</p>{% endif %}
   <div class="IconSettings">
 	  current icon：<img src="{{icon_url}}" width="64">
 	  <br>
 	  <form action="/user/icon_upload.html" method="POST" enctype="multipart/form-data"><input type="file" name="icon">
 		  <input type="submit">
 	  </form>
+  </div>
+  <h2>Password change</h2>
+  <div class="PasswordChange">
+    <form action="/change_password" method="POST">
+      old password: <input type="password" name="old_password" autocomplete="off" placeholder="old password">
+      <br><span>new password: <input id="sign_up_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)" placeholder="password"></span>
+      強度：<span id="password_strength">弱い</span>
+      <br><span>password(確認用): <input id="sign_up_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)" placeholder="password (again)"></span>
+      <br><input id="password_submit_button" type="submit" value="change password" disabled>
+    </form>
   </div>
   <p>
   <h2>API key list</h2>

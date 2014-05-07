@@ -722,6 +722,38 @@ def search_json_POST():
     search_text_list = search_text.split(' ')
     return json.dumps(world.SearchTweetFormatted(search_text_list, since_time=since_time, limit=limit, query_user_name=auth_user_name))
 
+# パスワードの変更
+@app.route('/change_password', methods=['POST'])
+def passwordChangePage():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+
+    key_list = world.GetUserAPIKeyListByName(auth_user_name)
+    icon_url = world.GetUserAbaterIconURLByName(auth_user_name)
+
+    old_password = None
+    new_password_1 = None
+    new_password_2 = None
+    if 'old_password' in request.values:
+        old_password = request.values['old_password']
+    if 'password' in request.values:
+        new_password_1 = request.values['password']
+    if 'password_2' in request.values:
+        new_password_2 = request.values['password_2']
+    if new_password_1 != new_password_2:
+        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password verify failed.")
+    if world.UpdateUserPassword(auth_user_name, old_password, new_password_1) == False:
+        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password change failed.")
+
+    # 再度ログインさせるためにセッションを切ります
+    session.pop('session_key', None)
+    # DB側のセッションキーも消しておきます
+    world.DeleteUserSessionKey(auth_user_name)
+
+    return redirect(url_for('topPage'))
+    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, success="password changed.")
+
 
 if __name__ == '__main__':
     port = 8000
