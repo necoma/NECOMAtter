@@ -1,14 +1,14 @@
 {% extends "layout.html" %}
 {% block title %}tweet ID: {{tweet_id}} reply tree{% endblock %}
 {% block body %}
+<script src="/static/timeline_page.js"></script>
 <style>
-#TweetID_{{tweet_id}} {
+#Tweet_text #{{tweet_id}} {
 	background-color: #ffffdd !important;
 	margin:15px;
 	padding:15px;
 }
 </style>
-<script src="/static/timeline_page.js"></script>
 <h2>tweet ID: {{ tweet_id }} reply tree</h2>
   {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
   <div id="Tweet_text">

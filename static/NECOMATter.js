@@ -1,3 +1,6 @@
+//ページを読んでいるユーザ名(document.ready() で更新されるはずです)
+var authUserName = "";
+
 // インラインフレームで呼び出されているか否かを示す真偽値
 // どうやら document と、window.parent.document(インラインフレームだったら一つ上のdocument) を == で比較すると、
 // chrome であれば自分がインラインフレームで呼び出されているか否かが取得できるみたい。
@@ -14,6 +17,38 @@ function GlobalTweetModal_SetNormalMode(){
 	$('#GlobalTweetModalLabel').html('Tweet');
 	$('#GlobalTweetModalReplyTo').val('');
 	$('#GlobalTweetModalReplyToTweet').html('');
+}
+
+
+// tweetを消しますします
+function DeleteTweet(tweet_id, success_func, error_func){
+  DeleteJSON("/tweet/" + tweet_id
+	    , {}
+	    , function(){
+		if(success_func){
+		  success_func();
+		}
+	      }
+	    , function(){
+		if(error_func){
+		  error_func();
+		}
+	      });
+}
+
+
+// ツイート削除ボタンが押された場合の処理
+function DeleteButtonClick(tweet_id, tweet_delete_button_id, text, target_user_name){
+  button_element_list = $('#' + tweet_id);
+  if(button_element_list.length <= 0)
+  {
+    return;
+  }
+  DeleteTweet(tweet_id, function(){
+    button_element_list.fadeOut('slow');
+  }, function(){
+    console.log("can not delete tweet");
+  });
 }
 
 // ReplyButton がクリックされた時にtweet用のmodalを表示します
@@ -323,6 +358,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	var icon_url = "/static/img/footprint3.1.png"; // 移行期用？アイコン未設定の場合のアイコンはこれにします
 	var is_own_retweeted = target_tweet['own_retweeted'];
 	var is_own_stard = target_tweet['own_stard'];
+	var is_own_tweeted = target_tweet['user_name'] == authUserName;
 	if('icon_url' in target_tweet){
 		icon_url = target_tweet['icon_url'];
 	}
@@ -366,6 +402,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 		, "tweet_body": replaced_text
 		, "time": target_tweet.time
 		, "is_display_footer": !is_not_need_reply_button
+		, "is_own_tweeted": is_own_tweeted
 		, "is_own_retweeted": is_own_retweeted
 		, "is_own_stard": is_own_stard
 		, "is_not_owner": userName == "timeline" || userName != target_tweet.user_name
@@ -560,9 +597,6 @@ function ApplyUserNameTypeAhead(target, user_name){
 		}
 	);
 }
-
-//ページを読んでいるユーザ名(document.ready() で更新されるはずです)
-var authUserName = "";
 
 $(document).ready(function(){
 	// bootstrap でいろんなものを enable にするための呪文

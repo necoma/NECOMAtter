@@ -109,7 +109,11 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
 	<div class="tweet_body">{{:tweet_body}}</div>
 	{{if is_display_footer}}
 	<div class="tweet_footer text-right">
+		{{if is_own_tweeted}}
+		<a href="javascript: DeleteButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-remove"></span> <span class="hidden-xs">削除</span></a>
+		{{else}}
 		<a href="javascript: ReplyButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-pencil"></span> <span class="hidden-xs">返信</span></a>
+		{{/if}}
 		{{if is_own_retweeted}}
 		<a class="btn btn-success btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイートトを取り消す</span></a>
 		{{else}}
