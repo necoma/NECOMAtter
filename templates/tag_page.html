@@ -1,9 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}{{title}}{% endblock %}
 {% block body %}
-<script src="/static/tag_page.js"></script>
-<!-- script src="/static/timeline_page.js"></script -->
-<h2>{{title}}</h2>
+<!-- script src="/static/tag_page.js"></script -->
+<script src="/static/timeline_page.js"></script>
+<h2>Tag: {{title}}</h2>
   {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
   <div id="Tweet_text">
 	now loading...

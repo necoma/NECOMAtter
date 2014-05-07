@@ -280,7 +280,7 @@ def tagPage_Get(tag_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401)
-    return render_template('tag_page.html', tag_name=tag_name)
+    return render_template('tag_page.html', tag_name=tag_name, title=tag_name)
 
 # タグのタイムラインを返します
 @app.route('/tag/<tag_name>.json')
@@ -294,7 +294,7 @@ def tagPage_Get_Rest(tag_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetTagTweetFormated("#" + tag_name, limit, since_time)
+    tweet_list = world.GetTagTweetFormated("#" + world.EscapeForXSS(tag_name), limit, since_time)
     return json.dumps(tweet_list)
 
 # ユーザ設定ページ
