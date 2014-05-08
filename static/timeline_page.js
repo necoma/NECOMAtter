@@ -11,9 +11,9 @@ var pathList = location_href.match("://[^/]+:?\d*/([^/]+)/([^/]+)+").slice(1);
 var getTweetPath = '/' + pathList.join('/') + ".json";
 //getTweetPath = getTweetPath.replace("/test_", "/"); // テストページ用に書き換えてます……
 // 表示されているユーザ名
-var userName = "undefined";
+var displayUserName = "undefined";
 if(pathList.length > 1){
-	userName = pathList[1];
+	displayUserName = pathList[1];
 }
 //ページを読んでいるユーザ名
 var authUserName = $("#AuthUserName").text();
@@ -67,7 +67,7 @@ $(document).ready(function()
 {
 	// 読んでいるのが自分であるか、
 	// ログオンされていない場合はフォローやアンフォローボタンは必要ありません
-	if(authUserName == userName || authUserName == "")
+	if(authUserName == displayUserName || authUserName == "")
 	{
     		$(".FollowButton").html('');
     		$(".UnFollowButton").html('');
@@ -80,7 +80,7 @@ $(document).ready(function()
 		$.getJSON("/user/" + authUserName + "/followed_user_name_list.json"
 			, {}
 			, function(user_name_list, textStatus){
-				if(user_name_list.indexOf(userName) >= 0){
+				if(user_name_list.indexOf(displayUserName) >= 0){
 					// フォローしている場合
 					$("#UnFollowButton").removeAttr('disabled');
 					$("#FollowButton").attr('disabled', true);
@@ -118,7 +118,7 @@ $(document).ready(function()
 
 // ツイートさせます。TODO: ツイートに失敗した時などのエラーチェックはしないとユーザは何が起こったかわかりません。
 function Tweet(){
-	user = userName;
+	user = authUserName;
 	text = $("#post_tweet_text").val();
 	if(text == "")
 	{
