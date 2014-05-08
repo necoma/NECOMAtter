@@ -31,36 +31,43 @@
 </head>
 <body>
 <nav class="navbar navbar-default" role="navigation">
-	<div class="navbar-header">
-		<button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse">
-			<span class="icon-bar"></span>
-			<span class="icon-bar"></span>
-			<span class="icon-bar"></span>
-		</button>
-		<a class="navbar-brand" href="/"><span class="glyphicon glyphicon-home"></span> <span class="hidden-xs">NECOMATter</span></a>
-	</div>
-	<div class="collapse navbar-collapse" id="navbar-collapse">
-	{% if 'user_name' in session and 'session_key' in session %}
-		<ul class="nav navbar-nav">
-			<li><a href="/timeline/{{ session['user_name'] }}"><span class="glyphicon glyphicon-comment"></span> My TimeLine</a></li>
-			<li class="dropdown">
-				<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span> Settings <b class="caret"></b></a>
-				<ul class="dropdown-menu">
-					<li><a href="/user_setting/">User settings</a></li>
-					<li><a href="/signout">sign out</a></li>
-				</ul>
-			</li>
-		</ul>
-		<div class="nav navbar-nav navbar-right">
-			<button class="btn btn-default NECOMAtome_toggle_button" class-toggle="matome_active" data-target="#NECOMAtome_top">
-				まとめる
-			</button>
-			<button class="btn btn-default" data-toggle="modal" data-target="#GlobalTweetModal">
-				<span class="glyphicon glyphicon-pencil"></span> Tweetする
-			</button>
-		</div>
-	{% endif %}
-	</div>
+  <div class="navbar-header">
+    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </button>
+    <a class="navbar-brand" href="/"><span class="glyphicon glyphicon-home"></span> <span class="hidden-xs">NECOMATter</span></a>
+  </div>
+  <div class="collapse navbar-collapse" id="navbar-collapse">
+    {% if 'user_name' in session and 'session_key' in session %}
+    <ul class="nav navbar-nav navbar-left">
+      <li><a href="/timeline/{{ session['user_name'] }}"><span class="glyphicon glyphicon-comment"></span> My TimeLine</a></li>
+      <li class="dropdown">
+	<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-cog"></span> Settings <b class="caret"></b></a>
+	<ul class="dropdown-menu">
+	  <li><a href="/user_setting/">User settings</a></li>
+	  <li><a href="/signout">sign out</a></li>
+	</ul>
+      </li>
+    </ul>
+    <form class="navbar-form navbar-left" action="/search" role="search" id="SearchForm">
+      <span class="glyphicon glyphicon-search"></span>
+      <div class="form-group">
+        <input type="text" name="seasrch_text" class="form-control" placeholder="Search">
+      </div>
+      <button type="submit" class="btn btn-default">search</button>
+    </form>
+    <ul class="nav navbar-nav navbar-right">
+      <li><button class="btn btn-default NECOMAtome_toggle_button" class-toggle="matome_active" data-target="#NECOMAtome_top">
+	まとめる
+      </button></li>
+      <li><button class="btn btn-default" data-toggle="modal" data-target="#GlobalTweetModal">
+	<span class="glyphicon glyphicon-pencil"></span> Tweetする
+      </button></li>
+    </ul>
+    {% endif %}
+  </div>
 </nav>
 <!-- Tweet button Modal -->
 <div class="modal fade" id="GlobalTweetModal" tabindex="-1" role="dialog" aria-labelledby="GlobalTweetModalLabel" aria-hidden="true">
@@ -102,38 +109,38 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
 {%raw%}
 <script id="Template_TweetBlock" type="text/x-jsrender">
 <div class="tweet_column img-responsive ui-draggable" id="{{:id}}">
-	<div class="drag_handle text-right">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>
-	<a href="/user/{{:user_id}}"><div class="ImageFloat"><img src="{{:user_icon_url}}" width="40" alt=""></div>
-	<span class="tweet_name">{{:user_id}}</span></a>
-	<span class="tweet_time"><a href="/tweet/{{:id}}_tree">{{:time}}</a></span>
-	<div class="tweet_body">{{:tweet_body}}</div>
-	{{if is_display_footer}}
-	<div class="tweet_footer text-right">
-		{{if is_own_tweeted}}
-		<a href="javascript: DeleteButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-remove"></span> <span class="hidden-xs">削除</span></a>
-		{{else}}
-		<a href="javascript: ReplyButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-pencil"></span> <span class="hidden-xs">返信</span></a>
-		{{/if}}
-		{{if is_own_retweeted}}
-		<a class="btn btn-success btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイートトを取り消す</span></a>
-		{{else}}
-		<a class="btn btn-default btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイート</span></a>
-		{{/if}}
-		{{if is_own_stard}}
-		<a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-success btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">へぇを取り消す</span></span></a>
-		{{else}}
-		<a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">へぇ</span></span></a>
-		{{/if}}
-		{{if is_not_owner}}
-		<span class="dropdown"><button class="btn btn-default dropdown-toggle" data-toggle="dropdown" data-placement="top" title="Show more user action"><span class="glyphicon glyphicon-cog"></span> <b class="caret"></b></button>
-		<ul class="dropdown-menu text-left">
-			<li>フォローする</li>
-			<li>リストに加える</li>
-		</ul></span>
-		{{/if}}
-	</div>
-	{{/if}}
-	<div class="TweetDescription"></div><span class="ImageFloatClear"></span></div>
+  <div class="drag_handle text-right">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>
+  <a href="/user/{{:user_id}}"><div class="ImageFloat"><img src="{{:user_icon_url}}" width="40" alt=""></div>
+    <span class="tweet_name">{{:user_id}}</span></a>
+  <span class="tweet_time"><a href="/tweet/{{:id}}_tree">{{:time}}</a></span>
+  <div class="tweet_body">{{:tweet_body}}</div>
+  {{if is_display_footer}}
+  <div class="tweet_footer text-right">
+    {{if is_own_tweeted}}
+    <a href="javascript: DeleteButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-remove"></span> <span class="hidden-xs">削除</span></a>
+    {{else}}
+    <a href="javascript: ReplyButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-pencil"></span> <span class="hidden-xs">返信</span></a>
+    {{/if}}
+    {{if is_own_retweeted}}
+    <a class="btn btn-success btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイートトを取り消す</span></a>
+    {{else}}
+    <a class="btn btn-default btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイート</span></a>
+    {{/if}}
+    {{if is_own_stard}}
+    <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-success btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">へぇを取り消す</span></span></a>
+    {{else}}
+    <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">へぇ</span></span></a>
+    {{/if}}
+    {{if is_not_owner}}
+    <span class="dropdown"><button class="btn btn-default dropdown-toggle" data-toggle="dropdown" data-placement="top" title="Show more user action"><span class="glyphicon glyphicon-cog"></span> <b class="caret"></b></button>
+      <ul class="dropdown-menu text-left">
+	<li>フォローする</li>
+	<li>リストに加える</li>
+    </ul></span>
+    {{/if}}
+  </div>
+  {{/if}}
+  <div class="TweetDescription"></div><span class="ImageFloatClear"></span></div>
 </script>
 {%endraw%}
 </body>

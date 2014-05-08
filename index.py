@@ -722,6 +722,18 @@ def search_json_POST():
     search_text_list = search_text.split(' ')
     return json.dumps(world.SearchTweetFormatted(search_text_list, since_time=since_time, limit=limit, query_user_name=auth_user_name))
 
+# 検索ページ
+@app.route('/search', methods=['GET'])
+def search_Page():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    limit = None
+    search_text_list = []
+    if 'search_text' in request.values:
+        search_text_list = request.values['search_text'].split()
+    return render_template('search_page.html', title=world.EscapeForXSS(' '.join(search_text_list)), search_text_list=search_text_list)
+
 # パスワードの変更
 @app.route('/change_password', methods=['POST'])
 def passwordChangePage():
