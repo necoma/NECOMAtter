@@ -68,6 +68,14 @@ function ReplyButtonClick(tweet_id, tweet_index, text, target_user_name){
 		});
 }
 
+function AssignHighlight(blocks){
+  var blocks = $("pre code");
+  for(var i in blocks){
+    var block = blocks[i];
+    hljs.highlightBlock(block);
+  }
+}
+
 // tweet が追加された時に呼び出されて、tweet column がクリックされた時のイベントを追加します
 function AssignTweetColumnClickEvent(){
 	$('.tweet_column').unbind('click', TweetColumnClicked); // 一旦イベントを解除して
@@ -346,30 +354,9 @@ function CreateAtText(toplevel_user, user_list){
 
 // csv っぽい文字列があったら table に変換します。
 function StrCSV2Table(str){
-  return str;
-
-  // 封印中
-  var match_result = str.match(/([^,]+,)+([^.]+)\n/gm);
-  if(!match_result){
-    return str;
-  }
-  var all = "";
-  var lines = str.split("\n");
-  var table_start = false;
-  for(var i in lines){
-    var line = lines[i];
-    if(line.replace(/([^,]+,)+([^,]+)/, function(){
-
-       })){
-      if(!table_start){
-        all += "<table>";
-        table_start = true;
-      }else if(table_start){
-        all += "</table>";
-      }
-    }
-    all += line;
-  }
+  var new_str = marked(str);
+  console.log(new_str);
+  return new_str;
 }
 
 // /timeline/<<user_name>>.json から取得した一つのobject(tweet) をHTMLにします。
@@ -397,9 +384,10 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	// します。
 	// ついでに、@～ が出てきていた場合は覚えておきます
 	at_list = new Array();
-	replaced_text = target_tweet.text
-		.replace(/\r\n/g, "<br>")
-		.replace(/(\n|\r)/g, "<br>")
+	replaced_text = marked(target_tweet.text)
+	//replaced_text = target_tweet.text
+		//.replace(/\r\n/g, "<br>")
+		//.replace(/(\n|\r)/g, "<br>")
 		.replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^< ]+)|(@[^< ]+)/gi, function(str){
 			if(str.match(/^#/)){
 				var tag_name = str.replace(/^#/, '');
@@ -411,17 +399,20 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 				return '<a href="/user/'
 					+ user_name + '">' + str + '</a>';
 			}
+			return str;
+			// 単なる http://... のものはそのまま返すことにします。（markdownに任せる)
 			if(isInlineFrame){
 				return '<a href="' + str + '" target="frame_upper_right">' + str + '</a>';
 			}
 			return '<a href="' + str + '">' + str + '</a>';
-		}).replace(/__iframe\[([^\]"]+)\]__/g, function(str){
+		})
+		.replace(/__iframe\[([^\]"]+)\]__/g, function(str){
 			str = str.replace(/^__iframe\[/, '').replace(/\]__$/, '');
 			url = str.replace(/^([a-z]+)\/\//, "$1://");
 			return '<iframe src="' + url + '" frameborder="1" style="-webkit-transform: scale(0.8); -webkit-transform-origin: 0 0;" width="120%" height="300px"></iframe>'
 			+ '<a href="' + url + '">' + url + '</a><br>';
 		});
-        replaced_text = StrCSV2Table(replaced_text);
+        //replaced_text = StrCSV2Table(replaced_text);
 
 	// jsrender で使うための情報を作ります
 	data = {
@@ -470,7 +461,8 @@ function StartReadTweets(resource, append_to, limit, since_time, success_func, e
 			if(success_func){
 				success_func(data, textStatus);
 			}
-			$(append_to).append(RenderTimelineToHTML(data));
+			var append_dom_list = $(append_to).append(RenderTimelineToHTML(data));
+			AssignHighlight(append_dom_list);
 			AssignTweetColumnClickEvent();
 			AssignTweetColumnDraggable();
 			$('.dropdown-toggle').dropdown();
@@ -654,47 +646,53 @@ function SignUp_checkPassword(text){
 
 
 $(document).ready(function(){
-	// bootstrap でいろんなものを enable にするための呪文
-	$(".collapse").collapse();
-	$(".alert").alert();
-	$('.dropdown-toggle').dropdown();
-	// ページを読んでいるユーザ名を更新します
-	authUserName = $("#AuthUserName").text();
+  // highlight.js のinit
+  hljs.initHighlightingOnLoad();
+  // markd を highlight.js のハイライトが効くようにconfigします。
+  marked.setOptions({
+    langPrefix: ''
+  });
+  // bootstrap でいろんなものを enable にするための呪文
+  $(".collapse").collapse();
+  $(".alert").alert();
+  $('.dropdown-toggle').dropdown();
+  // ページを読んでいるユーザ名を更新します
+  authUserName = $("#AuthUserName").text();
 
-	$("#GlobalTweetModalSubmitButton").prop('disabled', true);
-	// GlobalTweetModal でテキストが入力されていなければTweetボタンを押させない
-	$('#GlobalTweetModalForm textarea').each(function(){
-		$(this).bind('keyup', function(elm){
-			var txt = $('#GlobalTweetModalText').val();
-			if(txt == ""){
-				$("#GlobalTweetModalSubmitButton").attr('disabled', 'disabled');
-				GlobalTweetModal_SetNormalMode();
-			}else{
-				$("#GlobalTweetModalSubmitButton").removeAttr('disabled');
-			}
-		});
-	});
+  $("#GlobalTweetModalSubmitButton").prop('disabled', true);
+  // GlobalTweetModal でテキストが入力されていなければTweetボタンを押させない
+  $('#GlobalTweetModalForm textarea').each(function(){
+		                                                       $(this).bind('keyup', function(elm){
+			                      var txt = $('#GlobalTweetModalText').val();
+			                      if(txt == ""){
+				                $("#GlobalTweetModalSubmitButton").attr('disabled', 'disabled');
+				                GlobalTweetModal_SetNormalMode();
+			                      }else{
+				                $("#GlobalTweetModalSubmitButton").removeAttr('disabled');
+			                      }
+		                            });
+	                                                             });
 
-	// global なtweetダイアログからのtweet
-	$('#GlobalTweetModalSubmitButton').click(function(){
-		var text = $("#GlobalTweetModalText").val();
-		var reply_to = $("#GlobalTweetModalReplyTo").val();
-		var user = authUserName;
-		if(text == "")
-		{
-			$('#GlobalTweetFormHelp').text("please imput text").fadeIn("slow").fadeOut("slow");
-			return false;
-		}
-		PostTweet(user, text, reply_to, function(data){
-			GlobalTweetModal_SetNormalMode();
-			$('#GlobalTweetModalText').val('');
-			$('#GlobalTweetModal').modal('hide');
-			html = RenderTimelineToHTML([data]);
-			$('#Tweet_text > div:first').before(html).fadeIn("slow");
-			AssignTweetColumnClickEvent();
-			AssignTweetColumnDraggable();
-			$('.dropdown-toggle').dropdown();
-		}, function(data){
+  // global なtweetダイアログからのtweet
+  $('#GlobalTweetModalSubmitButton').click(function(){
+		           var text = $("#GlobalTweetModalText").val();
+		           var reply_to = $("#GlobalTweetModalReplyTo").val();
+		           var user = authUserName;
+		           if(text == "")
+		           {
+			     $('#GlobalTweetFormHelp').text("please imput text").fadeIn("slow").fadeOut("slow");
+			     return false;
+		           }
+		           PostTweet(user, text, reply_to, function(data){
+			                       GlobalTweetModal_SetNormalMode();
+			                       $('#GlobalTweetModalText').val('');
+			                       $('#GlobalTweetModal').modal('hide');
+			                       html = RenderTimelineToHTML([data]);
+			                       $('#Tweet_text > div:first').before(html).fadeIn("slow");
+			                       AssignTweetColumnClickEvent();
+			                       AssignTweetColumnDraggable();
+			                       $('.dropdown-toggle').dropdown();
+		                             }, function(data){
 			$('#GlobalTweetFormHelp').text("tweet failed.").fadeIn("slow").fadeOut("slow");
 		});
 		return true;
