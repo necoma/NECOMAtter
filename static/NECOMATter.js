@@ -344,6 +344,34 @@ function CreateAtText(toplevel_user, user_list){
 	return text;
 }
 
+// csv っぽい文字列があったら table に変換します。
+function StrCSV2Table(str){
+  return str;
+
+  // 封印中
+  var match_result = str.match(/([^,]+,)+([^.]+)\n/gm);
+  if(!match_result){
+    return str;
+  }
+  var all = "";
+  var lines = str.split("\n");
+  var table_start = false;
+  for(var i in lines){
+    var line = lines[i];
+    if(line.replace(/([^,]+,)+([^,]+)/, function(){
+
+       })){
+      if(!table_start){
+        all += "<table>";
+        table_start = true;
+      }else if(table_start){
+        all += "</table>";
+      }
+    }
+    all += line;
+  }
+}
+
 // /timeline/<<user_name>>.json から取得した一つのobject(tweet) をHTMLにします。
 // テンプレート(jsrender)を使った版のtweetレンダラ
 function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
@@ -393,6 +421,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			return '<iframe src="' + url + '" frameborder="1" style="-webkit-transform: scale(0.8); -webkit-transform-origin: 0 0;" width="120%" height="300px"></iframe>'
 			+ '<a href="' + url + '">' + url + '</a><br>';
 		});
+        replaced_text = StrCSV2Table(replaced_text);
 
 	// jsrender で使うための情報を作ります
 	data = {
@@ -405,7 +434,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 		, "is_own_tweeted": is_own_tweeted
 		, "is_own_retweeted": is_own_retweeted
 		, "is_own_stard": is_own_stard
-		, "is_not_owner": userName == "timeline" || userName != target_tweet.user_name
+		, "is_not_owner": displayUserName == "timeline" || displayUserName != target_tweet.user_name
 	};
 	// jsrender でレンダリングして返します
 	return $("#Template_TweetBlock").render(data);

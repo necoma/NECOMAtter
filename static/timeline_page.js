@@ -4,12 +4,56 @@ var lastReadUnixTime = -1;
 // 一度に読み込むtweetの数を指定します
 var readTweetNum = 10;
 
+function GetQueryString()
+{
+  var result = {};
+  if( 1 < window.location.search.length )
+  {
+    // 最初の1文字 (?記号) を除いた文字列を取得する
+    var query = window.location.search.substring( 1 );
+
+    // クエリの区切り記号 (&) で文字列を配列に分割する
+    var parameters = query.split( '&' );
+
+    for( var i = 0; i < parameters.length; i++ )
+    {
+      // パラメータ名とパラメータ値に分割する
+      var element = parameters[ i ].split( '=' );
+
+      var paramName = decodeURIComponent( element[ 0 ] );
+      var paramValue = decodeURIComponent( element[ 1 ] );
+
+      // パラメータ名をキーとして連想配列に追加する
+      result[ paramName ] = paramValue;
+    }
+  }
+  return result;
+}
+
 var location_href = location.href;
-var pathList = location_href.match("://[^/]+:?\d*/([^/]+)/([^/]+)+").slice(1);
+var queryString = GetQueryString();
+var url_path_matched = location_href.match("://[^/]+:?\d*(.+)");
+var url_path = "";
+if(url_path_matched && url_path_matched.length > 1){
+  url_path = url_path_matched.slice(1)[0];
+}
+var pathList_matched = location_href.match("://[^/]+:?\d*/([^/]+)/([^/]+)+");
+var pathList = [];
+if(pathList_matched && pathList_matched.length > 1){
+  pathList = pathList_matched.slice(1);
+}
 
 // tweet を読み込むURL
-var getTweetPath = '/' + pathList.join('/') + ".json";
-//getTweetPath = getTweetPath.replace("/test_", "/"); // テストページ用に書き換えてます……
+var getTweetPath = "/alluser/timeline.json"; // default は全てのユーザ
+// 怪しく表示されているページ毎にリクエストする .json を変えます……
+if(url_path.match(/^\/search/))
+{
+  getTweetPath = "/search.json" + window.location.search;
+}else{
+  getTweetPath = '/' + pathList.join('/') + ".json";
+}
+
+
 // 表示されているユーザ名
 var displayUserName = "undefined";
 if(pathList.length > 1){

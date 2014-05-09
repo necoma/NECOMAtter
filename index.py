@@ -712,11 +712,11 @@ def search_json_POST():
         abort(401)
     limit = None
     since_time = None
+    search_text = ""
     if 'since_time' in request.values:
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    search_text = ""
     if 'search_text' in request.values:
         search_text = request.values['search_text']
     search_text_list = search_text.split(' ')
@@ -729,10 +729,10 @@ def search_Page():
     if auth_user_name is None:
         abort(401)
     limit = None
-    search_text_list = []
-    if 'search_text' in request.values:
-        search_text_list = request.values['search_text'].split()
-    return render_template('search_page.html', title=world.EscapeForXSS(' '.join(search_text_list)), search_text_list=search_text_list)
+    search_text = request.args.get('search_text');
+    if search_text is None:
+        search_text = ""
+    return render_template('search_page.html', title=world.EscapeForXSS(search_text))
 
 # パスワードの変更
 @app.route('/change_password', methods=['POST'])
