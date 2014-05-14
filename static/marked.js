@@ -446,7 +446,9 @@ Lexer.prototype.token = function(src, top, bq) {
  */
 
 var inline = {
-  escape: /^\\([\\`*{}\[\]()#+\-.!_>])/,
+    // IIMURA: トリガになるこれをいろいろ変えちゃいます。
+  //escape: /^\\([\\`*{}\[\]()#+\-.!_>])/,
+  escape: /^\\([\\`*{}\[\]()+\-.!])/, // #_> は無視させます
   autolink: /^<([^ >]+(@|:\/)[^ >]+)>/,
   url: noop,
   tag: /^<!--[\s\S]*?-->|^<\/?\w+(?:"[^"]*"|'[^']*'|[^'">])*?>/,
@@ -764,7 +766,7 @@ Renderer.prototype.code = function(code, lang, escaped) {
   }
 
   if (!lang) {
-    return '<pre><code>'
+    return '<pre><code class="prettyprint linenums">' // IIMURA prettyprint に対応させます
       + (escaped ? code : escape(code, true))
       + '\n</code></pre>';
   }
@@ -786,7 +788,7 @@ Renderer.prototype.html = function(html) {
 };
 
 Renderer.prototype.heading = function(text, level, raw) {
-  // modified by iimura.
+  // # は何も変えません IIMURA
   var ret = '';
   for( var i = 0; i < level; i++){
      ret += "#";

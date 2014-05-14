@@ -72,8 +72,11 @@ function AssignHighlight(blocks){
   var blocks = $("pre code");
   for(var i in blocks){
     var block = blocks[i];
-    hljs.highlightBlock(block);
+    //$(block).addClass('prettyprint linenums');
+
+    //hljs.highlightBlock(block);
   }
+  prettyPrint();
 }
 
 // tweet が追加された時に呼び出されて、tweet column がクリックされた時のイベントを追加します
@@ -384,7 +387,13 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	// します。
 	// ついでに、@～ が出てきていた場合は覚えておきます
 	at_list = new Array();
-	replaced_text = marked(target_tweet.text)
+        replaced_text = target_tweet.text
+		//.replace(/\r\n/g, "<br>")
+		//.replace(/(\n|\r)/g, "<br>")
+        ;
+	replaced_text = marked(replaced_text);
+	//replaced_text = replaced_text.replace(/(\s\r\n)+/gm, "<br>").replace(/(\n|\r)+/gm, "<br>");
+        replaced_text = replaced_text
 	//replaced_text = target_tweet.text
 		//.replace(/\r\n/g, "<br>")
 		//.replace(/(\n|\r)/g, "<br>")
@@ -406,8 +415,8 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			}
 			return '<a href="' + str + '">' + str + '</a>';
 		})
-		.replace(/__iframe\[([^\]"]+)\]__/g, function(str){
-			str = str.replace(/^__iframe\[/, '').replace(/\]__$/, '');
+		.replace(/--iframe\[([^\]"]+)\]--/g, function(str){
+			str = str.replace(/^--iframe\[/, '').replace(/\]--$/, '');
 			url = str.replace(/^([a-z]+)\/\//, "$1://");
 			return '<iframe src="' + url + '" frameborder="1" style="-webkit-transform: scale(0.8); -webkit-transform-origin: 0 0;" width="120%" height="300px"></iframe>'
 			+ '<a href="' + url + '">' + url + '</a><br>';
@@ -462,10 +471,10 @@ function StartReadTweets(resource, append_to, limit, since_time, success_func, e
 				success_func(data, textStatus);
 			}
 			var append_dom_list = $(append_to).append(RenderTimelineToHTML(data));
-			AssignHighlight(append_dom_list);
 			AssignTweetColumnClickEvent();
 			AssignTweetColumnDraggable();
 			$('.dropdown-toggle').dropdown();
+			AssignHighlight(append_dom_list);
 		}).fail(function(jqXHR, textStatus, errorThrown){
 			if(error_func){
 				error_func(textStatus, errorThrown);
@@ -647,10 +656,10 @@ function SignUp_checkPassword(text){
 
 $(document).ready(function(){
   // highlight.js のinit
-  hljs.initHighlightingOnLoad();
+  //hljs.initHighlightingOnLoad();
   // markd を highlight.js のハイライトが効くようにconfigします。
   marked.setOptions({
-    langPrefix: ''
+    langPrefix: 'prettyprint linenums lang-'
   });
   // bootstrap でいろんなものを enable にするための呪文
   $(".collapse").collapse();

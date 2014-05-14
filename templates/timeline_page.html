@@ -2,9 +2,6 @@
 {% block title %}{{ user_name}}'s {{do_target}}{% endblock %}
 {% block body %}
 <script src="/static/timeline_page.js"></script>
-<link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/ui-lightness/jquery-ui.css">
-<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
-<script src="/static/jQuery.equalHeights.js"></script>
 
 <h2>{{ user_name }}'s {{do_target}}</h2>
   {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}

@@ -11,7 +11,23 @@
 </style>
 <h2>tweet ID: {{ tweet_id }} reply tree</h2>
   {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
-  <div id="Tweet_text">
-	  now loading...
+  <div class="container">
+    <div id="NECOMAtome_top" class="row">
+      <div id="Tweet_text" class="col-xs-8">
+	now loading...
+      </div>
+      <div id="NECOMAtome_sidebar">
+        <div>
+	  <input type="text" id="NECOMATome_name" placeholder="まとめの名前">
+	  <button class="btn btn-default" id="NECOMAtome_create_button">まとめを作成する</button>
+	</div>
+	<div id="NECOMAtome_list" class="sortable ui-sortable">
+	  ここにtweetをドロップします
+	</div>
+      </div>
+      <div class="col-md-8">
+	<input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();">
+      </div>
+    </div>
   </div>
 {% endblock %}
