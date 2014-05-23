@@ -20,11 +20,11 @@ import os
 
 pickle_file_name = "agurim_prev_data.pickle" # 前回までの agurim の情報を保存するファイル
 data_set_save_count = 24 # 24回分ということで、24時間分になるはず。cronが一時間に一回走るはずなので。
-percent_recurrently_threshold = 25.0 # %表記での割合がこれを超えると多いと判定される
+percent_recurrently_threshold = 10.0 # %表記での割合がこれを超えると多いと判定される
 ipv4_mask_threshold = 24 # IPv4 でのnetmaskのビット数がこれ以上であれば十分に細かいホストとされる
 ipv6_mask_threshold = 48 # IPv6 でのnetmaskのビット数がこれ以上であれば十分に細かいホストとされる
 
-if len(sys.argv) != 3:
+if len(sys.argv) != 5:
     print "Usage: %s UserName API_Key agurm_user agurim_pass " % sys.argv[0]
     exit(1)
 
@@ -163,21 +163,21 @@ def IsRecurrently(data):
 # text に * が入っていなくて、IPv4 なら /24, IPv6 なら /48 よりも狭いレンジなら True、
 # そうでなければ False を返します
 def IsMinAguri(text):
-    if re.match(r'\*', text):
+    if re.search(r'\*', text):
         return False
     prefix = 0    
-    subnet_match = re.match(r'/(\d+)', text)
-    if subnet_match is not None:
-        for subnet in subnet_match:
-            prefix = subnet[0]
+    subnet_match = re.search(r'/(\d+)', text)
+    if subnet_match:
+        prefix = int(subnet_match.group(1))
     else:
         return True
-    if re.match(r'\.', text):
+    if re.search(r'\.', text):
         if prefix >= ipv4_mask_threshold:
             return True
         else:
             return False
     if prefix >= ipv6_mask_threshold:
+        print "hit v6"
         return True
     return False
 
@@ -232,10 +232,14 @@ def FormatAgurimHitData(filterd_agrim_data):
         first_line = data['first_line']
         if 'hit_from' in agurim_data:
             first_line = first_line.replace(agurim_data['hit_from'], "**" + agurim_data['hit_from'] + "**")
-            summary += " - from: " + agurim_data['hit_from'] + "\n"
+            summary += " - from: " + agurim_data['hit_from']
         if 'hit_to' in agurim_data:
             first_line = first_line.replace(agurim_data['hit_to'], "**" + agurim_data['hit_to'] + "**")
-            summary += " - to: " + agurim_data['hit_to'] + "\n"
+            if 'hit_from' in agurim_data:
+                summary += ", "
+            else:
+                summary += " - "
+            summary += "to: " + agurim_data['hit_to'] + "\n"
         detail += first_line + "  \n"
         detail += data['second_line'] + "  \n"
     text += summary + "\n" + "detail here:  \n"
