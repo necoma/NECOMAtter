@@ -25,15 +25,17 @@ ipv4_mask_threshold = 24 # IPv4 でのnetmaskのビット数がこれ以上で�
 ipv6_mask_threshold = 48 # IPv6 でのnetmaskのビット数がこれ以上であれば十分に細かいホストとされる
 
 if len(sys.argv) != 3:
-    print "Usage: %s UserName API_Key " % sys.argv[0]
+    print "Usage: %s UserName API_Key agurm_user agurim_pass " % sys.argv[0]
     exit(1)
 
 necomatter_user_name = sys.argv[1]
 necomatter_api_key = sys.argv[2]
+agurim_user_name = sys.argv[3]
+agurim_password = sys.argv[4]
 
 def GetAgurimData():
     req = requests.post("http://mawi.wide.ad.jp/members_only/aguri2/agurim/cgi-bin/myagurim.cgi",
-                        auth=HTTPDigestAuth('wide', 'open sesame'), # oh...
+                        auth=HTTPDigestAuth(agurim_user_name, agurim_password), # oh...
                         data={
             'criteria': 'packet',
             'format': 'json',
