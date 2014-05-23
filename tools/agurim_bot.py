@@ -177,7 +177,6 @@ def IsMinAguri(text):
         else:
             return False
     if prefix >= ipv6_mask_threshold:
-        print "hit v6"
         return True
     return False
 
