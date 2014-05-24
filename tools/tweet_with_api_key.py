@@ -28,7 +28,7 @@ request_data['text'] = tweet
 if reply_to is not None:
     request_data['reply_to'] = reply_to
 
-req = requests.post('http://' + host + ':8000/post.json',
+req = requests.post('http://' + host + '/post.json',
         headers={'content-type': 'application/json; charset=utf-8'},
         data=json.dumps(request_data))
 if req.status_code != 200:
