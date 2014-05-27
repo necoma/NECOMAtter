@@ -19,19 +19,32 @@
     <form action="/change_password" method="POST">
       old password: <input type="password" name="old_password" autocomplete="off" placeholder="old password">
       <br><span>new password: <input id="sign_up_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)" placeholder="password"></span>
-      強度：<span id="password_strength">弱い</span>
-      <br><span>password(確認用): <input id="sign_up_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)" placeholder="password (again)"></span>
+      strength：<span id="password_strength">weak</span>
+      <br><span>password(again): <input id="sign_up_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value)" placeholder="password (again)"></span>
       <br><input id="password_submit_button" type="submit" value="change password" disabled>
     </form>
   </div>
   <p>
-  <h2>API key list</h2>
-  ここに表示されている API Key とユーザ名を使うことで、BOT等から tweet することができるようになります。
+  <h2>Your API key list</h2>
   <div class="CreateNewKey"><input type="button" value="create a new key" onClick="CreateNewKeyButtonClicked();"><div>
   <ul id="KeyList">
   {% for key in key_list %}
     <li id="DeleteKey_{{key}}"><code>{{key}}</code> <input type="button" value="delete key" onClick="DeleteKeyButtonClicked('{{key}}');"></li>
   {% endfor %}
   </ul>
+
+  {% if is_can_create_user %}
+  <h2>Create New User or BOT account</h2>
+  <div class="CreateNewUser">
+    <form action="javascript:AddUser('#new_user_name', '#create_user_password_1', '#create_user_password_2', '#create_user_result', '#create_user_submit_button');">
+      user name: <input type="text" id="new_user_name" name="new_user_name" autocomplete="off" placeholder="new user name">
+      <br><span>password: <input id="create_user_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value, '#create_user_password_1', '#create_user_password_2', '#create_user_password_strength', '#create_user_submit_button')" placeholder="password"></span>
+      strength：<span id="create_user_password_strength">weak</span>
+      <br><span>password(again): <input id="create_user_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value, '#create_user_password_1', '#create_user_password_2', '#create_user_password_strength', '#create_user_submit_button')" placeholder="password (again)"></span>
+      <br><input id="create_user_submit_button" type="submit" value="create new user" disabled>
+    </form>
+    <div id="create_user_result"></div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

@@ -18,8 +18,9 @@ if len(sys.argv) != 3:
 user_name = sys.argv[1]
 password = sys.argv[2]
 
-if not world.AddUser(user_name, password):
-    print "add user failed."
+result = world.AddUser(user_name, password)
+if result[0] != True:
+    print "add user failed. ", result[1]
     exit(1)
 
 user_node = world.GetUserNode(user_name)

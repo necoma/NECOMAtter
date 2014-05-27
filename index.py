@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 # coding: utf-8
 
 import sys,os
@@ -302,10 +302,10 @@ def tagPage_Get_Rest(tag_name):
 def userSettingsPage_Get():
     user_name = GetAuthenticatedUserName()
     if user_name is None:
-        return render_template('user_setting_page.html', error="authenticate required")
+        return render_template('user_setting_page.html', error="authenticate required", is_can_create_user=False)
     key_list = world.GetUserAPIKeyListByName(user_name)
     icon_url = world.GetUserAbaterIconURLByName(user_name)
-    return render_template('user_setting_page.html', user=user_name, key_list=key_list, icon_url=icon_url)
+    return render_template('user_setting_page.html', user=user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(user_name))
 
 # API Key の削除
 @app.route('/user_setting/key/<key>.json', methods=['DELETE', 'POST'])
@@ -377,32 +377,35 @@ def unfollowUser():
 def signupPage():
     user_name = GetAuthenticatedUserName()
     if user_name is not None:
-        return redirect('/user/%s' % user_name)
+        return redirect(url_for('userPage_Get', user_name=user_name, _external=True, _scheme="https"))
     return render_template('signup.html')
 
 # ユーザ生成ページ(POSTされた後の実際の生成部分)
 @app.route('/signup', methods=['POST'])
 def signupProcess():
+    # 一旦サインアップページは動かないことにします
+    return render_template('signup.html', error="user sign up page is closed." % user_name)
     user_name = request.form['user_name']
     password = request.form['password']
     user_node = world.GetUserNode(user_name)
     if user_node is not None:
         return render_template('signup.html', error="user %s is already registerd." % user_name)
-    if world.AddUser(user_name, password):
+    result = world.AddUser(user_name, password)
+    if result[0] == True:
         session_key = world.UpdateUserSessionKey(user_name)
         if session_key is None:
             return render_template('signin.html', error="user %s created. but session create failed." % user_name)
         session['user_name'] = user_name
         session['session_key'] = session_key
-        return redirect('/timeline/%s' % user_name)
-    return render_template('signup.html', error="create user %s failed. unknown error." % user_name)
+        return redirect(url_for("timelinePage_Get", user_name=user_name, _external=True, _scheme="https"))
+    return render_template('signup.html', error="create user %s failed. %s" % (user_name, result[1]))
 
 # サインインページ
 @app.route('/signin', methods=['GET'])
 def signinPage():
     user_name = GetAuthenticatedUserName()
     if user_name is not None:
-        return redirect('/user/%s' % user_name)
+        return redirect(url_for('userPage_Get', user_name=user_name, _external=True, _scheme="https"))
     return render_template('signin.html')
 
 # サインインページ(POSTされた後の実際のサインイン部分)
@@ -416,7 +419,7 @@ def signinProcess():
             return render_template('signin.html', error="undefined error. (CreateSessionKey)")
         session['user_name'] = user_name
         session['session_key'] = session_key
-        return redirect('/timeline/%s' % user_name)
+        return redirect(url_for("timelinePage_Get", user_name=user_name, _external=True, _scheme="https"))
     return render_template('signin.html', error="invalid password or username")
 
 # サインアウトページ. このページが開いたら強制的にサインアウトさせます
@@ -427,7 +430,7 @@ def signoutPage():
         # DB側のセッションキーも消しておきます
         world.DeleteUserSessionKey(user_name)
     session.pop('session_key', None)
-    return redirect(url_for('topPage'))
+    return redirect(url_for('topPage', _scheme="https", _external=True))
 
 # 登録されているユーザ名をリストで返します
 @app.route('/user_name_list.json')
@@ -646,18 +649,16 @@ def retweet_users_get_json(tweet_id):
 def post_user_icon_image():
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
-        return render_template('user_setting_page.html', error="authentication required")
+        return render_template('user_setting_page.html', error="authentication required", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
     if 'icon' not in request.files:
-        return render_template('user_setting_page.html', error="post data invalid")
-    print request.files
+        return render_template('user_setting_page.html', error="post data invalid", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
     file = request.files['icon']
-    print file
     key_list = world.GetUserAPIKeyListByName(auth_user_name)
     icon_url = world.GetUserAbaterIconURLByName(auth_user_name)
     if not world.UpdateAbaterIconByName(auth_user_name, file):
-        return render_template('user_setting_page.html', error="icon save error", user=auth_user_name, key_list=key_list, icon_url=icon_url)
-    return redirect(url_for('userSettingsPage_Get'))
-    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url)
+        return render_template('user_setting_page.html', error="icon save error", user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+    return redirect(url_for('userSettingsPage_Get', _scheme="https", _external=True))
+    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
 
 # NECOMAtome json
 @app.route('/matome/<int:id>.json', methods=['GET', 'POST'])
@@ -734,6 +735,14 @@ def search_Page():
         search_text = ""
     return render_template('search_page.html', title=world.EscapeForXSS(search_text))
 
+# 検索ページ
+@app.route('/n6/query.json', methods=['GET'])
+def n6_query_json():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    return json.dumps(world.GetN6CompatQueryFormated(request.args))
+
 # パスワードの変更
 @app.route('/change_password', methods=['POST'])
 def passwordChangePage():
@@ -754,21 +763,35 @@ def passwordChangePage():
     if 'password_2' in request.values:
         new_password_2 = request.values['password_2']
     if new_password_1 != new_password_2:
-        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password verify failed.")
+        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password verify failed.", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
     if world.UpdateUserPassword(auth_user_name, old_password, new_password_1) == False:
-        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password change failed.")
+        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password change failed.", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
 
     # 再度ログインさせるためにセッションを切ります
     session.pop('session_key', None)
     # DB側のセッションキーも消しておきます
     world.DeleteUserSessionKey(auth_user_name)
 
-    return redirect(url_for('topPage'))
-    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, success="password changed.")
+    return redirect(url_for('topPage', _scheme="https", _external=True))
+    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, success="password changed.", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
 
+# ユーザの追加
+@app.route('/add_user.json', methods=['POST', 'PUT'])
+def AddUser_Json():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    new_user_name = request.json['new_user_name']
+    new_user_password = request.json['new_user_password']
+    if new_user_name is None or new_user_password is None or new_user_name == "" or new_user_password == "":
+        abort(400)
+    result =  world.AddUserWithAuthCheckByName(auth_user_name, new_user_name, new_user_password)
+    if result[0] != True:
+        return json.dumps({'result': 'error', 'description': result[1]}), 400
+    return json.dumps({'result': 'ok'})
 
 if __name__ == '__main__':
-    port = 8000
+    port = 80
     if len(sys.argv) > 1 and int(sys.argv[1]) > 1024:
         port = int(sys.argv[1])
     #app.run('0.0.0.0', port=port, debug=True)

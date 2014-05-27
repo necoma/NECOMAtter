@@ -77,9 +77,9 @@ class NECOMATterTestCase(unittest.TestCase):
 
     def test_UserList(self):
         self.assertEqual([], self.world.GetUserNameList())
-        assert self.world.AddUser("iimura", "test")
+        assert self.world.AddUser("iimura", "test")[0]
         self.assertEqual(["iimura"], self.world.GetUserNameList())
-        assert self.world.AddUser(u"いいむら", "test")
+        assert self.world.AddUser(u"いいむら", "test")[0]
         self.assertEqual(["iimura", u"いいむら"], self.world.GetUserNameList())
 
     def test_AddUser(self):
@@ -94,12 +94,13 @@ class NECOMATterTestCase(unittest.TestCase):
                 ]
         for qa in test_cases:
             if qa['AddUserResult']:
-                self.assertTrue(self.world.AddUser(qa['user'], qa['password']))
+                self.assertTrue(self.world.AddUser(qa['user'], qa['password'])[0])
             else:
-                self.assertFalse(self.world.AddUser(qa['user'], qa['password']))
+                self.assertFalse(self.world.AddUser(qa['user'], qa['password'])[0])
             query = ""
             query += 'START user=node:user(name="%s") ' % qa['search_string']
             query += 'MATCH node -[:FOLLOW]-> user '
+            query += 'WHERE node.name <> "<admin>" '
             query += 'RETURN user.name, node.name '
             result_list, metadata = cypher.execute(gdb, query)
             self.assertEqual(qa['result'], result_list)
@@ -109,7 +110,7 @@ class NECOMATterTestCase(unittest.TestCase):
         # ユーザが最初は誰も居ないことを確認
         self.assertEqual([], self.world.GetUserNameList())
         # ユーザの作成はしておく
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         self.assertEqual([u'iimura'], self.world.GetUserNameList())
         # 関係ない名前のユーザは削除できない
         self.assertFalse(self.world.DeleteUser("not defined user"))
@@ -126,14 +127,14 @@ class NECOMATterTestCase(unittest.TestCase):
         # ユーザが最初は誰も居ないことを確認
         self.assertEqual([], self.world.GetUserNameList())
         # 二人ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
-        self.assertTrue(self.world.AddUser("limura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
+        self.assertTrue(self.world.AddUser("takuji", "password")[0])
         # 二人でフォローしあう
-        self.assertTrue(self.world.FollowUserByName("iimura", "limura"))
-        self.assertTrue(self.world.FollowUserByName("limura", "iimura"))
+        self.assertTrue(self.world.FollowUserByName("iimura", "takuji"))
+        self.assertTrue(self.world.FollowUserByName("takuji", "iimura"))
         # フォローされている事を確認します
         iimura_node = self.world.GetUserNode("iimura")
-        limura_node = self.world.GetUserNode("limura")
+        limura_node = self.world.GetUserNode("takuji")
         self.assertTrue(self.world.IsFollowed(iimura_node, limura_node))
         self.assertTrue(self.world.IsFollowed(limura_node, iimura_node))
         # ユーザを削除します
@@ -142,17 +143,18 @@ class NECOMATterTestCase(unittest.TestCase):
         query = ""
         query += 'START user=node(*) '
         query += 'MATCH user -[:FOLLOW]-> node '
-        query += 'RETURN node.name '
-        query += 'ORDER BY node.name '
+        query += 'WHERE user.name <> "<admin>" '
+        query += 'RETURN user.name '
+        query += 'ORDER BY user.name '
         result_list, metadata = cypher.execute(gdb, query)
-        self.assertEqual([[u'limura']], result_list)
+        self.assertEqual([[u'takuji']], result_list)
 
     # ユーザを削除した場合、API_KEYも消えることを確認します
     def test_DeleteUser_APIKey(self):
         user_name = "iimura"
         password = "password"
         # ユーザを作成する
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         # API_KEY を作る
         api_key_node = self.world.CreateUserAPIKeyByName(user_name)
         self.assertIsNotNone(api_key_node)
@@ -186,8 +188,8 @@ class NECOMATterTestCase(unittest.TestCase):
 
     def test_FollowUserByName(self):
         # 二人ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
-        self.assertTrue(self.world.AddUser("limura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
+        self.assertTrue(self.world.AddUser("limura", "password")[0])
         # iimura -> limura のフォロー関係を作る
         self.assertTrue(self.world.FollowUserByName("iimura", "limura"))
         # フォロー関係が上で作ったフォロー関係だけであることを確認
@@ -195,6 +197,7 @@ class NECOMATterTestCase(unittest.TestCase):
         query += 'START user=node(*) '
         query += 'MATCH user -[:FOLLOW]-> node '
         query += 'WHERE user.name <> node.name '
+        query += 'AND user.name <> "<admin>" '
         query += 'RETURN node.name '
         query += 'ORDER BY node.name '
         result_list, metadata = cypher.execute(gdb, query)
@@ -206,6 +209,7 @@ class NECOMATterTestCase(unittest.TestCase):
         query += 'START user=node(*) '
         query += 'MATCH user -[:FOLLOW]-> node '
         query += 'WHERE user.name <> node.name '
+        query += 'AND user.name <> "<admin>" '
         query += 'RETURN node.name '
         query += 'ORDER BY node.name '
         result_list, metadata = cypher.execute(gdb, query)
@@ -213,8 +217,8 @@ class NECOMATterTestCase(unittest.TestCase):
         
     def test_IsFollowed(self):
         # 二人ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
-        self.assertTrue(self.world.AddUser("limura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
+        self.assertTrue(self.world.AddUser("limura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         limura_node = self.world.GetUserNode("limura")
         # フォローされていないとされることを確認
@@ -238,8 +242,8 @@ class NECOMATterTestCase(unittest.TestCase):
 
     def test_UnFollowUserByName(self):
         # 二人ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
-        self.assertTrue(self.world.AddUser("limura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
+        self.assertTrue(self.world.AddUser("limura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         limura_node = self.world.GetUserNode("limura")
         # フォローされていないとされることを確認
@@ -265,7 +269,7 @@ class NECOMATterTestCase(unittest.TestCase):
 
     def test_Tweet(self):
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # tweet する
         tweetText = u"test tweet 日本語も入れる"
@@ -285,7 +289,7 @@ class NECOMATterTestCase(unittest.TestCase):
         # 一度tweetしたユーザがユーザを消された場合どうなるかのテスト
         user_name = "iimura"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, "password"))
+        self.assertTrue(self.world.AddUser(user_name, "password")[0])
         iimura_node = self.world.GetUserNode(user_name)
         # tweet する
         tweetText = u"test tweet 日本語も入れる"
@@ -307,7 +311,7 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_Tweet_ReplyTo(self):
         # reply-to をつけた tweet ができることを確認する
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # tweet する
         tweetText = u"test tweet"
@@ -366,11 +370,11 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_Timeline(self):
         # タイムラインが正しく扱われるかのテスト
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
-        self.assertTrue(self.world.AddUser("tarou", "password"))
+        self.assertTrue(self.world.AddUser("tarou", "password")[0])
         tarou_node = self.world.GetUserNode("tarou")
-        self.assertTrue(self.world.AddUser("abe", "password"))
+        self.assertTrue(self.world.AddUser("abe", "password")[0])
         abe_node = self.world.GetUserNode("abe")
         # タイムラインにはまだ何も無い事を確認
         self.assertEqual([], self.world.GetUserTimeline(iimura_node))
@@ -404,7 +408,7 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_GetUserTimeline_Limit(self):
         # limit が効くことを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # タイムラインにはまだ何も無い事を確認
         self.assertEqual([], self.world.GetUserTimeline(iimura_node))
@@ -426,7 +430,7 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_GetUserTimeline_SinceTime(self):
         # since_time が効くことを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # タイムラインにはまだ何も無い事を確認
         self.assertEqual([], self.world.GetUserTimeline(iimura_node))
@@ -453,7 +457,7 @@ class NECOMATterTestCase(unittest.TestCase):
 
     def test_GetTagList(self):
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # GetTagList ではまだ何も無い事を確認
         self.assertEqual([], self.world.GetTagList())
@@ -480,7 +484,7 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_Tweet_Tag_Create(self):
         # タグつきで tweet した場合にタグが生成されることを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # tagリストにはまだ何も無い事を確認
         self.assertEqual([], self.world.GetTagList())
@@ -493,7 +497,7 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_GetTagTweetFormated(self):
         # タグに関連するtweetを取り出せることを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         target_tag_string = "#tag"
         # #tag にはまだ何も無い事を確認
@@ -523,7 +527,7 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_GetUserAPIKeyListByName(self):
         # ユーザのAPI keyが取得できることを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         # API key はまだ何も無いことを確認します
         self.assertEqual([], self.world.GetUserAPIKeyListByName("iimura"))
         # API key を新しく生成します
@@ -540,7 +544,7 @@ class NECOMATterTestCase(unittest.TestCase):
         # 最初は何もノードが無いはずです
         self.assertIsNone(self.world.GetTweetNodeFromID(0))
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # iimura_node のidをtweetとして取得しようとしても失敗することを確認します
         self.assertIsNone(self.world.GetTweetNodeFromID(iimura_node._id))
@@ -560,7 +564,7 @@ class NECOMATterTestCase(unittest.TestCase):
         # 最初は何もノードが無いはずです
         self.assertEqual([], self.world.GetTweetFromID(0))
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password"))
+        self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         # iimura_node のidをtweetとして取得しようとしても失敗することを確認します
         self.assertEqual([], self.world.GetTweetFromID(iimura_node._id))
@@ -590,7 +594,7 @@ class NECOMATterTestCase(unittest.TestCase):
         # 誰もユーザが居ない時には失敗することを確認します
         self.assertFalse(self.world.CheckUserPasswordIsValid(user_name, password))
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         # 正しいパスワードの場合は成功することを確認します
         self.assertTrue(self.world.CheckUserPasswordIsValid(user_name, password))
         # 間違えたパスワードの場合は失敗することを確認します
@@ -605,7 +609,7 @@ class NECOMATterTestCase(unittest.TestCase):
         # ユーザが存在しない場合はパスワードが変更できないことを確認します。
         self.assertFalse(self.world.UpdateUserPassword(user_name, password, new_password))
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         # パスワードが正しく設定されていることを CheckUserPasswordIsValid() で確認します
         self.assertTrue(self.world.CheckUserPasswordIsValid(user_name, password))
         # 間違えたパスワードではパスワードが変更できないことを確認します。
@@ -624,7 +628,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_name = "iimura"
         password = "password"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         # APIキーを作ります
         api_key_node = self.world.CreateUserAPIKeyByName(user_name)
         self.assertIsNotNone(api_key_node)
@@ -639,7 +643,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_name = "iimura"
         password = "password"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         # APIキーを作ります
         api_key_node = self.world.CreateUserAPIKeyByName(user_name)
         self.assertIsNotNone(api_key_node)
@@ -660,7 +664,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_name = "iimura"
         password = "password"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         iimura_node = self.world.GetUserNode(user_name)
         # tweetします
         tweet_node_1 = self.world.Tweet(iimura_node, "normal tweet")
@@ -705,7 +709,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_node = []
         for n in range(1, 5):
             name = "%s:%d" % (user_name, n)
-            self.assertTrue(self.world.AddUser(name, password))
+            self.assertTrue(self.world.AddUser(name, password)[0])
             user_node.append(self.world.GetUserNode(name))
         # tweetします
         tweet_node_1 = self.world.Tweet(user_node[0], "normal tweet")
@@ -747,7 +751,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_name = "iimura"
         password = "password"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         iimura_node = self.world.GetUserNode(user_name)
         # 1 <- 2 <- 3 <- 4 <- ... という形でtweetの連鎖を作ります。
         prev_tweet_node_id = None
@@ -778,7 +782,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_name = "iimura"
         password = "password"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         iimura_node = self.world.GetUserNode(user_name)
         # tweetします
         tweet_node_1 = self.world.Tweet(iimura_node, "normal tweet 0")
@@ -823,7 +827,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_node = []
         for n in range(1, 5):
             name = "%s:%d" % (user_name, n)
-            self.assertTrue(self.world.AddUser(name, password))
+            self.assertTrue(self.world.AddUser(name, password)[0])
             user_node.append(self.world.GetUserNode(name))
         # tweetします
         tweet_node_1 = self.world.Tweet(user_node[0], "normal tweet")
@@ -865,7 +869,7 @@ class NECOMATterTestCase(unittest.TestCase):
         user_name = "iimura"
         password = "password"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         iimura_node = self.world.GetUserNode(user_name)
         # 1 <- 2 <- 3 <- 4 <- ... という形でtweetの連鎖を作ります。
         prev_tweet_node_id = None
@@ -897,7 +901,7 @@ class NECOMATterTestCase(unittest.TestCase):
         password = "password"
         tweet_text = "tweet text 1"
         # ユーザを作成
-        self.assertTrue(self.world.AddUser(user_name, password))
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
         iimura_node = self.world.GetUserNode(user_name)
         # tweetします
         tweet_node_1 = self.world.Tweet(iimura_node, tweet_text)
@@ -919,7 +923,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # ユーザ A, B, C を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー"]:
-            self.assertTrue(self.world.AddUser(user_name, "password"))
+            self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
             self.user_node_list.append(user_node)
@@ -952,7 +956,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         owner_user_name = "alpha"
         # ユーザを作成します。
         for user_name in [owner_user_name]:
-            self.assertTrue(self.world.AddUser(user_name, "password"))
+            self.assertTrue(self.world.AddUser(user_name, "password")[0])
         owner_user_node = self.world.GetUserNode(owner_user_name)
         # リストを作成します
         for list_name in list_name_list:
@@ -1270,6 +1274,99 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # 自分のリストへのフォローの削除は、存在していなければもちろん失敗します
         self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, follower_user_name, undefined_list_name))
 
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(Timeline版)
+    def test_TweetToList_Timeline(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+
+        # オーナがリストを作成します
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # 全員オーナを自分のタイムラインに登録します
+        self.assertTrue(self.world.FollowUserByName(target_user_name, owner_user_name))
+        self.assertTrue(self.world.FollowUserByName(unlisted_user_name, owner_user_name))
+
+        # 全体に向かってtweetします
+        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic['text'])
+        # リストに向かってtweetします
+        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text, tweet_to_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic['text'])
+
+        # リストに登録されているユーザからタイムラインで全て観測できます。
+        tweet_list = self.world.GetUserTimelineFormated(target_user_name, query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザのタイムラインでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetUserTimelineFormated(unlisted_user_name, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(list版)
+    def test_TweetToList_List(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+
+        # オーナがリストを作成します
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # 全員オーナを自分のタイムラインに登録します
+        self.assertTrue(self.world.FollowUserByName(target_user_name, owner_user_name))
+        self.assertTrue(self.world.FollowUserByName(unlisted_user_name, owner_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(owner_user_name, target_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(owner_user_name, unlisted_user_name, list_name))
+
+        # 全体に向かってtweetします
+        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic['text'])
+        # リストに向かってtweetします
+        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text, tweet_to_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic['text'])
+
+        # リストに登録されているユーザからListを見ると観測できます。
+        tweet_list = self.world.GetListTimelineFormated(owner_user_name, list_name, query_user_name=target_user_name)
+        print tweet_list
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザではlistからの観測では全体向けのものしか観測できません。
+        tweet_list = self.world.GetListTimelineFormated(owner_user_name, list_name, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
 
 class NECOMATter_Retweet_TestCase(unittest.TestCase):
     def setUp(self):
@@ -1279,7 +1376,7 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         # ユーザ A, B, C を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー"]:
-            self.assertTrue(self.world.AddUser(user_name, "password"))
+            self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
             self.user_node_list.append(user_node)
@@ -1290,7 +1387,7 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
     def test_RetweetMany(self):
         # ユーザを増やします
         for user_name in [u'D']:
-            self.assertTrue(self.world.AddUser(user_name, "password"))
+            self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
             self.user_node_list.append(user_node)
@@ -1423,7 +1520,7 @@ class NECOMATter_Star_TestCase(unittest.TestCase):
         # ユーザ A, B, C, D を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー", u"でぃー"]:
-            self.assertTrue(self.world.AddUser(user_name, "password"))
+            self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
             self.user_node_list.append(user_node)
@@ -1486,7 +1583,7 @@ class NECOMATter_Search_TestCase(unittest.TestCase):
         # ユーザ A, B, C, D を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー", u"でぃー"]:
-            self.assertTrue(self.world.AddUser(user_name, "password"))
+            self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
             self.user_node_list.append(user_node)
@@ -1545,7 +1642,7 @@ class NECOMATter_CreateDummyData(unittest.TestCase):
 
     def test_Scenario1(self):
         for user_name in ['iimura', 'hadoop team', u"NECOMATter System", u"tarou"]:
-            self.assertTrue(self.world.AddUser(user_name, "password"))
+            self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
             self.user_node_list.append(user_node)

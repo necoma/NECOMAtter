@@ -391,13 +391,14 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 		//.replace(/\r\n/g, "<br>")
 		//.replace(/(\n|\r)/g, "<br>")
         ;
+        console.log(replaced_text);
 	replaced_text = marked(replaced_text);
 	//replaced_text = replaced_text.replace(/(\s\r\n)+/gm, "<br>").replace(/(\n|\r)+/gm, "<br>");
         replaced_text = replaced_text
 	//replaced_text = target_tweet.text
 		//.replace(/\r\n/g, "<br>")
 		//.replace(/(\n|\r)/g, "<br>")
-		.replace(/([a-z]+:\/\/[^\) \t"]+)|(#[^< ]+)|(@[^< ]+)/gi, function(str){
+		.replace(/(#[^< ]+)|(@[^< ]+)/gi, function(str){
 			if(str.match(/^#/)){
 				var tag_name = str.replace(/^#/, '');
 				return '<a href="/tag/'
@@ -409,11 +410,6 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 					+ user_name + '">' + str + '</a>';
 			}
 			return str;
-			// 単なる http://... のものはそのまま返すことにします。（markdownに任せる)
-			if(isInlineFrame){
-				return '<a href="' + str + '" target="frame_upper_right">' + str + '</a>';
-			}
-			return '<a href="' + str + '">' + str + '</a>';
 		})
 		.replace(/--iframe\[([^\]"]+)\]--/g, function(str){
 			str = str.replace(/^--iframe\[/, '').replace(/\]--$/, '');
@@ -421,7 +417,6 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			return '<iframe src="' + url + '" frameborder="1" style="-webkit-transform: scale(0.8); -webkit-transform-origin: 0 0;" width="120%" height="300px"></iframe>'
 			+ '<a href="' + url + '">' + url + '</a><br>';
 		});
-        //replaced_text = StrCSV2Table(replaced_text);
 
 	// jsrender で使うための情報を作ります
 	data = {
@@ -629,27 +624,39 @@ function ApplyUserNameTypeAhead(target, user_name){
 }
 
 // パスワードの強さを確認してテキトーに表示を変えます。
-function SignUp_checkPassword(text){
-	var password = $("#sign_up_password_1").val();
+function SignUp_checkPassword(text, password_field_id, password_field_2_id, password_strength_id, password_submit_button_id){
+  if(!password_field_id){
+    password_field_id = "#sign_up_password_1";
+  }
+  if(!password_strength_id){
+    password_strength_id = "#password_strength";
+  }
+  if(!password_submit_button_id){
+    password_submit_button_id = "#password_submit_button";
+  }
+  if(!password_field_2_id){
+    password_field_2_id = "#sign_up_password_2";
+  }
+	var password = $(password_field_id).val();
 	var strength = testPassword(password);
 
-	$("#password_strength").css("background-color", CreateColor(strength));
+	$(password_strength_id).css("background-color", CreateColor(strength));
 
-	var strength_disp = $("#password_strength");
+	var strength_disp = $(password_strength_id);
 	if(strength > 2/3){
-		strength_disp.text("強い");
-		$("#password_submit_button").removeAttr("disabled");
+		strength_disp.text("strong");
+		$(password_submit_button_id).removeAttr("disabled");
 	}else if(strength > 1/3){
-		strength_disp.text("普通");
-		$("#password_submit_button").removeAttr("disabled");
+		strength_disp.text("average");
+		$(password_submit_button_id).removeAttr("disabled");
 	}else{
-		strength_disp.text("弱い");
-		$("#password_submit_button").attr("disabled", true);
+		strength_disp.text("weak");
+		$(password_submit_button_id).attr("disabled", true);
 	}
 	// パスワードが2つ同じかどうかを確認します。
-	var password_2 = $("#sign_up_password_2").val();
+	var password_2 = $(password_field_2_id).val();
 	if(password != password_2){
-		$("#password_submit_button").attr("disabled", true);
+		$(password_submit_button_id).attr("disabled", true);
 	}
 }
 

@@ -57,7 +57,7 @@ block.html = replace(block.html)
 
 block.paragraph = replace(block.paragraph)
   ('hr', block.hr)
-  ('heading', block.heading)
+  //('heading', block.heading) // # による heading はしません タグに使うので。 IIMURA
   ('lheading', block.lheading)
   ('blockquote', block.blockquote)
   ('tag', '<' + block._tag)
@@ -193,6 +193,7 @@ Lexer.prototype.token = function(src, top, bq) {
       continue;
     }
 
+    /* # による heading はしません。タグ に使うので。IIMURA
     // heading
     if (cap = this.rules.heading.exec(src)) {
       src = src.substring(cap[0].length);
@@ -203,6 +204,7 @@ Lexer.prototype.token = function(src, top, bq) {
       });
       continue;
     }
+    */
 
     // table no leading pipe (gfm)
     if (top && (cap = this.rules.nptable.exec(src))) {
@@ -446,9 +448,7 @@ Lexer.prototype.token = function(src, top, bq) {
  */
 
 var inline = {
-    // IIMURA: トリガになるこれをいろいろ変えちゃいます。
-  //escape: /^\\([\\`*{}\[\]()#+\-.!_>])/,
-  escape: /^\\([\\`*{}\[\]()+\-.!])/, // #_> は無視させます
+  escape: /^\\([\\`*{}\[\]()#+\-.!_>])/,
   autolink: /^<([^ >]+(@|:\/)[^ >]+)>/,
   url: noop,
   tag: /^<!--[\s\S]*?-->|^<\/?\w+(?:"[^"]*"|'[^']*'|[^'">])*?>/,
@@ -788,12 +788,6 @@ Renderer.prototype.html = function(html) {
 };
 
 Renderer.prototype.heading = function(text, level, raw) {
-  // # は何も変えません IIMURA
-  var ret = '';
-  for( var i = 0; i < level; i++){
-     ret += "#";
-  }
-  return ret + text;
   return '<h'
     + level
     + ' id="'
@@ -1087,7 +1081,8 @@ function escape(html, encode) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    //.replace(/'/g, '&#39;')
+  ;
 }
 
 function unescape(html) {

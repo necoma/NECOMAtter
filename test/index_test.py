@@ -79,7 +79,7 @@ class IndexTestCase_Simple(IndexTestCase):
         # ユーザを作成する
         user_name = "iimura"
         password = "password"
-        self.assertTrue(index.world.AddUser(user_name, password))
+        self.assertTrue(index.world.AddUser(user_name, password)[0])
         # 取得してみる
         rv = self.app.get('/user_name_list.json')
         data = json.loads(rv.data)
@@ -96,7 +96,7 @@ class IndexTestCase_Simple(IndexTestCase):
         # ユーザを作成する
         user_name = "iimura"
         password = "password"
-        self.assertTrue(index.world.AddUser(user_name, password))
+        self.assertTrue(index.world.AddUser(user_name, password)[0])
         # 取得する
         rv = self.app.get('/user/%s.json' % user_name)
         data = json.loads(rv.data)
@@ -107,7 +107,7 @@ class IndexTestCase_Simple(IndexTestCase):
         # ユーザを作成する
         user_name = "iimura"
         password = "password"
-        self.assertTrue(index.world.AddUser(user_name, password))
+        self.assertTrue(index.world.AddUser(user_name, password)[0])
         user_node = index.world.GetUserNode(user_name)
         self.assertIsNotNone(user_node)
         # tweet する
@@ -154,7 +154,7 @@ class IndexTestCase_SomeUserAndTweet(IndexTestCase):
         # ユーザ名は user_name0, user_name1, ..., user_name9 です
         for n in range(0, 10):
             user_name = "user_name%d" % n
-            self.assertTrue(index.world.AddUser(user_name, self.user_password))
+            self.assertTrue(index.world.AddUser(user_name, self.user_password)[0])
             user_node = index.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
             self.user_node.append(user_node)

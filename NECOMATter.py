@@ -11,6 +11,7 @@ import hashlib
 import random
 import re
 import os
+import dateutil.parser
 from xml.sax.saxutils import *
 from py2neo import neo4j, cypher
 from werkzeug.utils import secure_filename
@@ -232,7 +233,7 @@ class NECOMATter():
         return tweet_node
 
     # ユーザにtweet させます。Tweetに成功したら、tweet_node を返します
-    def Tweet(self, user_node, tweet_string, reply_to=None):
+    def Tweet(self, user_node, tweet_string, reply_to=None, tweet_to_list=None):
         if user_node is None:
             logging.error("Tweet owner is not defined.")
             return None
@@ -260,15 +261,30 @@ class NECOMATter():
             tweet_node.create_path(("REPLY", {
                 "time": creation_time
             }), reply_to_tweet_node)
+        # リストに対してtweetする場合はPERMITリレーションシップを作ります
+        
+        # 誰に向かってでもなくのtweetなら全員向けということにします。
+        #if tweet_to_list is None:
+        #    tweet_to_list = self.GetAllFollowNode()
+
+        #tweet_node.create_path(("PERMIT", {
+        #            "time": creation_time
+        #            }), tweet_to_list)
         return tweet_node
 
     # ユーザにtweetさせます。(名前指定版) Tweet に成功したら、一つのtweet辞書を返します
-    def TweetByName(self, user_name, tweet_string, reply_to=None):
+    def TweetByName(self, user_name, tweet_string, reply_to=None, tweet_to_list=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("User %s is undefined." % user_name)
             return {}
-        tweet_node = self.Tweet(user_node, tweet_string, reply_to)
+        list_node = None
+        if tweet_to_list is not None:
+            list_node = self.GetListNodeFromName(user_node, tweet_to_list)
+            if list_node is None:
+                logging.error("list \'%s\' is not found" % (tweet_to_list, ))
+                return {}
+        tweet_node = self.Tweet(user_node, tweet_string, reply_to=reply_to, tweet_to_list=list_node)
         if tweet_node is None:
             logging.error("tweet failed.")
             return {}
@@ -377,6 +393,8 @@ class NECOMATter():
         if query_user_node is not None:
             query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) <-[:FOLLOW]- (user) "
+        #if query_user_node is not None:
+        #    query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH tweet, tweet_r, tweet_retweet_node "
         if query_user_node is not None:
             query += ", query_user "
@@ -548,15 +566,22 @@ class NECOMATter():
         # ユーザ名はいちいちエスケープするのがめんどくさいので
         # 登録時にエスケープされないことを確認するだけにします(いいのかなぁ)
         if self.VaridateCypherString(user_name) == False:
-            logging.error("User %s has escape string. please use other name" % user_name)
-            return False
+            errmsg = "User %s has escape string. please use other name" % user_name
+            logging.error(errmsg)
+            return (False, errmsg)
         if self.VaridateUserNameString(user_name) == False:
-            logging.error("User %s has permitted character. please use other name" % user_name)
-            return False
+            errmsg = "User %s has permitted character. please use other name" % user_name
+            logging.error(errmsg)
+            return (False, errmsg)
+        if len(user_name) <= 0 or len(password) <= 0:
+            errmsg = "user name or password length <= 0."
+            logging.error(errmsg)
+            return (False, errmsg)
         user_node = self.GetUserNode(user_name)
         if user_node is not None:
-            logging.warning("User %s is already registerd." % user_name)
-            return False
+            errmsg = "User %s is already registerd." % user_name
+            logging.warning(errmsg)
+            return (False, errmsg)
         user_index = self.GetUserIndex()
         hash_value = self.GetPasswordHash(user_name, password)
         # 初期のアバターアイコンは肉球アイコンからランダムで設定します
@@ -567,7 +592,17 @@ class NECOMATter():
         })
         # 自分をフォローしていないと自分のタイムラインに自分が出ません
         self.FollowUserByNode(user_node, user_node)
-        return True
+        # 全てのユーザをフォローしているノードからフォローさせておきます
+        # これが無いとPERMITをきちんと処理できません
+        #self.FollowUserByNode(self.GetAllFollowNode(), user_node)
+        return (True, None)
+
+    # 全てのユーザをフォローしているノードを取得します
+    def GetAllFollowNode(self):
+        # 全てのユーザをフォローしているノードの名前は "<admin>" とします。
+        # こうしておけば、'<' と '>'  がユーザ名としてはエスケープされるはずなので、
+        # 通常のユーザと名前はかぶらないはずです。
+        return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "AllFollowNode", "AllFollowNode", properties={"type": "AllFollowNode", "name": "<admin>"})
 
     # ユーザを削除します
     def DeleteUser(self, user_name):
@@ -961,10 +996,9 @@ class NECOMATter():
     # リストの名前を入れたらどうかと思ったけれどそうすると
     # 複数のリストから同じユーザにフォローのrelationshipが張れないので諦めた。
 
-    # owner_node(node) のlist_name(string) 用のノードを取得します
-    # なければ作って返します。
-    # それでも失敗した場合はNoneを返します。
-    def CreateOrGetListNodeFromName(self, owner_node, list_name, description="", hidden=False):
+    # owner_node の list_name のリストノードを取得します
+    # 存在しない場合は None を返します
+    def GetListNodeFromName(self, owner_node, list_name):
         if owner_node is None:
             return None
         if self.VaridateCypherString(list_name) == False:
@@ -980,11 +1014,29 @@ class NECOMATter():
         query += "AND list_node.name = \"%s\"" % list_name
         query += "RETURN list_node "
         result_list, metadata = cypher.execute(self.gdb, query)
-        # 既にある場合はそれを返します
+        # ある場合はそれを返します
         if len(result_list) == 1:
             return result_list[0][0]
+        # 無いのでNoneを返します
+        return None
 
-        # TODO: ここでlockしていないので同時に呼び出されると
+    # owner_node(node) のlist_name(string) 用のノードを取得します
+    # なければ作って返します。
+    # それでも失敗した場合はNoneを返します。
+    def CreateOrGetListNodeFromName(self, owner_node, list_name, description="", hidden=False):
+        if owner_node is None:
+            return None
+        if self.VaridateCypherString(list_name) == False:
+            logging.error("list name %s has escape string. please user other name" % list_name)
+            return None
+
+        # とりあえずクエリして存在確認をします。
+        list_node = self.GetListNodeFromName(owner_node, list_name)
+        if list_node is not None:
+            # 存在するのであればそのまま返します
+            return list_node
+        
+        # TODO: ここ(というか上のクエリ時点)でlockしていないので同時に呼び出されると
         # 複数作られる可能性があります。
         # できれば lock して対応するのがいい気がします。
 
@@ -1014,6 +1066,14 @@ class NECOMATter():
         # lockせずに作成しているので、
         # 重複して作成したことを考えて、id の一番小さいものを正規のものとするために、
         # 再度検索します
+        owner_node_id = owner_node._id
+        query = ""
+        query += "START owner_node=node(%d) " % owner_node_id
+        query += "MATCH list_node -[:OWNER]-> list_owner_node "
+        query += ", list_node <-[:LIST]- owner_node "
+        query += "WHERE list_owner_node = owner_node "
+        query += "AND list_node.name = \"%s\"" % list_name
+        query += "RETURN list_node "
         result_list, metadata = cypher.execute(self.gdb, query)
         if len(result_list) > 1:
             candidate_node = list_node
@@ -1131,10 +1191,14 @@ class NECOMATter():
         return True
 
     # owner_node のlistの一つを削除します
-    def DeleteListByNode(self, owner_node, list_name):
+    def DeleteListByNode(self, owner_node, list_name, query_user_node=None):
         if owner_node is None:
             return False
         owner_node_id = owner_node._id
+        if query_user_node is not None and query_user_node._id != owner_node_id:
+            # オーナーじゃい人からdeleteが呼ばれた。なんで？
+            logging.error("DeleteList called from deferent owner node.")
+            return False
         if self.VaridateCypherString(list_name) == False:
             logging.error("list name '%s' has escape string. please user other name" % list_name)
             return False
@@ -1151,7 +1215,7 @@ class NECOMATter():
         return True
 
     # owner_node のlist_name のノードを取得します
-    def GetListNodeByNode(self, owner_node, list_name):
+    def GetListNodeByNode(self, owner_node, list_name, query_user_node=None):
         if owner_node is None:
             return None
         owner_node_id = owner_node._id
@@ -1160,8 +1224,11 @@ class NECOMATter():
             return None
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
-        query += "MATCH list_node <-[list_r:LIST]- owner_node "
-        query += ", list_node -[:OWNER]-> owner_node "
+        if query_user_node is not None:
+            query += ", query_node=node(%d) " % query_user_node._id
+        query += "MATCH owner_node <-[:OWNER]- list_node <-[:LIST]- owner_node "
+        if query_user_node is not None:
+            query += ", list_node <-[:LIST]- query_node "
         query += "WHERE list_node.name = \"%s\" " % list_name
         query += "RETURN list_node "
         result_list, metadata = cypher.execute(self.gdb, query)
@@ -1171,12 +1238,15 @@ class NECOMATter():
         return result_list[0][0]
 
     # owner_node のlistを削除します(名前版)
-    def DeleteListByName(self, owner_node_name, list_name):
+    def DeleteListByName(self, owner_node_name, list_name, query_user_name=None):
         owner_node = self.GetUserNode(owner_node_name)
         if owner_node is None:
             logging.error("owner_name '%s' is not registerd." % owner_name)
             return False
-        return self.DeleteListByNode(owner_node, list_name)
+        query_user_node = None
+        if query_user_name is not None:
+            query_user_node = self.GetUserNode(query_user_name)
+        return self.DeleteListByNode(owner_node, list_name, query_user_node=query_user_node)
 
     # owner_node の保持しているlistのリストを返します(owner_nodeのものだけを返します)
     def GetUserOwnedListListByNode(self, owner_node):
@@ -1252,17 +1322,24 @@ class NECOMATter():
         return user_node_name_list
 
     # owner_node のlist名list_nameのリストからフォローしているユーザのユーザ名リストを取得します
-    def GetListUserListByNode(self, owner_node, list_name):
+    def GetListUserListByNode(self, owner_node, list_name, query_user_node=None):
         if owner_node is None:
             return None
         if self.VaridateCypherString(list_name) == False:
             logging.error("list name '%s' has escape string. please user other name" % list_name)
             return None
         owner_node_id = owner_node._id
+        query_user_node_id = 0
+        if query_user_node != None:
+            query_user_node_id = query_user_node._id
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
+        if query_user_node != None:
+            query += ", query_user_node=node(%d) " % query_user_node_id
         query += "MATCH (followed_node) <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
         query += ", list_node -[:OWNER]-> list_owner_node "
+        if query_user_node != None:
+            query += ", list_node <-[:LIST]- query_user_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\" " % list_name
         query += "RETURN followed_node.name "
@@ -1275,12 +1352,15 @@ class NECOMATter():
         return user_node_name_list
 
     # owner_node のlist名list_nameのリストからフォローしているユーザのユーザ名リストを取得します(名前版)
-    def GetListUserListByName(self, owner_name, list_name):
+    def GetListUserListByName(self, owner_name, list_name, query_user_name=None):
         owner_node = self.GetUserNode(owner_name)
         if owner_node is None:
             logging.error("owner_name '%s' is not registerd." % owner_name)
             return False
-        return self.GetListUserListByNode(owner_node, list_name)
+        query_user_node = None
+        if query_user_name is not None:
+            query_user_node = self.GetUserNode(query_user_name)
+        return self.GetListUserListByNode(owner_node, list_name, query_user_node=query_user_node)
 
     # owner_node のlist_nameリストから、target_nodeへのフォローを外します
     # フォロー先が居なくなっても list自体 を削除はしません
@@ -1325,21 +1405,24 @@ class NECOMATter():
 
     # リストのタイムラインを取得します。
     # 取得されるのは GetUserTimeLine() と同じtext, time, user_name, tweet_node のリストです。
-    def GetListTimeline(self, list_node, limit=None, since_time=None):
-        return self.GetUserTimeline(list_node, limit, since_time)
+    def GetListTimeline(self, list_node, limit=None, since_time=None, query_user_node=None):
+        return self.GetUserTimeline(list_node, limit=limit, since_time=since_time, query_user_node=query_user_node)
 
     # リストのタイムライン をGetUserTimelineFormated() と同じ
     # {"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
-    def GetListTimelineFormated(self, user_name, list_name, limit=None, since_time=None):
-        user_node = self.GetUserNode(user_name)
-        if user_node is None:
-            logging.error("User '%s' is undefined." % user_name)
+    def GetListTimelineFormated(self, list_user_name, list_name, limit=None, since_time=None, query_user_name=None):
+        list_user_node = self.GetUserNode(list_user_name)
+        if list_user_node is None:
+            logging.error("User '%s' is undefined." % list_user_name)
             return []
-        list_node = self.GetListNodeByNode(user_node, list_name)
+        list_node = self.GetListNodeByNode(list_user_node, list_name)
         if list_node is None:
             logging.error("list '%s' not found." % list_name)
             return []
-        tweet_list = self.GetListTimeline(list_node, limit, since_time)
+        query_user_node = None
+        if query_user_name is not None:
+            query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetListTimeline(list_node, limit=limit, since_time=since_time, query_user_node=query_user_node)
         return self.FormatTweet(tweet_list)
 
     # owner_node がフォローしているlistについてのサマリを取得します
@@ -1384,10 +1467,10 @@ class NECOMATter():
     def AddOtherUserListByNode(self, owner_node, other_user_node, list_name):
         if owner_node is None or other_user_node is None:
             return False
-        list_node = self.GetListNodeByNode(other_user_node, list_name)
+        list_node = self.GetListNodeByNode(owner_node, list_name)
         if list_node is None:
             return False
-        relationship = self.gdb.create((owner_node, "LIST", list_node))
+        relationship = self.gdb.create((other_user_node, "LIST", list_node))
         if relationship is None:
             return False
         relationship[0]['time'] = time.time()
@@ -1803,3 +1886,130 @@ class NECOMATter():
             return []
         return self.FormatTweet(tweet_list)
 
+    # N6 の時間周りのパース。
+    # ISO-8601 のフォーマットっぽいので、import dateutil.parser に任せます。
+    def ConvertN6DateToDate(self, date_string_ISO8601format):
+        return dateutil.parser.parse(date_string_ISO8601format)
+
+    # 怪しく where ... and ... and ... を作る手伝いをします
+    # current_where が空なら WHERE ...
+    # current_where が空でないなら ... AND ...
+    # を、返します。
+    def AddWhere(self, current_where, query):
+        where = ""
+        if len(current_where) == 0:
+            where += "WHERE "
+        elif len(current_where) > 0:
+            where += current_where
+            where += "AND "
+        where += query
+        return where
+    
+    # N6互換のクエリ. query_dic は ImmutableMultiDict のつもりで動きます
+    def GetN6CompatQuery(self, query_dic):
+        query = ""
+        query += "MATCH (tweet) -[:TWEET]-> (tweet_user) "
+        where = ""
+        if "tag" in query_dic:
+            query += ", (tag) <-[:TAG]- (tweet) "
+            tag_list = query_dic.get('tag').split(',')
+            sanitized_tag_list = []
+            for tag_name in tag_list:
+                sanitized_tag_list.append(self.EscapeForXSS(tag_name))
+            for tag_name in sanitized_tag_list:
+                where = self.AddWhere(where, "tag.tag = '#%s' " % tag_name)
+        if "time" in query_dic:
+            time_list = query_dic.get('time').split(',')
+            if len(time_list) == 1:
+                time_end = self.ConvertN6DateToDate(time_list[0]).timetuple()
+                where = self.AddWhere(where, "tweet.time <= %d " % int(time.mktime(time_end)))
+            elif len(time_list) == 2:
+                time_start = self.ConvertN6DateToDate(time_list[0]).timetuple()
+                time_end = self.ConvertN6DateToDate(time_list[1]).timetuple()
+                where = self.AddWhere(where, "tweet.time >= %d " % int(time.mktime(time_start.time())))
+                where = self.AddWhere(where, "tweet.time <= %d " % int(time.mktime(time_end.time())))
+            else:
+                logging.error("multiple time input. return NULL list.")
+                return []
+        query += where
+        query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet), tweet "
+        query += "ORDER BY tweet.time DESC "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # N6互換のクエリJSONにして良い状態になっているもの
+    def GetN6CompatQueryFormated(self, query_dic):
+        result_list = self.GetN6CompatQuery(query_dic)
+        return_list = []
+        for result in result_list:
+            if len(result) < 5:
+                continue
+            ret = {}
+            ret['mew'] = result[0]
+            ret['time'] = result[1]
+            ret['user_name'] = result[2]
+            ret['icon_url'] = result[3]
+            ret['id'] = result[4]
+            return_list.append(ret)
+        return return_list
+
+    # user_node がユーザを作る権限があるかどうかを確認します
+    def IsUserCanCreateUser(self, user_node):
+        # 今のところだれでもOKということにします。
+        return True
+    
+    # parent_user_node がユーザを作る権限があるかどうかを確認した上で、新しいユーザを作成します
+    def AddUserWithAuthCheck(self, parent_user_node, new_user_name, new_user_password):
+        if not self.IsUserCanCreateUser(parent_user_node):
+            errmsg = "create user called from un-permit user"
+            logging.warn("create user called from un-permit user")
+            return (False, errmsg)
+        return self.AddUser(new_user_name, new_user_password)
+
+    # parent_user_node がユーザを作る権限があるかどうかを確認した上で、新しいユーザを作成します
+    def AddUserWithAuthCheckByName(self, parent_user_name, new_user_name, new_user_password):
+        parent_user_node = None
+        if parent_user_name is not None:
+            parent_user_node = self.GetUserNode(parent_user_name)
+        return self.AddUserWithAuthCheck(parent_user_node, new_user_name, new_user_password)
+        
+    # LIST による PERMIT を考慮した tweet の list 取得クエリ
+    def GetListTimelineWithPERMIT(self, list_node, query_user_node, limit=None, since_time=None):
+        if list_node is None:
+            logging.error("list_node is undefined.")
+            return []
+        # ユーザのID を取得します
+        list_node_id = list_node._id
+        query_user_id = 0
+        if query_user_node is not None:
+            logging.error("query_user_node is indefined.")
+            return []
+        # クエリを作ります
+        query = ""
+        query += "START list = node(%d) " % list_node_id
+        query += ", query_user = node(%d) " % query_user_id
+        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) <-[:FOLLOW]- (list) "
+        query += "WITH tweet, tweet_r, user "
+        if query_user_node is not None:
+            query += ", query_user "
+        if since_time is not None:
+            query += "WHERE tweet.time < %f " % since_time
+        query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
+        if query_user_node is not None:
+            query += "WITH tweet, tweet_r, user, query_user, tweet_user "
+            query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
+            query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
+            query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
+        query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
+        if query_user_node is not None:
+            query += ", my_star_r, my_retweet_r "
+        else:
+            query += ", null, null"
+        query += ", user.name, tweet_r.time, type(tweet_r) "
+        query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    
