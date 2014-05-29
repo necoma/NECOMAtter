@@ -276,13 +276,13 @@ agurim_data_parsed = ParseAgurimDataToDictionary(agurim_data)
 # 前までのデータと含めて急に出てきた多きな値を取り出します
 filterd_agrim_data = FilterImportantData(agurim_data_parsed['data'], prev_data)
 
-# 一つ前までのデータと今読み込んだデータを君合わせて
+# 一つ前までのデータと今読み込んだデータを組み合わせて
 prev_data.append(agurim_data_parsed)
 new_agurim_data_set = prev_data
-# data_set_save_count より多くなったデータは排除して
-if new_agurim_data_set is not None and len(new_agurim_data_set) > data_set_save_count:
+# data_set_save_count より多くなった(古い)データは排除して
+while new_agurim_data_set is not None and len(new_agurim_data_set) > data_set_save_count:
     new_agurim_data_set.pop(0)
-# 今回までのデータを保存しておきます
+# 今回までのデータとして保存しておきます
 if not SaveCurrentData(new_agurim_data_set, pickle_file_name):
     print "save failed"
 

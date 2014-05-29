@@ -19,7 +19,6 @@ function GlobalTweetModal_SetNormalMode(){
 	$('#GlobalTweetModalReplyToTweet').html('');
 }
 
-
 // tweetを消しますします
 function DeleteTweet(tweet_id, success_func, error_func){
   DeleteJSON("/tweet/" + tweet_id
@@ -92,7 +91,7 @@ function GetNECOMATomeTweetIDs(){
 	$("#NECOMAtome_list > .tweet_column").each(function(){
 		var tmp = $(this).attr('id');
 		if(tmp != null){
-			res.push(tmp.replace("dropTweetID_", ""));
+			res.push(tmp.replace("dropTweetID_", "").replace("drop", ""));
 		}
 	});
 	return res;
@@ -264,8 +263,8 @@ function StarButtonClick(tweet_id, star_button_id){
 	{
 		return;
 	}
-	var star_html = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">へぇを取り消す</span>';
-	var not_star_html = '<span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">へぇ</span>';
+	var star_html = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">cancel start</span>';
+	var not_star_html = '<span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">star</span>';
 
 	var element = button_element_list[0];
 	var class_name = element.className;
@@ -305,8 +304,8 @@ function RetweetButtonClick(tweet_id, retweet_button_id){
 	{
 		return;
 	}
-	var retweeted_html = '<span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイートを取り消す</span>';
-	var not_retweeted_html = '<span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイート</span>';
+	var retweeted_html = '<span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">cancel re-mew</span>';
+	var not_retweeted_html = '<span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">re-mew</span>';
 
 	element = button_element_list[0];
 	var class_name = element.className;
@@ -391,7 +390,6 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 		//.replace(/\r\n/g, "<br>")
 		//.replace(/(\n|\r)/g, "<br>")
         ;
-        console.log(replaced_text);
 	replaced_text = marked(replaced_text);
 	//replaced_text = replaced_text.replace(/(\s\r\n)+/gm, "<br>").replace(/(\n|\r)+/gm, "<br>");
         replaced_text = replaced_text
@@ -419,18 +417,36 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 		});
 
 	// jsrender で使うための情報を作ります
-	data = {
-		"id": target_tweet.id
-		, "user_id": target_tweet.user_name
-		, "user_icon_url": icon_url
-		, "tweet_body": replaced_text
-		, "time": target_tweet.time
-		, "is_display_footer": !is_not_need_reply_button
-		, "is_own_tweeted": is_own_tweeted
-		, "is_own_retweeted": is_own_retweeted
-		, "is_own_stard": is_own_stard
-		, "is_not_owner": displayUserName == "timeline" || displayUserName != target_tweet.user_name
-	};
+	// TODO: displayUserName が timeline_page.js で生成されているのでこちらで参照できない可能性がある……
+	// これ書いたやつ出てこい……('A`)
+        data = {}
+	try {
+		data = {
+			"id": target_tweet.id
+			, "user_id": target_tweet.user_name
+			, "user_icon_url": icon_url
+			, "tweet_body": replaced_text
+			, "time": target_tweet.time
+			, "is_display_footer": !is_not_need_reply_button
+			, "is_own_tweeted": is_own_tweeted
+			, "is_own_retweeted": is_own_retweeted
+			, "is_own_stard": is_own_stard
+			, "is_not_owner": displayUserName == "timeline" || displayUserName != target_tweet.user_name
+		};
+	} catch(e) {
+		data = {
+			"id": target_tweet.id
+			, "user_id": target_tweet.user_name
+			, "user_icon_url": icon_url
+			, "tweet_body": replaced_text
+			, "time": target_tweet.time
+			, "is_display_footer": !is_not_need_reply_button
+			, "is_own_tweeted": is_own_tweeted
+			, "is_own_retweeted": is_own_retweeted
+			, "is_own_stard": is_own_stard
+			, "is_not_owner": true
+		};
+        }
 	// jsrender でレンダリングして返します
 	return $("#Template_TweetBlock").render(data);
 }
@@ -674,6 +690,9 @@ $(document).ready(function(){
   $('.dropdown-toggle').dropdown();
   // ページを読んでいるユーザ名を更新します
   authUserName = $("#AuthUserName").text();
+
+  // tweet表示用の部分は jsrender で書き出します。
+  $("#TweetContainer").html($("#Template_TweetContainer").render());
 
   $("#GlobalTweetModalSubmitButton").prop('disabled', true);
   // GlobalTweetModal でテキストが入力されていなければTweetボタンを押させない

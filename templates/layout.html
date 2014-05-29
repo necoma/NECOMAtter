@@ -103,7 +103,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="GlobalTweetModalSubmitButton" disabled="disabled">Tweet</button>
+        <button type="button" class="btn btn-primary" id="GlobalTweetModalSubmitButton" disabled="disabled">Mew!</button>
       </div>
     </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->
@@ -122,6 +122,27 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
 	Copyright &copy; 2013-2014 <a href="http://www.necoma-project.jp/">NECOMA Project</a> All Rights Reserved.
 </div>
 {%raw%}
+<script id="Template_TweetContainer" type="text/x-jsrender">
+  <div class="container">
+    <div id="NECOMAtome_top" class="row">
+      <div id="Tweet_text" class="col-xs-8">
+	now loading...
+      </div>
+      <div id="NECOMAtome_sidebar">
+        <div>
+	  <input type="text" id="NECOMATome_name" placeholder="name of the summary">
+	  <button class="btn btn-default" id="NECOMAtome_create_button">create summary</button>
+	</div>
+	<div id="NECOMAtome_list" class="sortable ui-sortable">
+	  drop mew here
+	</div>
+      </div>
+      <div class="col-md-8">
+	<input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();">
+      </div>
+    </div>
+  </div>
+</script>
 <script id="Template_TweetBlock" type="text/x-jsrender">
 <div class="tweet_column img-responsive ui-draggable" id="{{:id}}">
   <div class="drag_handle text-right">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>
@@ -132,25 +153,25 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
   {{if is_display_footer}}
   <div class="tweet_footer text-right">
     {{if is_own_tweeted}}
-    <a href="javascript: DeleteButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-remove"></span> <span class="hidden-xs">削除</span></a>
+    <a href="javascript: DeleteButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-remove"></span> <span class="hidden-xs">delete</span></a>
     {{else}}
-    <a href="javascript: ReplyButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-pencil"></span> <span class="hidden-xs">返信</span></a>
+    <a href="javascript: ReplyButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-pencil"></span> <span class="hidden-xs">reply</span></a>
     {{/if}}
     {{if is_own_retweeted}}
-    <a class="btn btn-success btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイートトを取り消す</span></a>
+    <a class="btn btn-success btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">cancel re-mew</span></a>
     {{else}}
-    <a class="btn btn-default btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">リツイート</span></a>
+    <a class="btn btn-default btn-mini" id="RetweetButton_ID_{{:id}}" href="javascript: RetweetButtonClick({{:id}}, 'RetweetButton_ID_{{:id}}');" type="button"><span class="glyphicon glyphicon-retweet"></span> <span class="hidden-xs">re-mew</span></a>
     {{/if}}
     {{if is_own_stard}}
-    <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-success btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">へぇを取り消す</span></span></a>
+    <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-success btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">cancel star</span></span></a>
     {{else}}
-    <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">へぇ</span></span></a>
+    <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">star</span></span></a>
     {{/if}}
     {{if is_not_owner}}
     <span class="dropdown"><button class="btn btn-default dropdown-toggle" data-toggle="dropdown" data-placement="top" title="Show more user action"><span class="glyphicon glyphicon-cog"></span> <b class="caret"></b></button>
       <ul class="dropdown-menu text-left">
-	<li>フォローする</li>
-	<li>リストに加える</li>
+	<li>follow </li>
+	<li>add list</li>
     </ul></span>
     {{/if}}
   </div>
