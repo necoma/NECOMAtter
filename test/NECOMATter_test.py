@@ -494,20 +494,20 @@ class NECOMATterTestCase(unittest.TestCase):
         # tagリストに新しく "#tag" が現れることを確認("#tag\n" では無いことを確認します)
         self.assertEqual(sorted([u"#tag"]), self.world.GetTagList())
 
-    def test_GetTagTweetFormated(self):
+    def test_GetTagTweetFormatted(self):
         # タグに関連するtweetを取り出せることを確認します
         # ユーザを作成
         self.assertTrue(self.world.AddUser("iimura", "password")[0])
         iimura_node = self.world.GetUserNode("iimura")
         target_tag_string = "#tag"
         # #tag にはまだ何も無い事を確認
-        self.assertEqual([], self.world.GetTagTweetFormated(target_tag_string))
+        self.assertEqual([], self.world.GetTagTweetFormatted(target_tag_string))
         # tagのあるtweetをおこないます
         tweet_string = "is tag %s apple?\n" % target_tag_string
         tweet_node = self.world.Tweet(iimura_node, tweet_string)
         self.assertIsNotNone(tweet_node)
         # tagリストに新しく target_tag_string が現れることを確認
-        formatted_tag_tweet_list = self.world.GetTagTweetFormated(target_tag_string)
+        formatted_tag_tweet_list = self.world.GetTagTweetFormatted(target_tag_string)
         self.assertEqual(1, len(formatted_tag_tweet_list))
         tag_tweet = formatted_tag_tweet_list[0]
         self.assertEqual(tweet_string, tag_tweet['text'])
@@ -518,7 +518,7 @@ class NECOMATterTestCase(unittest.TestCase):
         tweet_node = self.world.Tweet(iimura_node, tweet_string)
         self.assertIsNotNone(tweet_node)
         # tagリストに新しく target_tag_string が現れることを確認
-        formatted_tag_tweet_list = self.world.GetTagTweetFormated(target_tag_string)
+        formatted_tag_tweet_list = self.world.GetTagTweetFormatted(target_tag_string)
         self.assertEqual(2, len(formatted_tag_tweet_list))
         tag_tweet = formatted_tag_tweet_list[0]
         self.assertEqual(tweet_string, tag_tweet['text'])
@@ -976,7 +976,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         for n in range(0, len(answer_list_name_list)):
             self.assertEqual(answer_list_name_list[n], target_list[n]['name'])
 
-    def test_GetUserOwnedListListFormated(self):
+    def test_GetUserOwnedListListFormatted(self):
         # 追加されるリスト名
         list_name_list = [u"list A", u"list B", u"りすと しー"]
         # リストを追加するノード
@@ -985,7 +985,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # リストを追加されるノードの名前
         target_node_name = self.user_node_list[1]['name']
         # 最初は何もリストが無い事を確認します
-        self.assertEqual([], self.world.GetUserOwnedListListFormated(owner_node_name))
+        self.assertEqual([], self.world.GetUserOwnedListListFormatted(owner_node_name))
         # リストを生成します。
         for list_name in list_name_list:
             self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, target_node_name))
@@ -997,7 +997,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
                 "owner_node_name": owner_node_name,
                 })
         # リストが生成されて名前のリストが取得できることを確認します
-        result_list = self.world.GetUserOwnedListListFormated(owner_node_name)
+        result_list = self.world.GetUserOwnedListListFormatted(owner_node_name)
         self.CheckListName(list_name_list, result_list)
 
     def test_GetListUserListByName(self):
@@ -1079,11 +1079,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         for list_name in list_name_list:
             self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
         # リスト名が取得できることを確認します
-        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(owner_node_name))
+        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(owner_node_name))
         # 2つ目のリストを削除します
         self.assertTrue(self.world.DeleteListByName(owner_node_name, list_name_list[1]))
         # リスト名が減っていることを確認します
-        self.CheckListName(list_name_list[:1], self.world.GetUserOwnedListListFormated(owner_node_name))
+        self.CheckListName(list_name_list[:1], self.world.GetUserOwnedListListFormatted(owner_node_name))
 
     def test_DeleteListByName_undefined_name(self):
         # 未定義の名前のリストを消そうとした場合
@@ -1099,11 +1099,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         for list_name in list_name_list:
             self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
         # リスト名が取得できることを確認します
-        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(owner_node_name))
+        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(owner_node_name))
         # 存在しない名前のリストを削除します(存在しなかったとしてもTrueが帰るはずです)
         self.assertTrue(self.world.DeleteListByName(owner_node_name, target_undefined_list_name))
         # リスト名が変わっていないことを確認します
-        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(owner_node_name))
+        self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(owner_node_name))
 
     def test_DeleteListByName_same_list_name(self):
         # 別ユーザが同じ名前のlistを作っていた場合に
@@ -1121,18 +1121,20 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # 全てのメンバで全てのメンバについて同じ名前のリストを作ります
         for owner_user_node in self.user_node_list:
             for target_user_node in self.user_node_list:
+                if target_user_node == owner_user_node:
+                    continue
                 for list_name in list_name_list:
                     self.assertTrue(self.world.AddNodeToListByNode(owner_user_node, list_name, target_user_node))
         # 一応、全員同じリストを持っていることを確認します
         for user_node in self.user_node_list:
-            self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(user_node['name']))
+            self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(user_node['name']))
         # 一つのノードからターゲットリストを削除します
         self.assertTrue(self.world.DeleteListByNode(delete_owner_node, target_list_name))
         # 消したノードからはリストが削除されていることを確認します
-        self.CheckListName(delete_result_list_name_list, self.world.GetUserOwnedListListFormated(delete_owner_node['name']))
+        self.CheckListName(delete_result_list_name_list, self.world.GetUserOwnedListListFormatted(delete_owner_node['name']))
         # 消していないノードからはリストが削除されていないことを確認します
         for user_node in no_delete_user_node_list:
-            self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormated(user_node['name']))
+            self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(user_node['name']))
 
     def test_DeleteListByName_undefined_list_name(self):
         # 作成されるリスト名
@@ -1144,7 +1146,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # 消そうとする未定義のリスト名
         undefined_list_name = "undefined list"
         # リストが無い事を確認します
-        self.CheckListName([], self.world.GetUserOwnedListListFormated(owner_user_name))
+        self.CheckListName([], self.world.GetUserOwnedListListFormatted(owner_user_name))
         # 何もリストが無い状態で未定義のリストを消そうとしてみます(存在しなくてもエラーにはなりません)
         self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name))
         # リストを作成します
@@ -1152,9 +1154,9 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # もう一度、未定義のリストを消そうとしてみます
         self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name))
         # 既存のリストが消されていないことを確認します
-        self.CheckListName([list_name], self.world.GetUserOwnedListListFormated(owner_user_name))
+        self.CheckListName([list_name], self.world.GetUserOwnedListListFormatted(owner_user_name))
 
-    def test_GetListTimelineFormated(self):
+    def test_GetListTimelineFormatted(self):
         # 作成されるリスト名
         list_name = u"list"
         # リストオーナーのノード
@@ -1169,24 +1171,24 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         tweet_text = u"tweet"
         # 何もリストを作っていない時にリストのタイムラインを取得してみます。
         # (何も取得できないだけでエラーはしないはずです)
-        self.assertEqual([], self.world.GetListTimelineFormated(owner_user_name, list_name))
+        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name))
         # リストを作成します
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # リストのタイムラインにはまだ何も無い事を確認します。
-        self.assertEqual([], self.world.GetListTimelineFormated(owner_user_name, list_name))
+        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name))
         # リストに入っていないメンバ(owner_user_node)がtweetします
         owner_tweet_node = self.world.Tweet(owner_user_node, tweet_text)
         self.assertIsNotNone(owner_tweet_node)
         # リストのタイムラインにはまだ何も無い事を確認します。
-        self.assertEqual([], self.world.GetListTimelineFormated(owner_user_name, list_name))
+        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name))
         # リストに入ってるメンバ(target_user_node)がtweetします
         target_tweet_node = self.world.Tweet(target_user_node, tweet_text)
         self.assertIsNotNone(target_tweet_node)
         # リストのタイムラインにtweetが追加されていることを確認します。
-        formated_tweet_list = self.world.GetListTimelineFormated(owner_user_name, list_name)
-        self.assertEqual(1, len(formated_tweet_list))
-        self.assertEqual(tweet_text, formated_tweet_list[0]['text'])
-        self.assertEqual(target_tweet_node._id, formated_tweet_list[0]['id'])
+        formatted_tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name)
+        self.assertEqual(1, len(formatted_tweet_list))
+        self.assertEqual(tweet_text, formatted_tweet_list[0]['text'])
+        self.assertEqual(target_tweet_node._id, formatted_tweet_list[0]['id'])
 
     def test_AddOtherUserListByNode(self):
         # 作成されるリスト名
@@ -1210,11 +1212,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # オーナがリストを作成します
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # フォロアはまだ自分のlistのリストには何も無いはずです
-        self.assertEqual([], self.world.GetUserListListFormated(follower_user_name))
+        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name))
         # 作成されたリストをフォローします
         self.assertTrue(self.world.AddOtherUserListByName(follower_user_name, owner_user_name, list_name))
         # フォロアのリストに新しく追加されるはずです
-        list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
         self.assertEqual(1, len(list_dic_list))
         self.assertEqual(list_name, list_dic_list[0]['name'])
         self.assertEqual(owner_user_name, list_dic_list[0]['owner_name'])
@@ -1223,7 +1225,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # 存在しないユーザを指定するとフォローできないはずです
         self.assertFalse(self.world.AddOtherUserListByName(follower_user_name, undefined_user_name, list_name))
         # フォロアのリストは特に代わりが無いはずです
-        new_list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        new_list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
         self.assertEqual(list_dic_list, new_list_dic_list)
 
     def test_DeleteOtherUserListByNode(self):
@@ -1248,11 +1250,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # オーナがリストを作成します
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # フォロアはまだ自分のlistのリストには何も無いはずです
-        self.assertEqual([], self.world.GetUserListListFormated(follower_user_name))
+        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name))
         # 作成されたリストをフォローします
         self.assertTrue(self.world.AddOtherUserListByName(follower_user_name, owner_user_name, list_name))
         # フォロアのリストに新しく追加されるはずです
-        list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
         self.assertEqual(1, len(list_dic_list))
         self.assertEqual(list_name, list_dic_list[0]['name'])
         self.assertEqual(owner_user_name, list_dic_list[0]['owner_name'])
@@ -1261,12 +1263,12 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # 存在しないユーザを指定すると失敗するはずです
         self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, undefined_user_name, list_name))
         # フォロアのリストは特に代わりが無いはずです
-        new_list_dic_list = self.world.GetUserListListFormated(follower_user_name)
+        new_list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
         self.assertEqual(list_dic_list, new_list_dic_list)
         # 通常のリストのフォローの削除
         self.assertTrue(self.world.DeleteOtherUserListByName(follower_user_name, owner_user_name, list_name))
         # フォロアのlistのリストには何も無くなっているはずです
-        self.assertEqual([], self.world.GetUserListListFormated(follower_user_name))
+        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name))
         # フォロアがリストを作成します
         self.assertTrue(self.world.AddNodeToListByName(follower_user_name, list_name, target_user_name))
         # 自分のリストへのフォローの削除は、それが存在していても失敗します
@@ -1305,17 +1307,17 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         tweet_dic = self.world.TweetByName(owner_user_name, tweet_text_to_all)
         self.assertEqual(tweet_text_to_all, tweet_dic['text'])
         # リストに向かってtweetします
-        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text, tweet_to_list=list_name)
+        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text, target_list=list_name, list_owner_name=owner_user_name)
         self.assertEqual(tweet_text, tweet_dic['text'])
 
         # リストに登録されているユーザからタイムラインで全て観測できます。
-        tweet_list = self.world.GetUserTimelineFormated(target_user_name, query_user_name=target_user_name)
+        tweet_list = self.world.GetUserTimelineFormatted(target_user_name, query_user_name=target_user_name)
         self.assertEqual(2, len(tweet_list))
         self.assertEqual(tweet_text, tweet_list[0]['text'])
         self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
 
         # リストに登録されていないユーザのタイムラインでは全体向けのものしか観測できません。
-        tweet_list = self.world.GetUserTimelineFormated(unlisted_user_name, query_user_name=unlisted_user_name)
+        tweet_list = self.world.GetUserTimelineFormatted(unlisted_user_name, query_user_name=unlisted_user_name)
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
 
@@ -1340,31 +1342,534 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # tweetされる文書
         tweet_text_to_all = "hello world to all"
 
-        # オーナがリストを作成します
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # 全員オーナを自分のタイムラインに登録します
         self.assertTrue(self.world.FollowUserByName(target_user_name, owner_user_name))
         self.assertTrue(self.world.FollowUserByName(unlisted_user_name, owner_user_name))
         # そのオーナーの作ったリストをフォローします
-        self.assertTrue(self.world.AddOtherUserListByName(owner_user_name, target_user_name, list_name))
-        self.assertTrue(self.world.AddOtherUserListByName(owner_user_name, unlisted_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
 
-        # 全体に向かってtweetします
-        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text_to_all)
+        # target_user が 全体に向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text_to_all)
         self.assertEqual(tweet_text_to_all, tweet_dic['text'])
-        # リストに向かってtweetします
-        tweet_dic = self.world.TweetByName(owner_user_name, tweet_text, tweet_to_list=list_name)
+        # 同じくリストに向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
         self.assertEqual(tweet_text, tweet_dic['text'])
 
         # リストに登録されているユーザからListを見ると観測できます。
-        tweet_list = self.world.GetListTimelineFormated(owner_user_name, list_name, query_user_name=target_user_name)
-        print tweet_list
+        tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name, query_user_name=target_user_name)
         self.assertEqual(2, len(tweet_list))
         self.assertEqual(tweet_text, tweet_list[0]['text'])
         self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
 
         # リストに登録されていないユーザではlistからの観測では全体向けのものしか観測できません。
-        tweet_list = self.world.GetListTimelineFormated(owner_user_name, list_name, query_user_name=unlisted_user_name)
+        tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name, query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetUserTweet版)
+    def test_TweetToList_GetUserTweet(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic['text'])
+
+        # リストに登録されているユーザから見ると観測できます。
+        tweet_list = self.world.GetUserTweetFormatted(target_user_name, query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetUserTweetFormatted(target_user_name, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetUserTweetFormatted(target_user_name, query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetAllUserTimeline版)
+    def test_TweetToList_GetAllUserTimeline(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic['text'])
+
+        # リストに登録されているユーザから見ると観測できます。
+        tweet_list = self.world.GetAllUserTimelineFormatted(query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetAllUserTimelineFormatted(query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetAllUserTimelineFormatted(query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetTagTweet版)
+    def test_TweetToList_GetTagTweet(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # タグ
+        tag_name = "#TAG"
+        # tweetされる文書
+        tweet_text = "hello world " + tag_name
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all " + tag_name
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic['text'])
+
+        # リストに登録されているユーザから見ると観測できます。
+        tweet_list = self.world.GetTagTweetFormatted(tag_name, query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetTagTweetFormatted(tag_name, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetTagTweetFormatted(tag_name, query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetParentTweetAboutTweetID版)
+    def test_TweetToList_GetParentTweetAboutTweetID(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # 親tweetを手繰るもののテストのため、
+        # 全体向け ←[返事]- リスト向け ←[返事]- 全体向け ←[返事]- リスト向け←[返事]- 全体向け
+        # というtweet　tree を生成します
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic_1 = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic_1['text'])
+        # 同じくリストに向かってtweetします。この時、元のtweetへの返信とします
+        tweet_dic_2 = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name, reply_to=tweet_dic_1['id'])
+        self.assertEqual(tweet_text, tweet_dic_2['text'])
+        # target_user が 全体に向かってtweetします
+        tweet_dic_3 = self.world.TweetByName(target_user_name, tweet_text_to_all, reply_to=tweet_dic_2['id'])
+        self.assertEqual(tweet_text_to_all, tweet_dic_3['text'])
+        # 同じくリストに向かってtweetします。この時、元のtweetへの返信とします
+        tweet_dic_4 = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name, reply_to=tweet_dic_3['id'])
+        self.assertEqual(tweet_text, tweet_dic_4['text'])
+        # target_user が 全体に向かってtweetします
+        tweet_dic_5 = self.world.TweetByName(target_user_name, tweet_text_to_all, reply_to=tweet_dic_4['id'])
+        self.assertEqual(tweet_text_to_all, tweet_dic_5['text'])
+
+        # これについて真ん中の tweet_dic_3['id'] を起点に読み出そうとします
+
+        # リストに登録されているユーザから見ると全てを観測できます。
+        tweet_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_dic_3['id'], query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+        self.assertEqual(tweet_text, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_dic_3['id'], query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_dic_3['id'], query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetChildTweetAboutTweetID版)
+    def test_TweetToList_GetChildTweetAboutTweetID(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # 親tweetを手繰るもののテストのため、
+        # 全体向け ←[返事]- リスト向け ←[返事]- 全体向け ←[返事]- リスト向け←[返事]- 全体向け
+        # というtweet　tree を生成します
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic_1 = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic_1['text'])
+        # 同じくリストに向かってtweetします。この時、元のtweetへの返信とします
+        tweet_dic_2 = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name, reply_to=tweet_dic_1['id'])
+        self.assertEqual(tweet_text, tweet_dic_2['text'])
+        # target_user が 全体に向かってtweetします
+        tweet_dic_3 = self.world.TweetByName(target_user_name, tweet_text_to_all, reply_to=tweet_dic_2['id'])
+        self.assertEqual(tweet_text_to_all, tweet_dic_3['text'])
+        # 同じくリストに向かってtweetします。この時、元のtweetへの返信とします
+        tweet_dic_4 = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name, reply_to=tweet_dic_3['id'])
+        self.assertEqual(tweet_text, tweet_dic_4['text'])
+        # target_user が 全体に向かってtweetします
+        tweet_dic_5 = self.world.TweetByName(target_user_name, tweet_text_to_all, reply_to=tweet_dic_4['id'])
+        self.assertEqual(tweet_text_to_all, tweet_dic_5['text'])
+
+        # これについて真ん中の tweet_dic_3['id'] を起点に読み出そうとします
+
+        # リストに登録されているユーザから見ると全てを観測できます。
+        tweet_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_dic_3['id'], query_user_name=target_user_name)
+
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_dic_3['id'], query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_dic_3['id'], query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetTweetNodeFromID版)
+    def test_TweetToList_GetTweetNodeFromID(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # タグ
+        tag_name = "#TAG"
+        # tweetされる文書
+        tweet_text = "hello world " + tag_name
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all " + tag_name
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic_to_all = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic_to_all['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic_to_list = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic_to_list['text'])
+
+        # リストに登録されているユーザから見ると観測できます。
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_dic_to_all['id'], query_user_name=target_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_dic_to_list['id'], query_user_name=target_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_dic_to_all['id'], query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_dic_to_list['id'], query_user_name=unlisted_user_name)
+        self.assertEqual(0, len(tweet_list))
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_dic_to_all['id'], query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_dic_to_list['id'], query_user_name=owner_user_name)
+        self.assertEqual(0, len(tweet_list))
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetListTimeline版)
+    def test_TweetToList_GetListTimeline(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic['text'])
+
+        # リストに登録されているユーザから見ると全てを観測できます。
+        tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name, query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name, query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(GetNECOMAtomeTweetListByID版)
+    def test_TweetToList_GetNECOMAtomeTweetListByID(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+        # まとめの要約
+        matome_description = "matome description"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic_1 = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic_1['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic_2 = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic_2['text'])
+       
+        # NECOMAtome を作ります
+        matome_id = self.world.CreateNewNECOMAtomeByName(owner_user_name, [tweet_dic_1['id'], tweet_dic_2['id']], matome_description)
+        self.assertTrue(matome_id >= 0)
+
+        # リストに登録されているユーザから見ると全てを観測できます。
+        tweet_list = self.world.GetNECOMAtomeTweetListByIDFormatted(matome_id, query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.GetNECOMAtomeTweetListByIDFormatted(matome_id, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.GetNECOMAtomeTweetListByIDFormatted(matome_id, query_user_name=owner_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+    # リスト向けにtweetした場合、そのリストに入っているユーザ以外は観測できないことを確認する(SearchTweet版)
+    def test_TweetToList_SearchTweet(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+        # 検索される文字列のリスト
+        search_string_list = ['hello']
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic_1 = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic_1['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic_2 = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic_2['text'])
+       
+        # リストに登録されているユーザから見ると全てを観測できます。
+        tweet_list = self.world.SearchTweetFormatted(search_string_list, query_user_name=target_user_name)
+        self.assertEqual(2, len(tweet_list))
+        self.assertEqual(tweet_text, tweet_list[0]['text'])
+        self.assertEqual(tweet_text_to_all, tweet_list[1]['text'])
+
+        # リストに登録されていないユーザでは全体向けのものしか観測できません。
+        tweet_list = self.world.SearchTweetFormatted(search_string_list, query_user_name=unlisted_user_name)
+        self.assertEqual(1, len(tweet_list))
+        self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
+
+        # リストのオーナも、リストには登録されていないユーザなので、全体向けのものしか観測できません。
+        tweet_list = self.world.SearchTweetFormatted(search_string_list, query_user_name=owner_user_name)
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
 
@@ -1417,14 +1922,14 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
                 continue
             self.assertTrue(self.world.FollowUserByName(follow_user_name, node['name']))
         # 全員をフォローしたユーザのタイムラインを取得します
-        tweet_list = self.world.GetUserTimelineFormated(follow_user_name, query_user_name=follow_user_name)
+        tweet_list = self.world.GetUserTimelineFormatted(follow_user_name, query_user_name=follow_user_name)
         # 全員分の数だけ見えるはずです
         self.assertEqual(len(self.user_node_list), len(tweet_list))
         # tweetした人はもう一回tweetします
         tweet_text_2nd = '2nd tweet'
         target_tweet_node = self.world.TweetByName(tweet_node_name, tweet_text_2nd)
         # tweet は全員分+1個見えるはずです
-        tweet_list = self.world.GetUserTimelineFormated(follow_user_name, query_user_name=follow_user_name)
+        tweet_list = self.world.GetUserTimelineFormatted(follow_user_name, query_user_name=follow_user_name)
         self.assertEqual(len(self.user_node_list) + 1, len(tweet_list))
 
 
@@ -1448,11 +1953,11 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         self.assertIsNotNone(target_tweet_node)
         target_tweet_node_id = target_tweet_node['id']
         # retweetするノードのtimelineにはまだ何も無いはずです
-        self.assertEqual([], self.world.GetUserTimelineFormated(retweet_node_name, query_user_name=retweet_node_name))
+        self.assertEqual([], self.world.GetUserTimelineFormatted(retweet_node_name, query_user_name=retweet_node_name))
         # retweetします。
         self.assertTrue(self.world.RetweetByName(retweet_node_name, target_tweet_node_id))
         # timelineに増えるはずです
-        timeline_tweet_list = self.world.GetUserTimelineFormated(retweet_node_name, query_user_name=retweet_node_name)
+        timeline_tweet_list = self.world.GetUserTimelineFormatted(retweet_node_name, query_user_name=retweet_node_name)
         self.assertEqual(1, len(timeline_tweet_list))
         self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
         self.assertEqual(True, timeline_tweet_list[0]['own_retweeted'])
@@ -1460,11 +1965,11 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         self.assertEqual(retweet_node_name, timeline_tweet_list[0]['retweet_user_name'])
         self.assertEqual(True, timeline_tweet_list[0]['is_retweet'])
         # followするノードはまだfollowしていないので、timelineには何も無いはずです
-        self.assertEqual([], self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name))
+        self.assertEqual([], self.world.GetUserTimelineFormatted(follow_node_name, query_user_name=follow_node_name))
         # followします
         self.assertTrue(self.world.FollowUserByName(follow_node_name, retweet_node_name))
         # followしたのでtimelineが増えるはずです
-        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
+        timeline_tweet_list = self.world.GetUserTimelineFormatted(follow_node_name, query_user_name=follow_node_name)
         self.assertEqual(1, len(timeline_tweet_list))
         self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
         self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
@@ -1473,11 +1978,11 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         self.assertEqual(True, timeline_tweet_list[0]['is_retweet'])
         # unfollow すると消えるはずです
         self.assertTrue(self.world.UnFollowUserByName(follow_node_name, retweet_node_name))
-        self.assertEqual([], self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name))
+        self.assertEqual([], self.world.GetUserTimelineFormatted(follow_node_name, query_user_name=follow_node_name))
         # followしなおします
         self.assertTrue(self.world.FollowUserByName(follow_node_name, retweet_node_name))
         # followしたのでtimelineが増えるはずです(二度目の確認になります)
-        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
+        timeline_tweet_list = self.world.GetUserTimelineFormatted(follow_node_name, query_user_name=follow_node_name)
         self.assertEqual(1, len(timeline_tweet_list))
         self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
         self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
@@ -1487,15 +1992,15 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         # 最初にtweetした人をfollowします
         self.assertTrue(self.world.FollowUserByName(follow_node_name, tweet_node_name))
         # followしたのでtimelineが増えるはずです(retweetとtweetは別エントリとして取得されます)
-        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
-        #--
+        timeline_tweet_list = self.world.GetUserTimelineFormatted(follow_node_name, query_user_name=follow_node_name)
+        # --
         self.assertEqual(2, len(timeline_tweet_list))
         self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
         self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
         self.assertEqual(tweet_node_name, timeline_tweet_list[0]['user_name'])
         self.assertEqual(retweet_node_name, timeline_tweet_list[0]['retweet_user_name'])
         self.assertEqual(True, timeline_tweet_list[0]['is_retweet'])
-        #--
+        # --
         self.assertEqual(False, timeline_tweet_list[1]['own_stard'])
         self.assertEqual(False, timeline_tweet_list[1]['own_retweeted'])
         self.assertEqual(tweet_node_name, timeline_tweet_list[1]['user_name'])
@@ -1504,7 +2009,7 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         # followされたユーザがユーザ登録を消します
         self.assertTrue(self.world.DeleteUser(retweet_node_name))
         # retweetしたユーザが消えたので、timelineから減るはずです
-        timeline_tweet_list = self.world.GetUserTimelineFormated(follow_node_name, query_user_name=follow_node_name)
+        timeline_tweet_list = self.world.GetUserTimelineFormatted(follow_node_name, query_user_name=follow_node_name)
         self.assertEqual(1, len(timeline_tweet_list))
         self.assertEqual(False, timeline_tweet_list[0]['own_stard'])
         self.assertEqual(False, timeline_tweet_list[0]['own_retweeted'])
@@ -1545,7 +2050,7 @@ class NECOMATter_Star_TestCase(unittest.TestCase):
         tweet_dic = tweet_list[0]
         self.assertEqual(tweet_node_id, tweet_dic['id'])
         self.assertFalse(tweet_dic['own_stard'])
-        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
         self.assertEqual(tweet_node_id, tweet_dic['id'])
         self.assertEqual(tweet_text, tweet_dic['text'])
         self.assertEqual(tweet_result['unix_time'], tweet_dic['unix_time'])
@@ -1558,19 +2063,19 @@ class NECOMATter_Star_TestCase(unittest.TestCase):
         self.assertTrue(self.world.AddStarByName(self.user_node_list[2]['name'], tweet_node_id))
         self.assertTrue(self.world.AddStarByName(self.user_node_list[3]['name'], tweet_node_id))
         # star の数が増えているはずです
-        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
         self.assertEqual(3, tweet_dic['stard_count'])
         # star を減らします
         self.assertTrue(self.world.DeleteStarByName(self.user_node_list[1]['name'], tweet_node_id))
         # star の数が減っているはずです
-        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
         self.assertEqual(2, tweet_dic['stard_count'])
         # 二重にstar をつけようとすると失敗します
         self.assertFalse(self.world.AddStarByName(self.user_node_list[2]['name'], tweet_node_id))
         # 二重にstarを外そうとしても失敗します
         self.assertFalse(self.world.DeleteStarByName(self.user_node_list[1]['name'], tweet_node_id))
         # star の数に変化は無いはずです
-        tweet_dic = self.world.GetTweetAdvancedInfoFormated(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
         self.assertEqual(2, tweet_dic['stard_count'])
 
 

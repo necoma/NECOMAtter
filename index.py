@@ -120,7 +120,7 @@ def userPage_Get_Rest(user_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetUserTweetFormated(user_name, limit=limit, since_time=since_time, query_user_name=auth_user_name)
+    tweet_list = world.GetUserTweetFormatted(user_name, limit=limit, since_time=since_time, query_user_name=auth_user_name)
     return json.dumps(tweet_list)
 
 # ユーザページ
@@ -239,7 +239,7 @@ def timelinePage_Get_Rest(user_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetUserTimelineFormated(user_name, limit, since_time, query_user_name=query_user_name)
+    tweet_list = world.GetUserTimelineFormatted(user_name, limit, since_time, query_user_name=query_user_name)
     return json.dumps(tweet_list)
 
 # ユーザのタイムラインページ
@@ -263,7 +263,7 @@ def alluserTimelinePage_Get_Rest():
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetAllUserTimelineFormated(limit, since_time, query_user_name=query_user_name)
+    tweet_list = world.GetAllUserTimelineFormatted(limit, since_time, query_user_name=query_user_name)
     return json.dumps(tweet_list)
 
 # すべてのユーザのタイムラインページ
@@ -294,7 +294,7 @@ def tagPage_Get_Rest(tag_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetTagTweetFormated("#" + world.EscapeForXSS(tag_name), limit, since_time)
+    tweet_list = world.GetTagTweetFormatted("#" + world.EscapeForXSS(tag_name), limit, since_time)
     return json.dumps(tweet_list)
 
 # ユーザ設定ページ
@@ -340,7 +340,13 @@ def postTweet():
     reply_to = None
     if 'reply_to' in request.json:
         reply_to = request.json['reply_to']
-    tweet_dic = world.TweetByName(user_name, tweet_string=text, reply_to=reply_to)
+    list_owner_name = None
+    if 'list_owner_name' in request.json:
+        list_owner_name = request.json['list_owner_name']
+    target_list = None
+    if 'target_list' in request.json:
+        target_list = request.json['target_list']
+    tweet_dic = world.TweetByName(user_name, tweet_string=text, reply_to=reply_to, list_owner_name=list_owner_name, target_list=target_list)
     # 怪しく result ok の入っていない状態でstreaming側に渡します
     watchDogManager.UpdateTweet(text, tweet_dic)
     tweet_dic.update({'result': 'ok'})
@@ -574,7 +580,7 @@ def list_user_get(user_name, list_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetListTimelineFormated(user_name, list_name, limit, since_time)
+    tweet_list = world.GetListTimelineFormatted(user_name, list_name, limit, since_time)
     return json.dumps(tweet_list)
 
 # ユーザのリストページ
@@ -741,7 +747,7 @@ def n6_query_json():
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401)
-    return json.dumps(world.GetN6CompatQueryFormated(request.args))
+    return json.dumps(world.GetN6CompatQueryFormatted(request.args))
 
 # パスワードの変更
 @app.route('/change_password', methods=['POST'])
