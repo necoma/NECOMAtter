@@ -99,6 +99,8 @@ def after_request(responce):
     # これを書けばContent-Security-Policy が効くようになる
     # 参考: http://blog.hash-c.co.jp/2013/12/Content-Security-Policy-CSP.html
     #responce.headers.add("Content-Security-Policy", "default-src 'self'")
+    responce.headers.add("X-Content-Type-Options", "nosniff")
+    responce.headers.add("X-Frame-Options", "SAMEORIGIN")
     return responce
 
 @app.route('/')
@@ -390,7 +392,7 @@ def signupPage():
 @app.route('/signup', methods=['POST'])
 def signupProcess():
     # 一旦サインアップページは動かないことにします
-    return render_template('signup.html', error="user sign up page is closed." % user_name)
+    return render_template('signup.html', error="user sign up page is closed.")
     user_name = request.form['user_name']
     password = request.form['password']
     user_node = world.GetUserNode(user_name)
