@@ -78,6 +78,14 @@ function AssignHighlight(blocks){
   prettyPrint();
 }
 
+// mewの表示をアコーディオンのように開閉させるためのものを突っ込む
+function AssignTruncate(blocks){
+  for(var i in blocks){
+    var block = blocks[i];
+    //$(block).find('.tweet_body').css("height", "");
+  }
+}
+
 // tweet が追加された時に呼び出されて、tweet column がクリックされた時のイベントを追加します
 function AssignTweetColumnClickEvent(){
 	$('.tweet_column').unbind('click', TweetColumnClicked); // 一旦イベントを解除して
@@ -108,6 +116,7 @@ function AssignTweetColumnDraggable(){
 		, helper: "clone"
 		, revert: "invalid"
 		, handle: ".drag_handle"
+		//, handle: ".tweet_column"
 		, cursor: "move"
 		//, cursorAt: { left: 0, top: 0 }
 		, start: function(e){
@@ -263,7 +272,7 @@ function StarButtonClick(tweet_id, star_button_id){
 	{
 		return;
 	}
-	var star_html = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">cancel start</span>';
+	var star_html = '<span class="glyphicon glyphicon-star"</span> <span class="hidden-xs">cancel star</span>';
 	var not_star_html = '<span class="glyphicon glyphicon-star-empty"</span> <span class="hidden-xs">star</span>';
 
 	var element = button_element_list[0];
@@ -414,7 +423,9 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			url = str.replace(/^([a-z]+)\/\//, "$1://");
 			return '<iframe src="' + url + '" frameborder="1" style="-webkit-transform: scale(0.8); -webkit-transform-origin: 0 0;" width="120%" height="300px"></iframe>'
 			+ '<a href="' + url + '">' + url + '</a><br>';
-		});
+		})
+                .replace(/(CVE-\d{4}-\d{4,})/g, '<a href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=$1">$1</a>')
+  ;
 
 	// jsrender で使うための情報を作ります
 	// TODO: displayUserName が timeline_page.js で生成されているのでこちらで参照できない可能性がある……
@@ -486,6 +497,7 @@ function StartReadTweets(resource, append_to, limit, since_time, success_func, e
 			AssignTweetColumnDraggable();
 			$('.dropdown-toggle').dropdown();
 			AssignHighlight(append_dom_list);
+                        AssignTruncate(append_dom_list);
 		}).fail(function(jqXHR, textStatus, errorThrown){
 			if(error_func){
 				error_func(textStatus, errorThrown);
