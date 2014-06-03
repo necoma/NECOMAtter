@@ -1997,44 +1997,6 @@ class NECOMATter():
         if parent_user_name is not None:
             parent_user_node = self.GetUserNode(parent_user_name)
         return self.AddUserWithAuthCheck(parent_user_node, new_user_name, new_user_password)
-        
-    # LIST による PERMIT を考慮した tweet の list 取得クエリ
-    def GetListTimelineWithPERMIT(self, list_node, query_user_node, limit=None, since_time=None):
-        if list_node is None:
-            logging.error("list_node is undefined.")
-            return []
-        # ユーザのID を取得します
-        list_node_id = list_node._id
-        query_user_id = 0
-        if query_user_node is not None:
-            logging.error("query_user_node is indefined.")
-            return []
-        # クエリを作ります
-        query = ""
-        query += "START list = node(%d) " % list_node_id
-        query += ", query_user = node(%d) " % query_user_id
-        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) <-[:FOLLOW]- (list) "
-        query += "WITH tweet, tweet_r, user "
-        if query_user_node is not None:
-            query += ", query_user "
-        if since_time is not None:
-            query += "WHERE tweet.time < %f " % since_time
-        query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
-        if query_user_node is not None:
-            query += "WITH tweet, tweet_r, user, query_user, tweet_user "
-            query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
-            query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
-            query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
-        query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
-        if query_user_node is not None:
-            query += ", my_star_r, my_retweet_r "
-        else:
-            query += ", null, null"
-        query += ", user.name, tweet_r.time, type(tweet_r) "
-        query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
-        if limit is not None:
-            query += "LIMIT %d " % limit
-        result_list, metadata = cypher.execute(self.gdb, query)
-        return result_list
+       
 
     
