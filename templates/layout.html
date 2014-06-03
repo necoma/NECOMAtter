@@ -3,7 +3,7 @@
 <title>NECOMATter</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" type="text/css" href="/static/NECOMATter.css">
-<link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/ui-lightness/jquery-ui.css">
+<link rel="stylesheet" href="/static/jquery-ui.css">
 <!-- Bootstrap -->
   <link href="/static/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
@@ -27,7 +27,7 @@
 <!-- end markd -->
 <!--script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script-->
 <script src="/static/jquery.min.js"></script>
-<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
+<script src="/static/jquery-ui.min.js"></script>
 <script src="/static/jQuery.equalHeights.js"></script>
 <script src="/static/dist/js/bootstrap.min.js"></script>
 <!--script src="/static/typeahead.js/typeahead.min.js"></script-->
@@ -145,7 +145,7 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
 </script>
 <script id="Template_TweetBlock" type="text/x-jsrender">
 <div class="tweet_column img-responsive ui-draggable" id="{{:id}}">
-  <div class="drag_handle text-right">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>
+  <div class="drag_handle text-right TweetDragBar">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>
   <a href="/user/{{:user_id}}"><div class="ImageFloat"><img src="{{:user_icon_url}}" width="40" alt=""></div>
     <span class="tweet_name">{{:user_id}}</span></a>
   <span class="tweet_time"><a href="/tweet/{{:id}}_tree">{{:time}}</a></span>
@@ -168,7 +168,7 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
     <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">star</span></span></a>
     {{/if}}
     {{if is_not_owner}}
-    <span class="dropdown"><button class="btn btn-default dropdown-toggle" data-toggle="dropdown" data-placement="top" title="Show more user action"><span class="glyphicon glyphicon-cog"></span> <b class="caret"></b></button>
+    <span class="dropdown MewOptionDropdown"><button class="btn btn-default dropdown-toggle" data-toggle="dropdown" data-placement="top" title="Show more user action"><span class="glyphicon glyphicon-cog"></span> <b class="caret"></b></button>
       <ul class="dropdown-menu text-left">
 	<li>follow </li>
 	<li>add list</li>
