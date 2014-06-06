@@ -332,39 +332,33 @@ class NECOMATter():
 
     # ユーザのtweet を取得して、{"text": 本文, "time": UnixTime} のリストとして返します
     # 取得されるのは [text(0), time(1), user_name(2), icon_url(3), tweet_node_id(4), 自分がつけたスターのリレーションシップ(5), 自分がつけたリツイートのリレーションシップ(6), ツイートかリツイートした人の名前(7), リツイートかリツイートされた時間(8), ツイートであった(TWEET)かリツイートであった(RETWEET)か(9)] のリストです。
-    def GetUserTweet(self, user_node, limit=None, since_time=None, query_user_node=None):
+    def GetUserTweet(self, user_node, query_user_node, limit=None, since_time=None):
         if user_node is None:
             logging.error("User is undefined.")
             return []
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
         # ユーザのID を取得します
         user_id = user_node._id
-        query_user_id = 0
-        if query_user_node is not None:
-            query_user_id = query_user_node._id
+        query_user_id = query_user_node._id
         # クエリを作ります
         query = ""
         query += "START user = node(%d) " % user_id
-        if query_user_node is not None:
-            query += ", query_user = node(%d) " % query_user_id
+        query += ", query_user = node(%d) " % query_user_id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH tweet, tweet_r, user "
-        if query_user_node is not None:
-            query += ", query_user "
+        query += ", query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
-        if query_user_node is not None:
-            query += "WITH tweet, tweet_r, user, query_user, tweet_user "
-            query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
-            query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
-            query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user "
+        query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
+        query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
-        if query_user_node is not None:
-            query += ", my_star_r, my_retweet_r "
-        else:
-            query += ", null, null"
+        query += ", my_star_r, my_retweet_r "
         query += ", user.name, tweet_r.time, type(tweet_r) "
         query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
         if limit is not None:
@@ -383,48 +377,42 @@ class NECOMATter():
         return result_dic
 
     # ユーザのtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
-    def GetUserTweetFormatted(self, user_name, limit=None, since_time=None, query_user_name=None):
+    def GetUserTweetFormatted(self, user_name, query_user_name, limit=None, since_time=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("User %s is undefined." % user_name)
             return []
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        tweet_list = self.GetUserTweet(user_node, limit=limit, since_time=since_time, query_user_node=query_user_node)
+        query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetUserTweet(user_node, query_user_node, limit=limit, since_time=since_time)
         return self.FormatTweet(tweet_list)
 
     # ユーザのタイムラインを取得します。
     # 取得されるのは [text(0), time(1), user_name(2), icon_url(3), tweet_node_id(4), 自分がつけたスターのリレーションシップ(5), 自分がつけたリツイートのリレーションシップ(6), ツイートかリツイートした人の名前(7), リツイートかリツイートされた時間(8), ツイートであった(TWEET)かリツイートであった(RETWEET)か(9)] のリストです。
-    def GetUserTimeline(self, user_node, limit=None, since_time=None, query_user_node=None):
+    def GetUserTimeline(self, user_node, query_user_node, limit=None, since_time=None):
         if user_node is None:
             logging.error("User is undefined.")
+            return []
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
             return []
         user_id = user_node._id
         # クエリを作ります
         query = ""
         query += "START user = node(%d) " % user_id
-        if query_user_node is not None:
-            query += ", query_user = node(%d) " % query_user_node._id
+        query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) <-[:FOLLOW]- (user) "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH tweet, tweet_r, tweet_retweet_node "
-        if query_user_node is not None:
-            query += ", query_user "
+        query += ", query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH (tweet) -[:TWEET]-> (tweet_user) " # tweet_user は消える可能性があるので OPTIONAL MATCH にします
-        if query_user_node is not None:
-            query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user "
-            query += "OPTIONAL MATCH (tweet) <-[my_star_r:STAR]- (query_user) "
-            query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user "
-            query += "OPTIONAL MATCH (tweet) -[my_retweet_r:RETWEET]-> (query_user) "
+        query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user "
+        query += "OPTIONAL MATCH (tweet) <-[my_star_r:STAR]- (query_user) "
+        query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user "
+        query += "OPTIONAL MATCH (tweet) -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet) "
-        if query_user_node is not None:
-            query += ", my_star_r, my_retweet_r "
-        else:
-            query += ", null, null "
+        query += ", my_star_r, my_retweet_r "
         query += ", tweet_retweet_node.name, tweet_r.time, type(tweet_r) "
         query += "ORDER BY tweet_r.time DESC "
         if limit is not None:
@@ -433,43 +421,37 @@ class NECOMATter():
         return result_list
 
     # ユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
-    def GetUserTimelineFormatted(self, user_name, limit=None, since_time=None, query_user_name=None):
+    def GetUserTimelineFormatted(self, user_name, query_user_name, limit=None, since_time=None):
         user_node = self.GetUserNode(user_name)
         if user_node is None:
             logging.error("User %s is undefined." % user_name)
             return []
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        tweet_list = self.GetUserTimeline(user_node, limit, since_time, query_user_node=query_user_node)
+        query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetUserTimeline(user_node, query_user_node, limit, since_time)
         return self.FormatTweet(tweet_list)
 
     # すべてのユーザのタイムラインを取得します。
     # 取得されるのは [text(0), time(1), user_name(2), icon_url(3), tweet_node_id(4), 自分がつけたスターのリレーションシップ(5), 自分がつけたリツイートのリレーションシップ(6), ツイートかリツイートした人の名前(7), リツイートかリツイートされた時間(8), ツイートであった(TWEET)かリツイートであった(RETWEET)か(9)] のリストです。
-    def GetAllUserTimeline(self, limit=None, since_time=None, query_user_node=None):
+    def GetAllUserTimeline(self, query_user_node, limit=None, since_time=None):
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
         # クエリを作ります
         query = ""
-        if query_user_node is not None:
-            query += "START query_user = node(%d) " % query_user_node._id
+        query += "START query_user = node(%d) " % query_user_node._id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH tweet, tweet_r, tweet_retweet_node "
-        if query_user_node is not None:
-            query += ", query_user "
+        query += ", query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH (tweet) -[:TWEET]-> (tweet_user) " # tweet_user は消える可能性があるので OPTIONAL MATCH にします
-        if query_user_node is not None:
-            query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user "
-            query += "OPTIONAL MATCH (tweet) <-[my_star_r:STAR]- (query_user) "
-            query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user "
-            query += "OPTIONAL MATCH (tweet) -[my_retweet_r:RETWEET]-> (query_user) "
+        query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user "
+        query += "OPTIONAL MATCH (tweet) <-[my_star_r:STAR]- (query_user) "
+        query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user "
+        query += "OPTIONAL MATCH (tweet) -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet) "
-        if query_user_node is not None:
-            query += ", my_star_r, my_retweet_r "
-        else:
-            query += ", null, null "
+        query += ", my_star_r, my_retweet_r "
         query += ", tweet_retweet_node.name, tweet_r.time, type(tweet_r) "
         query += "ORDER BY tweet_r.time DESC "
         if limit is not None:
@@ -478,11 +460,9 @@ class NECOMATter():
         return result_list
 
     # すべてのユーザのタイムライン を{"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
-    def GetAllUserTimelineFormatted(self, limit=None, since_time=None, query_user_name=None):
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        tweet_list = self.GetAllUserTimeline(limit, since_time, query_user_node=query_user_node)
+    def GetAllUserTimelineFormatted(self, query_user_name, limit=None, since_time=None):
+        query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetAllUserTimeline(query_user_node, limit, since_time)
         return self.FormatTweet(tweet_list)
 
     # ユーザ名とセッションキーから、そのセッションが有効かどうかを判定します。
@@ -743,27 +723,24 @@ class NECOMATter():
         return followed_user_name_list
 
     # tweetのノードIDから対象のユーザのtweet を取得します。
-    def GetTweetFromID(self, tweet_id, query_user_node=None):
+    def GetTweetFromID(self, tweet_id, query_user_node):
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
         pre_result_list = []
         try:
             query = ""
             query += "start tweet = node(%d) " % tweet_id
-            if query_user_node is not None:
-                query += ", query_user = node(%d) " % query_user_node._id
-            if query_user_node is not None:
-                query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+            query += ", query_user = node(%d) " % query_user_node._id
+            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
             query += "OPTIONAL MATCH (user) <-[:TWEET]- (tweet) "
-            if query_user_node is not None:
-                query += "WITH user, tweet "
-                query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-                query += "WITH user, tweet, star_r "
-                query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
+            query += "WITH user, tweet "
+            query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
+            query += "WITH user, tweet, star_r "
+            query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
             query += "RETURN tweet.text, tweet.time, user.name"
             query += ", user.icon_url, id(tweet) "
-            if query_user_node is not None:
-                query += ", star_r, retweet_r"
-            else:
-                query += ", null, null "
+            query += ", star_r, retweet_r"
             query += ", null, null, \"TWEET\" "
             pre_result_list, metadata = cypher.execute(self.gdb, query)
         except neo4j.CypherError:
@@ -776,28 +753,25 @@ class NECOMATter():
 
     # tag からtweet を取得します
     # 取得されるのは [text(0), time(1), user_name(2), icon_url(3), tweet_node_id(4), 自分がつけたスターのリレーションシップ(5), 自分がつけたリツイートのリレーションシップ(6), ツイートかリツイートした人の名前(7), リツイートかリツイートされた時間(8), ツイートであった(TWEET)かリツイートであった(RETWEET)か(9)] のリストです。
-    def GetTagTweet(self, tag_string, limit=None, since_time=None, query_user_node=None):
+    def GetTagTweet(self, tag_string, query_user_node, limit=None, since_time=None):
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
         query = ""
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
-        if query_user_node is not None:
-            query += ", query_user = node(%d) " % query_user_node._id
+        query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH (tweet) -[:TAG]-> tag_node "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH tweet "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH (user) <-[:TWEET]- (tweet) "
-        if query_user_node is not None:
-            query += "WITH tweet, user "
-            query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-            query += "WITH tweet, user, star_r "
-            query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
+        query += "WITH tweet, user "
+        query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
+        query += "WITH tweet, user, star_r "
+        query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
-        if query_user_node is not None:
-            query += ", star_r, retweet_r"
-        else:
-            query += ", null, null "
+        query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
@@ -806,11 +780,9 @@ class NECOMATter():
         return result_list
 
     # tag から取得したtweet を{"text": 本文, "time": 日付文字列}のリストにして返します
-    def GetTagTweetFormatted(self, tag_name, limit=None, since_time=None, query_user_name=None):
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        tweet_list = self.GetTagTweet(tag_name, limit=limit, since_time=since_time, query_user_node=query_user_node)
+    def GetTagTweetFormatted(self, tag_name, query_user_name, limit=None, since_time=None):
+        query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetTagTweet(tag_name, query_user_node, limit=limit, since_time=since_time)
         return self.FormatTweet(tweet_list)
 
     # tag のリストを取得します
@@ -921,28 +893,25 @@ class NECOMATter():
         return key_node
 
     # 一つのtweetが返事をした親tweetを最上位の親まで辿って取り出します(元のtweetは含まれません)
-    def GetParentTweetAboutTweetID(self, tweet_id, limit=None, since_time=None, query_user_node=None):
+    def GetParentTweetAboutTweetID(self, tweet_id, query_user_node, limit=None, since_time=None):
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
         query = ""
         query += "START original_tweet=node(%d) " % tweet_id
-        if query_user_node is not None:
-            query += ", query_user = node(%d) " % query_user_node._id
+        query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH original_tweet -[:REPLY*1..]-> tweet "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH original_tweet, tweet "
         query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
-        if query_user_node is not None:
-            query += "WITH original_tweet, tweet, user "
-            query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-            query += "WITH original_tweet, tweet, user, star_r "
-            query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
+        query += "WITH original_tweet, tweet, user "
+        query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
+        query += "WITH original_tweet, tweet, user, star_r "
+        query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
-        if query_user_node is not None:
-            query += ", star_r, retweet_r"
-        else:
-            query += ", null, null "
+        query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
@@ -951,28 +920,25 @@ class NECOMATter():
         return result_list[::-1]
 
     # 一つのtweetについた返事のtweetを、最後の子まで辿って取り出します(元のtweetは含まれません)
-    def GetChlidTweetAboutTweetID(self, tweet_id, limit=None, since_time=None, query_user_node=None):
+    def GetChildTweetAboutTweetID(self, tweet_id, query_user_node, limit=None, since_time=None):
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
         query = ""
         query += "START original_tweet=node(%d) " % tweet_id
-        if query_user_node is not None:
-            query += ", query_user = node(%d) " % query_user_node._id
+        query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH original_tweet <-[:REPLY*1..]- tweet "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH original_tweet, tweet "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
-        if query_user_node is not None:
-            query += "WITH original_tweet, tweet, user "
-            query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-            query += "WITH original_tweet, tweet, user, star_r "
-            query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
+        query += "WITH original_tweet, tweet, user "
+        query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
+        query += "WITH original_tweet, tweet, user, star_r "
+        query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
-        if query_user_node is not None:
-            query += ", star_r, retweet_r"
-        else:
-            query += ", null, null "
+        query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
@@ -981,35 +947,29 @@ class NECOMATter():
         return result_list[::-1]
 
     # 一つのtweetが返事をした親tweetを最上位の親まで辿って取り出します(フォーマット済み版)
-    def GetParentTweetAboutTweetIDFormatted(self, tweet_id, limit=None, since_time=None, query_user_name=None):
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
+    def GetParentTweetAboutTweetIDFormatted(self, tweet_id, query_user_name, limit=None, since_time=None):
+        query_user_node = self.GetUserNode(query_user_name)
         tweet_list = []
         try:
-            tweet_list = self.GetParentTweetAboutTweetID(tweet_id, limit, since_time, query_user_node=query_user_node)
+            tweet_list = self.GetParentTweetAboutTweetID(tweet_id, query_user_node, limit=limit, since_time=since_time)
         except neo4j.CypherError:
             return [] 
         return self.FormatTweet(tweet_list)
 
     # 一つのtweetについた返事のtweetを、最後の子まで辿って取り出します(フォーマット済み版)
-    def GetChildTweetAboutTweetIDFormatted(self, tweet_id, limit=None, since_time=None, query_user_name=None):
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
+    def GetChildTweetAboutTweetIDFormatted(self, tweet_id, query_user_name, limit=None, since_time=None):
+        query_user_node = self.GetUserNode(query_user_name)
         tweet_list = []
         try:
-            tweet_list = self.GetChlidTweetAboutTweetID(tweet_id, limit, since_time, query_user_node=query_user_node)
+            tweet_list = self.GetChildTweetAboutTweetID(tweet_id, query_user_node, limit=limit, since_time=since_time)
         except neo4j.CypherError:
             return [] 
         return self.FormatTweet(tweet_list)
 
     # 一つのtweet をTweetID から取り出します
-    def GetTweetNodeFromIDFormatted(self, tweet_id, query_user_name=None):
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        return self.FormatTweet(self.GetTweetFromID(tweet_id, query_user_node=query_user_node))
+    def GetTweetNodeFromIDFormatted(self, tweet_id, query_user_name):
+        query_user_node = self.GetUserNode(query_user_name)
+        return self.FormatTweet(self.GetTweetFromID(tweet_id, query_user_node))
 
     # list 機能の実装時メモ
     #
@@ -1037,7 +997,7 @@ class NECOMATter():
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
         query += "MATCH list_node -[:OWNER]-> list_owner_node "
-        query += ", list_node <-[:LIST]- owner_node "
+        query += "MATCH list_node <-[:LIST]- owner_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\"" % list_name
         query += "RETURN list_node "
@@ -1099,7 +1059,7 @@ class NECOMATter():
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
         query += "MATCH list_node -[:OWNER]-> list_owner_node "
-        query += ", list_node <-[:LIST]- owner_node "
+        query += "MATCH list_node <-[:LIST]- owner_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\"" % list_name
         query += "RETURN list_node "
@@ -1220,11 +1180,13 @@ class NECOMATter():
         return True
 
     # owner_node のlistの一つを削除します
-    def DeleteListByNode(self, owner_node, list_name, query_user_node=None):
+    def DeleteListByNode(self, owner_node, list_name, query_user_node):
         if owner_node is None:
             return False
+        if query_user_node is None:
+            return False
         owner_node_id = owner_node._id
-        if query_user_node is not None and query_user_node._id != owner_node_id:
+        if query_user_node._id != owner_node_id:
             # オーナーじゃい人からdeleteが呼ばれた。なんで？
             logging.error("DeleteList called from deferent owner node.")
             return False
@@ -1244,8 +1206,10 @@ class NECOMATter():
         return True
 
     # owner_node のlist_name のノードを取得します
-    def GetListNodeByNode(self, owner_node, list_name, query_user_node=None):
+    def GetListNodeByNode(self, owner_node, list_name, query_user_node):
         if owner_node is None:
+            return None
+        if query_user_node is None:
             return None
         owner_node_id = owner_node._id
         if self.VaridateCypherString(list_name) == False:
@@ -1253,29 +1217,25 @@ class NECOMATter():
             return None
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
-        if query_user_node is not None:
-            query += ", query_node=node(%d) " % query_user_node._id
+        query += ", query_node=node(%d) " % query_user_node._id
         query += "MATCH owner_node <-[:OWNER]- list_node <-[:LIST]- owner_node "
-        if query_user_node is not None:
-            query += ", list_node <-[:LIST]- query_node "
+        query += "MATCH list_node <-[:LIST]- query_node "
         query += "WHERE list_node.name = \"%s\" " % list_name
         query += "RETURN list_node "
         result_list, metadata = cypher.execute(self.gdb, query)
         if len(result_list) != 1:
-            logging.error("list name '%s' not found." % list_name)
+            logging.error("list name '%s' not found. owner: %d, query_user: %d" % (list_name, owner_node_id, query_user_node._id))
             return None
         return result_list[0][0]
 
     # owner_node のlistを削除します(名前版)
-    def DeleteListByName(self, owner_node_name, list_name, query_user_name=None):
+    def DeleteListByName(self, owner_node_name, list_name, query_user_name):
         owner_node = self.GetUserNode(owner_node_name)
         if owner_node is None:
             logging.error("owner_name '%s' is not registerd." % owner_name)
             return False
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        return self.DeleteListByNode(owner_node, list_name, query_user_node=query_user_node)
+        query_user_node = self.GetUserNode(query_user_name)
+        return self.DeleteListByNode(owner_node, list_name, query_user_node)
 
     # owner_node の保持しているlistのリストを返します(owner_nodeのものだけを返します)
     def GetUserOwnedListListByNode(self, owner_node):
@@ -1285,7 +1245,7 @@ class NECOMATter():
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
         query += "MATCH list_node <-[:LIST]- owner_node "
-        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "MATCH list_node -[:OWNER]-> list_owner_node "
         query += "WHERE list_owner_node = owner_node " # owner_node のものだけをリストします
         query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node "
         query += "ORDER BY list_node.time ASC "
@@ -1322,7 +1282,7 @@ class NECOMATter():
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
         query += "MATCH list_node <-[:LIST]- owner_node "
-        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "MATCH list_node -[:OWNER]-> list_owner_node "
         query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node "
         query += "ORDER BY list_node.time ASC "
         result_list, metadata = cypher.execute(self.gdb, query)
@@ -1351,24 +1311,23 @@ class NECOMATter():
         return user_node_name_list
 
     # owner_node のlist名list_nameのリストからフォローしているユーザのユーザ名リストを取得します
-    def GetListUserListByNode(self, owner_node, list_name, query_user_node=None):
+    def GetListUserListByNode(self, owner_node, list_name, query_user_node):
         if owner_node is None:
+            return None
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
             return None
         if self.VaridateCypherString(list_name) == False:
             logging.error("list name '%s' has escape string. please user other name" % list_name)
             return None
         owner_node_id = owner_node._id
-        query_user_node_id = 0
-        if query_user_node != None:
-            query_user_node_id = query_user_node._id
+        query_user_node_id = query_user_node._id
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
-        if query_user_node != None:
-            query += ", query_user_node=node(%d) " % query_user_node_id
+        query += ", query_user_node=node(%d) " % query_user_node_id
         query += "MATCH (followed_node) <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
-        query += ", list_node -[:OWNER]-> list_owner_node "
-        if query_user_node != None:
-            query += ", list_node <-[:LIST]- query_user_node "
+        query += "MATCH list_node -[:OWNER]-> list_owner_node "
+        query += "MATCH list_node <-[:LIST]- query_user_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\" " % list_name
         query += "RETURN followed_node.name "
@@ -1381,15 +1340,13 @@ class NECOMATter():
         return user_node_name_list
 
     # owner_node のlist名list_nameのリストからフォローしているユーザのユーザ名リストを取得します(名前版)
-    def GetListUserListByName(self, owner_name, list_name, query_user_name=None):
+    def GetListUserListByName(self, owner_name, list_name, query_user_name):
         owner_node = self.GetUserNode(owner_name)
         if owner_node is None:
             logging.error("owner_name '%s' is not registerd." % owner_name)
             return False
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        return self.GetListUserListByNode(owner_node, list_name, query_user_node=query_user_node)
+        query_user_node = self.GetUserNode(query_user_name)
+        return self.GetListUserListByNode(owner_node, list_name, query_user_node)
 
     # owner_node のlist_nameリストから、target_nodeへのフォローを外します
     # フォロー先が居なくなっても list自体 を削除はしません
@@ -1408,7 +1365,7 @@ class NECOMATter():
         query = ""
         query += "START owner_node=node(%d), followed_node=node(%d) " % (owner_node_id, target_node_id)
         query += "MATCH (followed_node) <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
-        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "MATCH list_node -[:OWNER]-> list_owner_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\" " % list_name
         query += "RETURN follow_r "
@@ -1434,24 +1391,22 @@ class NECOMATter():
 
     # リストのタイムラインを取得します。
     # 取得されるのは GetUserTimeLine() と同じtext, time, user_name, tweet_node のリストです。
-    def GetListTimeline(self, list_node, limit=None, since_time=None, query_user_node=None):
-        return self.GetUserTimeline(list_node, limit=limit, since_time=since_time, query_user_node=query_user_node)
+    def GetListTimeline(self, list_node, query_user_node, limit=None, since_time=None):
+        return self.GetUserTimeline(list_node, query_user_node, limit=limit, since_time=since_time)
 
     # リストのタイムライン をGetUserTimelineFormatted() と同じ
     # {"text": 本文, "time": 日付文字列, "user_name": ユーザ名}のリストにして返します
-    def GetListTimelineFormatted(self, list_user_name, list_name, limit=None, since_time=None, query_user_name=None):
+    def GetListTimelineFormatted(self, list_user_name, list_name, query_user_name, limit=None, since_time=None):
         list_user_node = self.GetUserNode(list_user_name)
         if list_user_node is None:
             logging.error("User '%s' is undefined." % list_user_name)
             return []
-        list_node = self.GetListNodeByNode(list_user_node, list_name)
+        query_user_node = self.GetUserNode(query_user_name)
+        list_node = self.GetListNodeByNode(list_user_node, list_name, query_user_node)
         if list_node is None:
             logging.error("list '%s' not found." % list_name)
             return []
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
-        tweet_list = self.GetListTimeline(list_node, limit=limit, since_time=since_time, query_user_node=query_user_node)
+        tweet_list = self.GetListTimeline(list_node, query_user_node, limit=limit, since_time=since_time)
         return self.FormatTweet(tweet_list)
 
     # owner_node がフォローしているlistについてのサマリを取得します
@@ -1462,7 +1417,7 @@ class NECOMATter():
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
         query += "MATCH followed_node <-[:FOLLOW]- list_node <-[:LIST]- owner_node "
-        query += ", list_node -[:OWNER]-> list_owner_node "
+        query += "MATCH list_node -[:OWNER]-> list_owner_node "
         query += "RETURN followed_node.name, list_node.name, list_owner_node.name, list_node.description, list_node.hidden "
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
@@ -1496,7 +1451,7 @@ class NECOMATter():
     def AddOtherUserListByNode(self, list_owner_node, follow_user_node, list_name):
         if list_owner_node is None or follow_user_node is None:
             return False
-        list_node = self.GetListNodeByNode(list_owner_node, list_name)
+        list_node = self.GetListNodeByNode(list_owner_node, list_name, list_owner_node)
         if list_node is None:
             return False
         relationship = self.gdb.create((follow_user_node, "LIST", list_node))
@@ -1526,7 +1481,7 @@ class NECOMATter():
             # other_user_node は自分であるので、失敗にします
             logging.warn("same user request DelOtherUserListByNode()")
             return False
-        list_node = self.GetListNodeByNode(other_user_node, list_name)
+        list_node = self.GetListNodeByNode(other_user_node, list_name, other_user_node)
         if list_node is None:
             logging.error("list name '%s' not found" % list_name)
             return False
@@ -1814,33 +1769,28 @@ class NECOMATter():
         return matome_node._id
 
     # まとめのtweetリストを取得する
-    def GetNECOMAtomeTweetListByID(self, matome_id, limit=None, since_time=None, query_user_node=None):
+    def GetNECOMAtomeTweetListByID(self, matome_id, query_user_node, limit=None, since_time=None):
         user_node_id = 0
-        if query_user_node is not None:
-            query_user_node_id = query_user_node._id
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
+        query_user_node_id = query_user_node._id
         query = ""
         query += "START matome_node=node(%d) " % matome_id
-        if query_user_node is not None:
-            query += ", query_user=node(%d) " % query_user_node_id
+        query += ", query_user=node(%d) " % query_user_node_id
         query += "MATCH tweet <-[matome_r:NECOMAtome]- (matome_node) "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "WITH tweet, matome_r "
-        if query_user_node is not None:
-            query += ", query_user "
+        query += ", query_user "
         query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
-        if query_user_node is not None:
-            query += "WITH tweet, matome_r, user, query_user "
-            query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-            query += "WITH tweet, matome_r, user, star_r, query_user "
-            query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
+        query += "WITH tweet, matome_r, user, query_user "
+        query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
+        query += "WITH tweet, matome_r, user, star_r, query_user "
+        query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
-        if query_user_node is not None:
-            query += ", star_r, retweet_r"
-        else:
-            query += ", null, null "
+        query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
         query += "ORDER BY matome_r.number ASC "
         if limit is not None:
@@ -1849,36 +1799,32 @@ class NECOMATter():
         return result_list[::-1]
 
     # まとめのtweetリストを取得します(フォーマット済み版)
-    def GetNECOMAtomeTweetListByIDFormatted(self, matome_id, limit=None, since_time=None, query_user_name=None):
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
+    def GetNECOMAtomeTweetListByIDFormatted(self, matome_id, query_user_name, limit=None, since_time=None):
+        query_user_node = self.GetUserNode(query_user_name)
         tweet_list = []
         try:
-            tweet_list = self.GetNECOMAtomeTweetListByID(matome_id, limit, since_time, query_user_node=query_user_node)
+            tweet_list = self.GetNECOMAtomeTweetListByID(matome_id, query_user_node, limit, since_time)
         except neo4j.CypherError:
             return [] 
         return self.FormatTweet(tweet_list)
         
     # 指定された文字(複数の場合はAND検索)が書かれているtweet を取得します。
     # 取得された結果は GetUserTweet() と同じ形式です
-    def SearchTweet(self, string_list, limit=None, since_time=None, query_user_node=None):
+    def SearchTweet(self, string_list, query_user_node, limit=None, since_time=None):
         if string_list is None or len(string_list) <= 0:
             logging.error("string_list is undefined or length <= 0.")
             return []
-        query_user_id = 0
-        if query_user_node is not None:
-            query_user_id = query_user_node._id
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
+        query_user_id = query_user_node._id
         # クエリを作ります
         query = ""
-        if query_user_node is not None:
-            query += "START query_user = node(%d) " % query_user_id
+        query += "START query_user = node(%d) " % query_user_id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
-        if query_user_node is not None:
-            query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
         query += "WITH tweet, tweet_r, user "
-        if query_user_node is not None:
-            query += ", query_user "
+        query += ", query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f AND " % since_time
         else:
@@ -1889,16 +1835,12 @@ class NECOMATter():
             query += "%stweet.text =~ \".*%s.*\" " % (and_text, escaped_string)
             and_text = "AND "
         query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
-        if query_user_node is not None:
-            query += "WITH tweet, tweet_r, user, query_user, tweet_user "
-            query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
-            query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
-            query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user "
+        query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
+        query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
-        if query_user_node is not None:
-            query += ", my_star_r, my_retweet_r "
-        else:
-            query += ", null, null"
+        query += ", my_star_r, my_retweet_r "
         query += ", user.name, tweet_r.time, type(tweet_r) "
         query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
         if limit is not None:
@@ -1908,13 +1850,11 @@ class NECOMATter():
         return result_list
 
     # 検索のtweetリストを取得します(フォーマット済み版)
-    def SearchTweetFormatted(self, string_list, limit=None, since_time=None, query_user_name=None):
-        query_user_node = None
-        if query_user_name is not None:
-            query_user_node = self.GetUserNode(query_user_name)
+    def SearchTweetFormatted(self, string_list, query_user_name, limit=None, since_time=None):
+        query_user_node = self.GetUserNode(query_user_name)
         tweet_list = []
         try:
-            tweet_list = self.SearchTweet(string_list, limit, since_time, query_user_node=query_user_node)
+            tweet_list = self.SearchTweet(string_list, query_user_node, limit, since_time)
         except neo4j.CypherError:
             return []
         return self.FormatTweet(tweet_list)

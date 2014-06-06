@@ -302,11 +302,9 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertEqual(user_name, tweet['user_name'])
         # ユーザを消します
         self.assertTrue(self.world.DeleteUser(user_name))
-        # ツイートを取得します
-        tweet = self.world.GetTweetNodeFromIDFormatted(tweet_node._id, query_user_name=user_name)[0]
-        # 確認します
-        self.assertEqual(tweet_id, tweet['id'])
-        self.assertIsNone(tweet['user_name'])
+        # ツイートを取得します。
+        # ユーザが消されるとPERMIT のリンクが辿れなくなるのでツイートは見えなくなります
+        self.assertEqual([], self.world.GetTweetNodeFromIDFormatted(tweet_node._id, query_user_name=user_name))
 
     def test_Tweet_ReplyTo(self):
         # reply-to をつけた tweet ができることを確認する
@@ -377,9 +375,9 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertTrue(self.world.AddUser("abe", "password")[0])
         abe_node = self.world.GetUserNode("abe")
         # タイムラインにはまだ何も無い事を確認
-        self.assertEqual([], self.world.GetUserTimeline(iimura_node))
-        self.assertEqual([], self.world.GetUserTimeline(tarou_node))
-        self.assertEqual([], self.world.GetUserTimeline(abe_node))
+        self.assertEqual([], self.world.GetUserTimeline(iimura_node, iimura_node))
+        self.assertEqual([], self.world.GetUserTimeline(tarou_node, tarou_node))
+        self.assertEqual([], self.world.GetUserTimeline(abe_node, abe_node))
         # iimura は tarou と abe をフォローします
         self.assertTrue(self.world.FollowUserByName("iimura", "tarou"))
         self.assertTrue(self.world.FollowUserByName("iimura", "abe"))
@@ -387,39 +385,41 @@ class NECOMATterTestCase(unittest.TestCase):
         tweet_node = self.world.Tweet(iimura_node, "hello world")
         self.assertIsNotNone(tweet_node)
         # iimura のタイムラインにだけ入っていることを確認
-        self.assertEqual(1, len(self.world.GetUserTimeline(iimura_node)))
-        self.assertEqual(0, len(self.world.GetUserTimeline(tarou_node)))
-        self.assertEqual(0, len(self.world.GetUserTimeline(abe_node)))
+        self.assertEqual(1, len(self.world.GetUserTimeline(iimura_node, iimura_node)))
+        self.assertEqual(0, len(self.world.GetUserTimeline(tarou_node, tarou_node)))
+        self.assertEqual(0, len(self.world.GetUserTimeline(abe_node, abe_node)))
         # abe が tweet します
         tweet_node = self.world.Tweet(abe_node, "hello world")
         self.assertIsNotNone(tweet_node)
         # iimura と abe のタイムラインに入っていることを確認
-        self.assertEqual(2, len(self.world.GetUserTimeline(iimura_node)))
-        self.assertEqual(0, len(self.world.GetUserTimeline(tarou_node)))
-        self.assertEqual(1, len(self.world.GetUserTimeline(abe_node)))
+        self.assertEqual(2, len(self.world.GetUserTimeline(iimura_node, iimura_node)))
+        self.assertEqual(0, len(self.world.GetUserTimeline(tarou_node, tarou_node)))
+        self.assertEqual(1, len(self.world.GetUserTimeline(abe_node, abe_node)))
         # tarou が tweet します
         tweet_node = self.world.Tweet(tarou_node, "hello world")
         self.assertIsNotNone(tweet_node)
         # iimura と tarou のタイムラインに入っていることを確認
-        self.assertEqual(3, len(self.world.GetUserTimeline(iimura_node)))
-        self.assertEqual(1, len(self.world.GetUserTimeline(tarou_node)))
-        self.assertEqual(1, len(self.world.GetUserTimeline(abe_node)))
+        self.assertEqual(3, len(self.world.GetUserTimeline(iimura_node, iimura_node)))
+        self.assertEqual(1, len(self.world.GetUserTimeline(tarou_node, tarou_node)))
+        self.assertEqual(1, len(self.world.GetUserTimeline(abe_node, abe_node)))
 
     def test_GetUserTimeline_Limit(self):
         # limit が効くことを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password")[0])
-        iimura_node = self.world.GetUserNode("iimura")
+        user_name = "iimura"
+        password = "password"
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
+        iimura_node = self.world.GetUserNode(user_name)
         # タイムラインにはまだ何も無い事を確認
-        self.assertEqual([], self.world.GetUserTimeline(iimura_node))
+        self.assertEqual([], self.world.GetUserTimeline(iimura_node, iimura_node))
         # iimura が 10回 tweet します
         for i in range(1, 11):
             tweet_node = self.world.Tweet(iimura_node, "tweet no: %d" % i)
             self.assertIsNotNone(tweet_node)
         # iimura のタイムラインが10個になっていることを確認
-        self.assertEqual(10, len(self.world.GetUserTimeline(iimura_node)))
+        self.assertEqual(10, len(self.world.GetUserTimeline(iimura_node, iimura_node)))
         # limit=5 にして取得した場合に、5個になっていることを確認
-        tweet_list = self.world.GetUserTimeline(iimura_node, limit=5)
+        tweet_list = self.world.GetUserTimeline(iimura_node, iimura_node, limit=5)
         self.assertEqual(5, len(tweet_list))
         # 中身が「最新の5個」になっていることを確認します
         for i in range(0, 5):
@@ -430,10 +430,12 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_GetUserTimeline_SinceTime(self):
         # since_time が効くことを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password")[0])
-        iimura_node = self.world.GetUserNode("iimura")
+        user_name = "iimura"
+        password = "password"
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
+        iimura_node = self.world.GetUserNode(user_name)
         # タイムラインにはまだ何も無い事を確認
-        self.assertEqual([], self.world.GetUserTimeline(iimura_node))
+        self.assertEqual([], self.world.GetUserTimeline(iimura_node, iimura_node))
         no7_tweet = None
         # iimura が 10回 tweet します
         for i in range(1, 11):
@@ -445,9 +447,9 @@ class NECOMATterTestCase(unittest.TestCase):
                 # since_time を使うので、少しだけ待ちます
                 time.sleep(0.1)
         # iimura のタイムラインが10個になっていることを確認
-        self.assertEqual(10, len(self.world.GetUserTimeline(iimura_node)))
+        self.assertEqual(10, len(self.world.GetUserTimeline(iimura_node, iimura_node)))
         # since_time に no7_tweet の時間を指定して取得した場合に、7個になっていることを確認
-        tweet_list = self.world.GetUserTimeline(iimura_node, since_time=no7_tweet['time'])
+        tweet_list = self.world.GetUserTimeline(iimura_node, iimura_node, since_time=no7_tweet['time'])
         self.assertEqual(6, len(tweet_list))
         # 中身が「1, 2, 3, 4, 5, 6, 7番目のtweet、の7個」になっていることを確認します
         for i in range(0, 6):
@@ -497,17 +499,19 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_GetTagTweetFormatted(self):
         # タグに関連するtweetを取り出せることを確認します
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password")[0])
-        iimura_node = self.world.GetUserNode("iimura")
+        user_name = "iimura"
+        password = "password"
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
+        iimura_node = self.world.GetUserNode(user_name)
         target_tag_string = "#tag"
         # #tag にはまだ何も無い事を確認
-        self.assertEqual([], self.world.GetTagTweetFormatted(target_tag_string))
+        self.assertEqual([], self.world.GetTagTweetFormatted(target_tag_string, user_name))
         # tagのあるtweetをおこないます
         tweet_string = "is tag %s apple?\n" % target_tag_string
         tweet_node = self.world.Tweet(iimura_node, tweet_string)
         self.assertIsNotNone(tweet_node)
         # tagリストに新しく target_tag_string が現れることを確認
-        formatted_tag_tweet_list = self.world.GetTagTweetFormatted(target_tag_string)
+        formatted_tag_tweet_list = self.world.GetTagTweetFormatted(target_tag_string, user_name)
         self.assertEqual(1, len(formatted_tag_tweet_list))
         tag_tweet = formatted_tag_tweet_list[0]
         self.assertEqual(tweet_string, tag_tweet['text'])
@@ -518,7 +522,7 @@ class NECOMATterTestCase(unittest.TestCase):
         tweet_node = self.world.Tweet(iimura_node, tweet_string)
         self.assertIsNotNone(tweet_node)
         # tagリストに新しく target_tag_string が現れることを確認
-        formatted_tag_tweet_list = self.world.GetTagTweetFormatted(target_tag_string)
+        formatted_tag_tweet_list = self.world.GetTagTweetFormatted(target_tag_string, user_name)
         self.assertEqual(2, len(formatted_tag_tweet_list))
         tag_tweet = formatted_tag_tweet_list[0]
         self.assertEqual(tweet_string, tag_tweet['text'])
@@ -562,17 +566,21 @@ class NECOMATterTestCase(unittest.TestCase):
     def test_GetTweetFromID(self):
         # tweet の ID から tweet を取得できることを確認します
         # 最初は何もノードが無いはずです
-        self.assertEqual([], self.world.GetTweetFromID(0))
+        self.assertEqual([], self.world.GetTweetFromID(0, None))
         # ユーザを作成
-        self.assertTrue(self.world.AddUser("iimura", "password")[0])
-        iimura_node = self.world.GetUserNode("iimura")
+        user_name = "iimura"
+        password = "password"
+        self.assertTrue(self.world.AddUser(user_name, password)[0])
+        iimura_node = self.world.GetUserNode(user_name)
+        # ユーザがいても、ID 0 では取得できないはずです
+        self.assertEqual([], self.world.GetTweetFromID(0, iimura_node))
         # iimura_node のidをtweetとして取得しようとしても失敗することを確認します
-        self.assertEqual([], self.world.GetTweetFromID(iimura_node._id))
+        self.assertEqual([], self.world.GetTweetFromID(iimura_node._id, iimura_node))
         # tweetをおこないます
         tweet_node = self.world.Tweet(iimura_node, "normal tweet")
         self.assertIsNotNone(tweet_node)
         # IDでtweetを取得してみます
-        get_tweet = self.world.GetTweetFromID(tweet_node._id)
+        get_tweet = self.world.GetTweetFromID(tweet_node._id, iimura_node)
         # 一つだけ取得できているはずです。
         self.assertEqual(1, len(get_tweet))
         # 取得された値は text, time, user_name, node の順の配列になっているはずです
@@ -686,18 +694,18 @@ class NECOMATterTestCase(unittest.TestCase):
         #
         # tweet_node_2 の親を辿ります
         # 1 だけが取得できるはずです
-        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_2._id)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_2._id, user_name)
         self.assertEqual(1, len(result_list))
         self.assertEqual(tweet_node_1._id, result_list[0]['id'])
         # tweet_node_3 の親を辿ります
         # 1 と2が取得できるはずです(順番は時間sortされるので、1,2の順のはずです)
-        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_3._id)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_3._id, user_name)
         self.assertEqual(2, len(result_list))
         self.assertEqual(tweet_node_1._id, result_list[0]['id'])
         self.assertEqual(tweet_node_2._id, result_list[1]['id'])
         # tweet_node_4 の親を辿ります
         # 1 だけが取得できるはずです
-        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_4._id)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_4._id, user_name)
         self.assertEqual(1, len(result_list))
         self.assertEqual(tweet_node_1._id, result_list[0]['id'])
 
@@ -731,18 +739,18 @@ class NECOMATterTestCase(unittest.TestCase):
         #
         # tweet_node_2 の親を辿ります
         # 1 だけが取得できるはずです
-        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_2._id)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_2._id, user_node[1]['name'])
         self.assertEqual(1, len(result_list))
         self.assertEqual(tweet_node_1._id, result_list[0]['id'])
         # tweet_node_3 の親を辿ります
         # 1 と2が取得できるはずです(順番は時間sortされるので、1,2の順のはずです)
-        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_3._id)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_3._id, user_node[2]['name'])
         self.assertEqual(2, len(result_list))
         self.assertEqual(tweet_node_1._id, result_list[0]['id'])
         self.assertEqual(tweet_node_2._id, result_list[1]['id'])
         # tweet_node_4 の親を辿ります
         # 1 だけが取得できるはずです
-        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_4._id)
+        result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_4._id, user_node[3]['name'])
         self.assertEqual(1, len(result_list))
         self.assertEqual(tweet_node_1._id, result_list[0]['id'])
 
@@ -772,7 +780,7 @@ class NECOMATterTestCase(unittest.TestCase):
                 (9, 5, [4, 5, 6, 7, 8]),
                 (7, 5, [2, 3, 4, 5, 6])
                 ]:
-            result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_list[n]._id, limit=limit)
+            result_list = self.world.GetParentTweetAboutTweetIDFormatted(tweet_node_list[n]._id, user_name, limit=limit)
             self.assertEqual(len(answer), len(result_list), "answer required: %s(count: %d) -> got result: %s(count: %d)" % (str(answer), len(answer), str(result_list), len(result_list)))
             for i in range(0, len(answer)):
                 self.assertEqual(tweet_node_list[answer[i]]._id, result_list[i]['id'], "no %d check failed. n: %d, limit: %d, answer: %s %s" % (i, n, limit, str(answer), str(result_list)))
@@ -804,16 +812,16 @@ class NECOMATterTestCase(unittest.TestCase):
         #
         # tweet_node_2 の子を辿ります
         # 3 だけが取得できるはずです
-        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_2._id)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_2._id, user_name)
         self.assertEqual(1, len(result_list))
         self.assertEqual(tweet_node_3._id, result_list[0]['id'])
         # tweet_node_3 の子を辿ります
         # 空リストが取得できるはずです
-        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_3._id)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_3._id, user_name)
         self.assertEqual(0, len(result_list))
         # tweet_node_1 の子を辿ります
         # 2, 3, 4 が取得できるはずです(順番は時間sortされるので、2,3,4 の順のはずです)
-        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_1._id)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_1._id, user_name)
         self.assertEqual(3, len(result_list))
         self.assertEqual(tweet_node_2._id, result_list[0]['id'])
         self.assertEqual(tweet_node_3._id, result_list[1]['id'])
@@ -849,16 +857,16 @@ class NECOMATterTestCase(unittest.TestCase):
         #
         # tweet_node_2 の子を辿ります
         # 3 だけが取得できるはずです
-        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_2._id)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_2._id, user_node[0]['name'])
         self.assertEqual(1, len(result_list))
         self.assertEqual(tweet_node_3._id, result_list[0]['id'])
         # tweet_node_3 の子を辿ります
         # 空リストが取得できるはずです
-        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_3._id)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_3._id, user_node[0]['name'])
         self.assertEqual(0, len(result_list))
         # tweet_node_1 の子を辿ります
         # 2, 3, 4 が取得できるはずです(順番は時間sortされるので、2,3,4 の順のはずです)
-        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_1._id)
+        result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_1._id, user_node[0]['name'])
         self.assertEqual(3, len(result_list))
         self.assertEqual(tweet_node_2._id, result_list[0]['id'])
         self.assertEqual(tweet_node_3._id, result_list[1]['id'])
@@ -890,7 +898,7 @@ class NECOMATterTestCase(unittest.TestCase):
                 (0, 5, [5, 6, 7, 8, 9]),
                 (2, 5, [5, 6, 7, 8, 9]) # 新しい順に取り出されるので、これでよいです
                 ]:
-            result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_list[n]._id, limit=limit)
+            result_list = self.world.GetChildTweetAboutTweetIDFormatted(tweet_node_list[n]._id, user_name, limit=limit)
             self.assertEqual(len(answer), len(result_list), "answer required: %s(count: %d) -> got result: %s(count: %d)" % (str(answer), len(answer), str(result_list), len(result_list)))
             for i in range(0, len(answer)):
                 self.assertEqual(tweet_node_list[answer[i]]._id, result_list[i]['id'], "no %d check failed. n: %d, limit: %d, answer: %s %s" % (i, n, limit, str(answer), str(result_list)))
@@ -907,7 +915,7 @@ class NECOMATterTestCase(unittest.TestCase):
         tweet_node_1 = self.world.Tweet(iimura_node, tweet_text)
         self.assertIsNotNone(tweet_node_1)
         # 取得します
-        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_node_1._id)
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_node_1._id, user_name)
         self.assertIsNotNone(tweet_list)
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text, tweet_list[0]['text'])
@@ -936,7 +944,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         list_name = "testりすと"
         # まずリストに何も無い事を確認します。
         for user_node in self.user_node_list:
-            result = self.world.GetListUserListByNode(user_node, list_name)
+            result = self.world.GetListUserListByNode(user_node, list_name, user_node)
             self.assertEqual([], result)
         # A がリストに B, C を追加します。
         A_name = self.user_node_list[0]["name"]
@@ -945,7 +953,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         self.assertTrue(self.world.AddNodeToListByName(A_name, list_name, B_name))
         self.assertTrue(self.world.AddNodeToListByName(A_name, list_name, C_name))
         # リストに追加されていることを確認します
-        list_user_node_list = self.world.GetListUserListByName(A_name, list_name)
+        list_user_node_list = self.world.GetListUserListByName(A_name, list_name, A_name)
         self.assertEqual(2, len(list_user_node_list))
         self.assertEqual([B_name, C_name], [list_user_node_list[0], list_user_node_list[1]])
 
@@ -964,12 +972,12 @@ class NECOMATter_list_TestCase(unittest.TestCase):
                 self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_node['name']))
         # 一応リストが作成されていることは確認しておきます
         for list_name in list_name_list:
-            self.assertNotEqual([], self.world.GetListUserListByName(owner_user_name, list_name))
+            self.assertNotEqual([], self.world.GetListUserListByName(owner_user_name, list_name, owner_user_name))
         # リストを全て削除します。
         self.assertTrue(self.world.DeleteAllListByNode(owner_user_node))
         # リストが全て消えていることを確認します
         for list_name in list_name_list:
-            self.assertEqual([], self.world.GetListUserListByName(owner_user_name, list_name))
+            self.assertEqual([], self.world.GetListUserListByName(owner_user_name, list_name, owner_user_name))
 
     def CheckListName(self, answer_list_name_list, target_list):
         self.assertEqual(len(answer_list_name_list), len(target_list))
@@ -1011,7 +1019,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         for user_name in list_user_name_list:
             self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, user_name))
         # ユーザ名が取得できることを確認します
-        self.assertEqual(list_user_name_list, self.world.GetListUserListByName(owner_node_name, list_name))
+        self.assertEqual(list_user_name_list, self.world.GetListUserListByName(owner_node_name, list_name, owner_node_name))
 
     def test_UnfollowUserFromListByName(self):
         # リスト名
@@ -1024,11 +1032,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         for user_name in list_user_name_list:
             self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, user_name))
         # ユーザ名が取得できることを確認します
-        self.assertEqual(list_user_name_list, self.world.GetListUserListByName(owner_node_name, list_name))
+        self.assertEqual(list_user_name_list, self.world.GetListUserListByName(owner_node_name, list_name, owner_node_name))
         # リストから一人目を削除します
         self.assertTrue(self.world.UnfollowUserFromListByName(owner_node_name, list_name, list_user_name_list[0]))
         # リストから削除されていることを確認します
-        self.assertEqual(list_user_name_list[1:], self.world.GetListUserListByName(owner_node_name, list_name))
+        self.assertEqual(list_user_name_list[1:], self.world.GetListUserListByName(owner_node_name, list_name, owner_node_name))
 
     def test_UnfollowUserFromListByName_other_user(self):
         # 追加されていないユーザをリストから削除しようとした場合のテスト
@@ -1043,11 +1051,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # リストにメンバを追加します
         self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
         # ユーザ名が取得できることを確認します
-        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name, owner_node_name))
         # リストから未登録のユーザを削除しようとしてみます
         self.assertFalse(self.world.UnfollowUserFromListByName(owner_node_name, list_name, other_user_name))
         # リストが破壊されていないことを確認します
-        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name, owner_node_name))
 
     def test_UnfollowUserFromListByName_undefined_user(self):
         # 存在しないユーザをリストから削除しようとした場合のテスト
@@ -1062,11 +1070,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # リストにメンバを追加します
         self.assertTrue(self.world.AddNodeToListByName(owner_node_name, list_name, add_user_name))
         # ユーザ名が取得できることを確認します
-        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name, owner_node_name))
         # リストから存在しない名前ののユーザを削除しようとしてみます
         self.assertFalse(self.world.UnfollowUserFromListByName(owner_node_name, list_name, undefined_user_name))
         # リストが破壊されていないことを確認します
-        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name))
+        self.assertEqual([add_user_name], self.world.GetListUserListByName(owner_node_name, list_name, owner_node_name))
 
     def test_DeleteListByName(self):
         # リスト名
@@ -1081,7 +1089,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # リスト名が取得できることを確認します
         self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(owner_node_name))
         # 2つ目のリストを削除します
-        self.assertTrue(self.world.DeleteListByName(owner_node_name, list_name_list[1]))
+        self.assertTrue(self.world.DeleteListByName(owner_node_name, list_name_list[1], owner_node_name))
         # リスト名が減っていることを確認します
         self.CheckListName(list_name_list[:1], self.world.GetUserOwnedListListFormatted(owner_node_name))
 
@@ -1101,7 +1109,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # リスト名が取得できることを確認します
         self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(owner_node_name))
         # 存在しない名前のリストを削除します(存在しなかったとしてもTrueが帰るはずです)
-        self.assertTrue(self.world.DeleteListByName(owner_node_name, target_undefined_list_name))
+        self.assertTrue(self.world.DeleteListByName(owner_node_name, target_undefined_list_name, owner_node_name))
         # リスト名が変わっていないことを確認します
         self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(owner_node_name))
 
@@ -1129,7 +1137,7 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         for user_node in self.user_node_list:
             self.CheckListName(list_name_list, self.world.GetUserOwnedListListFormatted(user_node['name']))
         # 一つのノードからターゲットリストを削除します
-        self.assertTrue(self.world.DeleteListByNode(delete_owner_node, target_list_name))
+        self.assertTrue(self.world.DeleteListByNode(delete_owner_node, target_list_name, delete_owner_node))
         # 消したノードからはリストが削除されていることを確認します
         self.CheckListName(delete_result_list_name_list, self.world.GetUserOwnedListListFormatted(delete_owner_node['name']))
         # 消していないノードからはリストが削除されていないことを確認します
@@ -1148,11 +1156,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         # リストが無い事を確認します
         self.CheckListName([], self.world.GetUserOwnedListListFormatted(owner_user_name))
         # 何もリストが無い状態で未定義のリストを消そうとしてみます(存在しなくてもエラーにはなりません)
-        self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name))
+        self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name, owner_user_name))
         # リストを作成します
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # もう一度、未定義のリストを消そうとしてみます
-        self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name))
+        self.assertTrue(self.world.DeleteListByName(owner_user_name, undefined_list_name, owner_user_name))
         # 既存のリストが消されていないことを確認します
         self.CheckListName([list_name], self.world.GetUserOwnedListListFormatted(owner_user_name))
 
@@ -1171,21 +1179,21 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         tweet_text = u"tweet"
         # 何もリストを作っていない時にリストのタイムラインを取得してみます。
         # (何も取得できないだけでエラーはしないはずです)
-        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name))
+        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name, owner_user_name))
         # リストを作成します
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # リストのタイムラインにはまだ何も無い事を確認します。
-        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name))
+        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name, owner_user_name))
         # リストに入っていないメンバ(owner_user_node)がtweetします
         owner_tweet_node = self.world.Tweet(owner_user_node, tweet_text)
         self.assertIsNotNone(owner_tweet_node)
         # リストのタイムラインにはまだ何も無い事を確認します。
-        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name))
+        self.assertEqual([], self.world.GetListTimelineFormatted(owner_user_name, list_name, owner_user_name))
         # リストに入ってるメンバ(target_user_node)がtweetします
         target_tweet_node = self.world.Tweet(target_user_node, tweet_text)
         self.assertIsNotNone(target_tweet_node)
         # リストのタイムラインにtweetが追加されていることを確認します。
-        formatted_tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name)
+        formatted_tweet_list = self.world.GetListTimelineFormatted(owner_user_name, list_name, owner_user_name)
         self.assertEqual(1, len(formatted_tweet_list))
         self.assertEqual(tweet_text, formatted_tweet_list[0]['text'])
         self.assertEqual(target_tweet_node._id, formatted_tweet_list[0]['id'])
@@ -1932,7 +1940,7 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         tweet_list = self.world.GetUserTimelineFormatted(follow_user_name, query_user_name=follow_user_name)
         self.assertEqual(len(self.user_node_list) + 1, len(tweet_list))
 
-
+        
     def test_RetweetByName(self):
         # tweetするノード
         tweet_node = self.user_node_list[0]
@@ -2045,12 +2053,12 @@ class NECOMATter_Star_TestCase(unittest.TestCase):
         self.assertIsNotNone(tweet_result)
         tweet_node_id = tweet_result['id']
         # 最初はtweet_node にはstarがついていないはずです
-        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_node_id)
+        tweet_list = self.world.GetTweetNodeFromIDFormatted(tweet_node_id, tweet_user_node_name)
         self.assertEqual(1, len(tweet_list))
         tweet_dic = tweet_list[0]
         self.assertEqual(tweet_node_id, tweet_dic['id'])
         self.assertFalse(tweet_dic['own_stard'])
-        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id, tweet_user_node_name)
         self.assertEqual(tweet_node_id, tweet_dic['id'])
         self.assertEqual(tweet_text, tweet_dic['text'])
         self.assertEqual(tweet_result['unix_time'], tweet_dic['unix_time'])
@@ -2063,19 +2071,19 @@ class NECOMATter_Star_TestCase(unittest.TestCase):
         self.assertTrue(self.world.AddStarByName(self.user_node_list[2]['name'], tweet_node_id))
         self.assertTrue(self.world.AddStarByName(self.user_node_list[3]['name'], tweet_node_id))
         # star の数が増えているはずです
-        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id, tweet_user_node_name)
         self.assertEqual(3, tweet_dic['stard_count'])
         # star を減らします
         self.assertTrue(self.world.DeleteStarByName(self.user_node_list[1]['name'], tweet_node_id))
         # star の数が減っているはずです
-        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id, tweet_user_node_name)
         self.assertEqual(2, tweet_dic['stard_count'])
         # 二重にstar をつけようとすると失敗します
         self.assertFalse(self.world.AddStarByName(self.user_node_list[2]['name'], tweet_node_id))
         # 二重にstarを外そうとしても失敗します
         self.assertFalse(self.world.DeleteStarByName(self.user_node_list[1]['name'], tweet_node_id))
         # star の数に変化は無いはずです
-        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id)
+        tweet_dic = self.world.GetTweetAdvancedInfoFormatted(tweet_node_id, tweet_user_node_name)
         self.assertEqual(2, tweet_dic['stard_count'])
 
 
@@ -2105,15 +2113,15 @@ class NECOMATter_Search_TestCase(unittest.TestCase):
         tweet_text = u"tweet ついーと 日本語 1x*#tag() "
         # (tweet_node)がtweetします
         tweet_result = self.world.TweetByName(tweet_user_node_name, tweet_text)
-        tweet_list = self.world.SearchTweet([".*"])
+        tweet_list = self.world.SearchTweet([".*"], tweet_user_node)
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text, tweet_list[0][0])
 
-        tweet_list = self.world.SearchTweet([".*", "tweet.*"])
+        tweet_list = self.world.SearchTweet([".*", "tweet.*"], tweet_user_node)
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text, tweet_list[0][0])
 
-        tweet_list = self.world.SearchTweet([".*", ".*ついーと.*"])
+        tweet_list = self.world.SearchTweet([".*", ".*ついーと.*"], tweet_user_node)
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text, tweet_list[0][0])
 
