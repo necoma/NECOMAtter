@@ -27,6 +27,7 @@ app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
 world = NECOMATter("http://localhost:7474")
+force_scheme = "https"
 
 # streaming API で監視を走らせる時のwatcherを管理するclass
 # ストリーミングのクライアントが現れる毎にwatchdogリストに登録する
@@ -122,7 +123,7 @@ def userPage_Get_Rest(user_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetUserTweetFormatted(user_name, limit=limit, since_time=since_time, query_user_name=auth_user_name)
+    tweet_list = world.GetUserTweetFormatted(user_name, query_user_name=auth_user_name, limit=limit, since_time=since_time)
     return json.dumps(tweet_list)
 
 # ユーザページ
@@ -132,8 +133,8 @@ def userPage_Get(user_name):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('timeline_page.html', user_name=user_name, do_target="Tweet", request_path="user")
 
 # ツイートの削除
@@ -165,8 +166,8 @@ def userTweet_Get(tweet_id):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('tweet_tree.html', tweet_id=tweet_id)
 
 # 個別のツイートページ
@@ -176,8 +177,8 @@ def userTweet_Get_Tree(tweet_id):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('tweet_tree.html', tweet_id=tweet_id)
 
 # 対象のtweetID の tweet のみを取得します
@@ -211,7 +212,7 @@ def userTweetTreeParent_Get_Rest(tweet_id):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, limit, since_time, query_user_name=user_name)
+    tweet_list = world.GetParentTweetAboutTweetIDFormatted(tweet_id, user_name, limit, since_time)
     return json.dumps(tweet_list)
 
 # 対象のツイートの子(replyしてきたtweet)を辿って返します
@@ -226,7 +227,7 @@ def userTweetTreeChild_Get_Rest(tweet_id):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetChildTweetAboutTweetIDFormatted(tweet_id, limit, since_time, query_user_name=user_name)
+    tweet_list = world.GetChildTweetAboutTweetIDFormatted(tweet_id, query_user_name, limit, since_time)
     return json.dumps(tweet_list)
 
 # 対象のユーザがフォローしているユーザ名のリストを返します
@@ -250,7 +251,7 @@ def timelinePage_Get_Rest(user_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetUserTimelineFormatted(user_name, limit, since_time, query_user_name=query_user_name)
+    tweet_list = world.GetUserTimelineFormatted(user_name, query_user_name, limit, since_time)
     return json.dumps(tweet_list)
 
 # ユーザのタイムラインページ
@@ -260,8 +261,8 @@ def timelinePage_Get(user_name):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('timeline_page.html', user_name=user_name, do_target="Timeline", request_path="timeline")
 
 # すべてのユーザのタイムラインを返します
@@ -277,7 +278,7 @@ def alluserTimelinePage_Get_Rest():
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetAllUserTimelineFormatted(limit, since_time, query_user_name=query_user_name)
+    tweet_list = world.GetAllUserTimelineFormatted(query_user_name, limit, since_time)
     return json.dumps(tweet_list)
 
 # すべてのユーザのタイムラインページ
@@ -287,8 +288,8 @@ def alluserTimelinePage_Get():
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('all_user_timeline_page.html')
 
 # タグページ
@@ -298,8 +299,8 @@ def tagPage_Get(tag_name):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('tag_page.html', tag_name=tag_name, title=tag_name)
 
 # タグのタイムラインを返します
@@ -314,7 +315,7 @@ def tagPage_Get_Rest(tag_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetTagTweetFormatted("#" + world.EscapeForXSS(tag_name), limit, since_time)
+    tweet_list = world.GetTagTweetFormatted("#" + world.EscapeForXSS(tag_name), auth_user_name, limit, since_time)
     return json.dumps(tweet_list)
 
 # ユーザ設定ページ
@@ -403,7 +404,7 @@ def unfollowUser():
 def signupPage():
     user_name = GetAuthenticatedUserName()
     if user_name is not None:
-        return redirect(url_for('userPage_Get', user_name=user_name, _external=True, _scheme="https"))
+        return redirect(url_for('userPage_Get', user_name=user_name, _external=True, _scheme=force_scheme))
     return render_template('signup.html')
 
 # ユーザ生成ページ(POSTされた後の実際の生成部分)
@@ -423,7 +424,7 @@ def signupProcess():
             return render_template('signin.html', error="user %s created. but session create failed." % user_name)
         session['user_name'] = user_name
         session['session_key'] = session_key
-        return redirect(url_for("timelinePage_Get", user_name=user_name, _external=True, _scheme="https"))
+        return redirect(url_for("timelinePage_Get", user_name=user_name, _external=True, _scheme=force_scheme))
     return render_template('signup.html', error="create user %s failed. %s" % (user_name, result[1]))
 
 # サインインページ
@@ -431,7 +432,7 @@ def signupProcess():
 def signinPage():
     user_name = GetAuthenticatedUserName()
     if user_name is not None:
-        return redirect(url_for('userPage_Get', user_name=user_name, _external=True, _scheme="https"))
+        return redirect(url_for('userPage_Get', user_name=user_name, _external=True, _scheme=force_scheme))
     return render_template('signin.html')
 
 # サインインページ(POSTされた後の実際のサインイン部分)
@@ -445,7 +446,7 @@ def signinProcess():
             return render_template('signin.html', error="undefined error. (CreateSessionKey)")
         session['user_name'] = user_name
         session['session_key'] = session_key
-        return redirect(url_for("topPage", _external=True, _scheme="https"))
+        return redirect(url_for("topPage", _external=True, _scheme=force_scheme))
     return render_template('signin.html', error="invalid password or username")
 
 # サインアウトページ. このページが開いたら強制的にサインアウトさせます
@@ -456,7 +457,7 @@ def signoutPage():
         # DB側のセッションキーも消しておきます
         world.DeleteUserSessionKey(user_name)
     session.pop('session_key', None)
-    return redirect(url_for('topPage', _scheme="https", _external=True))
+    return redirect(url_for('topPage', _scheme=force_scheme, _external=True))
 
 # 登録されているユーザ名をリストで返します
 @app.route('/user_name_list.json')
@@ -481,8 +482,8 @@ def streamClientList():
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('stream_client.html')
 
 # streaming AIP での正規表現マッチの待機用関数
@@ -585,7 +586,7 @@ def list_get(user_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401)
-    list_name_list = world.GetListNameListByName(user_name)
+    list_name_list = world.GetListNameListByName(user_name) # TODO この method 無い?
     if list_name_list is None:
         abort(500, {'result': 'error', 'description': 'user list get failed.'})
     return json.dumps({'result': 'ok', 'list_name_list': list_name_list})
@@ -603,7 +604,7 @@ def list_user_get(user_name, list_name):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    tweet_list = world.GetListTimelineFormatted(user_name, list_name, limit, since_time)
+    tweet_list = world.GetListTimelineFormatted(user_name, list_name, auth_user_name, limit, since_time)
     return json.dumps(tweet_list)
 
 # ユーザのリストページ
@@ -613,8 +614,8 @@ def list_user_page(user_name, list_name):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('timeline_page_v2.html', user_name=user_name, list_name=list_name)
 
 # ユーザのリストのリストページ
@@ -624,8 +625,8 @@ def list_user_page_(user_name, list_name):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('user_list_list_page.html', user_name=user_name)
 
 # tweet に STAR をつける
@@ -692,7 +693,7 @@ def post_user_icon_image():
     icon_url = world.GetUserAbaterIconURLByName(auth_user_name)
     if not world.UpdateAbaterIconByName(auth_user_name, file):
         return render_template('user_setting_page.html', error="icon save error", user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
-    return redirect(url_for('userSettingsPage_Get', _scheme="https", _external=True))
+    return redirect(url_for('userSettingsPage_Get', _scheme=force_scheme, _external=True))
     #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
 
 # NECOMAtome json
@@ -707,7 +708,7 @@ def necomatome_Get_Json(id):
         since_time = float(request.values['since_time'])
     if 'limit' in request.values:
         limit = int(request.values['limit'])
-    matome_tweet_list = world.GetNECOMAtomeTweetListByIDFormatted(id, limit=limit, since_time=since_time, query_user_name=auth_user_name)
+    matome_tweet_list = world.GetNECOMAtomeTweetListByIDFormatted(id, query_user_name=auth_user_name, limit=limit, since_time=since_time)
     return json.dumps(matome_tweet_list)
 
 # NECOMAtome ページ
@@ -717,8 +718,8 @@ def necomatome_Get(id):
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     return render_template('necomatome_page.html', matome_id=id)
 
 # NECOMAtome 作成
@@ -759,7 +760,7 @@ def search_json_POST():
     if 'search_text' in request.values:
         search_text = request.values['search_text']
     search_text_list = search_text.split(' ')
-    return json.dumps(world.SearchTweetFormatted(search_text_list, since_time=since_time, limit=limit, query_user_name=auth_user_name))
+    return json.dumps(world.SearchTweetFormatted(search_text_list, query_user_name=auth_user_name, since_time=since_time, limit=limit))
 
 # 検索ページ
 @app.route('/search', methods=['GET'])
@@ -768,8 +769,8 @@ def search_Page():
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
     limit = None
     search_text = request.args.get('search_text');
     if search_text is None:
@@ -791,8 +792,8 @@ def passwordChangePage():
     if auth_user_name is None:
         if session.get('user_name') is not None:
             session.pop('session_key', None)
-            return redirect(url_for('signinPage', _external=True, _scheme="https"))
-        return redirect(url_for('signoutPage', _external=True, _scheme="https"))
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
 
     key_list = world.GetUserAPIKeyListByName(auth_user_name)
     icon_url = world.GetUserAbaterIconURLByName(auth_user_name)
@@ -816,7 +817,7 @@ def passwordChangePage():
     # DB側のセッションキーも消しておきます
     world.DeleteUserSessionKey(auth_user_name)
 
-    return redirect(url_for('topPage', _scheme="https", _external=True))
+    return redirect(url_for('topPage', _scheme=force_scheme, _external=True))
     #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, success="password changed.", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
 
 # ユーザの追加
