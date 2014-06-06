@@ -445,7 +445,7 @@ def signinProcess():
             return render_template('signin.html', error="undefined error. (CreateSessionKey)")
         session['user_name'] = user_name
         session['session_key'] = session_key
-        return redirect(url_for("timelinePage_Get", user_name=user_name, _external=True, _scheme="https"))
+        return redirect(url_for("topPage", _external=True, _scheme="https"))
     return render_template('signin.html', error="invalid password or username")
 
 # サインアウトページ. このページが開いたら強制的にサインアウトさせます
