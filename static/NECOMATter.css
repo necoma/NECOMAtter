@@ -152,19 +152,22 @@ body {
 }
 
 .TweetDragBar {
-    background-color: #5555;
-    -webkit-background-size: 5px 5px;
-    -moz-background-size: 5px 5px;
-    background-size: 5px 5px;
-    background-image: -webkit-linear-gradient(45deg,  #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%),
-    -webkit-linear-gradient(-45deg, #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%);
-    background-image: -moz-linear-gradient(45deg,  #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%),
-    -moz-linear-gradient(-45deg, #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%);
-    background-image: -ms-linear-gradient(45deg,  #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%),
-    -ms-linear-gradient(-45deg, #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%);
-    background-image: -o-linear-gradient(45deg,  #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%),
-    -o-linear-gradient(-45deg, #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%);
-    background-image: linear-gradient(45deg,  #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%),
-    linear-gradient(-45deg, #aaaa 25%, #aaaa 25%, transparent 25%, transparent 75%, #aaaa 75%, #aaaa 75%);
+    // from http://www.horihavalabo.jp/cssgen/
+    //background-color: #ffffff;
+    -webkit-background-size: 3px 3px;
+    -moz-background-size: 3px 3px;
+    background-size: 3px 3px;
+    background-position: 0 0, 1.5px 1.5px;
+    background-image: -webkit-linear-gradient(45deg,  #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%),
+    -webkit-linear-gradient(-135deg, #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%);
+    background-image: -moz-linear-gradient(45deg,  #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%),
+    -moz-linear-gradient(-135deg, #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%);
+    background-image: -ms-linear-gradient(45deg,  #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%),
+    -ms-linear-gradient(-135deg, #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%);
+    background-image: -o-linear-gradient(45deg,  #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%),
+    -o-linear-gradient(-135deg, #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%);
+    background-image: linear-gradient(45deg,  #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%),
+    linear-gradient(-135deg, #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%);
 }
+
 
