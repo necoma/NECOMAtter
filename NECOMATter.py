@@ -269,7 +269,9 @@ class NECOMATter():
         # 誰に向かってでもなくのtweetなら全員向けということにします。
         if target_list is None:
             target_list = self.GetAllFollowNode()
-        # 一旦検閲が行われる仕組みにする場合はここで検閲出来る人にしかPERMITを与えない、とする。
+        # 一旦検閲が行われる仕組みにする場合はここで検閲出来る人にしかPERMITを与えない、とします。
+        if self.GetIsCensorshipAuthorityFeatureEnabled():
+            target_list = self.GetCensorshipAuthorityNode()
         tweet_node.create_path(("PERMIT", {
                     "time": creation_time
                     }), target_list)
