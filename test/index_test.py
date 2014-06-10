@@ -58,21 +58,34 @@ class IndexTestCase(unittest.TestCase):
         # 怪しくapp の world object を別のNECOMATter object で上書きします
         index.world = NECOMATter(DummyDBURL)
 
+        # ユーザを作ってサインインしないと駄目なので、一旦作ってサインインさせてしまいます
+        self.admin_user_name = "admin"
+        self.admin_password = "password"
+        self.assertTrue(index.world.AddUser(self.admin_user_name, self.admin_password)[0])
+        self.signin(self.admin_user_name, self.admin_password)
+
     def tearDown(self):
         pass
 
     def signin(self, user_name, password):
-        return self.post("/signin", data=dict(user_name=user_name, password=password), follow_redirects=True)
+        return self.app.post("/signin", data=dict(user_name=user_name, password=password), follow_redirects=True)
 
     def signout(self):
-        return self.get("/signout", follow_redirects=True)
+        return self.app.get("/signout", follow_redirects=True)
 
 class IndexTestCase_Simple(IndexTestCase):
+    # サインインしていない場合
+    def test_not_signin_get_user_name_list(self):
+        self.signout()
+        rv = self.app.get('/user_name_list.json')
+        self.assertEqual(401, rv.status_code);
+    
     # /usr_name_list.json の取得(ユーザが居ない場合)
+    # のはずだったのだけれどユーザが居ない場合は取得できないので……
     def test_user_name_list_json_no_user(self):
         rv = self.app.get('/user_name_list.json')
         data = json.loads(rv.data)
-        self.assertEqual([], data)
+        self.assertEqual([self.admin_user_name], data)
 
     # /usr_name_list.json の取得(ユーザがいる場合)
     def test_user_name_list_json_with_user(self):
@@ -83,7 +96,7 @@ class IndexTestCase_Simple(IndexTestCase):
         # 取得してみる
         rv = self.app.get('/user_name_list.json')
         data = json.loads(rv.data)
-        self.assertEqual([user_name], data)
+        self.assertEqual([self.admin_user_name, user_name], data)
 
     # /user/<user_name>.json の取得(ユーザが居ない場合)
     def test_user_name_json_no_user(self):
@@ -285,10 +298,12 @@ class IndexTestCase_SomeUserAndTweet(IndexTestCase):
     def test_user_name_list_json(self):
         rv = self.app.get('/user_name_list.json')
         data = json.loads(rv.data)
-        answer = []
+        answer = [self.admin_user_name]
         for n in range(0, 10):
             user_name = "user_name%d" % n
             answer.append(user_name)
+        answer = sorted(answer)
+        data = sorted(data)
         self.assertEqual(answer, data)
 
     # /tweet/<tweetID>.json の取得

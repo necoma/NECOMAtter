@@ -218,8 +218,8 @@ def userTweetTreeParent_Get_Rest(tweet_id):
 # 対象のツイートの子(replyしてきたtweet)を辿って返します
 @app.route('/tweet/<int:tweet_id>_child.json')
 def userTweetTreeChild_Get_Rest(tweet_id):
-    user_name = GetAuthenticatedUserName()
-    if user_name is None:
+    query_user_name = GetAuthenticatedUserName()
+    if query_user_name is None:
         abort(401)
     since_time = None
     limit = None
