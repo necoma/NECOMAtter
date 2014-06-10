@@ -585,8 +585,9 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertEqual(1, len(get_tweet))
         # 取得された値は text, time, user_name, node の順の配列になっているはずです
         (tweet_text, time, user_name, icon_url, node_id
-                , my_star_r, my_retweet_r
-                , retweet_time, retweeet_unix_time, retweet_type) = get_tweet[0]
+         , my_star_r, my_retweet_r
+         , retweet_time, retweeet_unix_time
+         , retweet_type, list_name, list_owner_name) = get_tweet[0]
         # id 等も同じ値になっているはずです
         self.assertEqual(tweet_node['text'], tweet_text)
         self.assertEqual(iimura_node['name'], user_name)
@@ -594,6 +595,8 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertIsNone(my_star_r)
         self.assertIsNone(my_retweet_r)
         self.assertEqual("TWEET", retweet_type)
+        self.assertEqual("<admin>", list_name)
+        self.assertIsNone(list_owner_name)
 
     def test_CheckUserPasswordIsValid(self):
         # パスワードのチェックが正しく行えることを確認します

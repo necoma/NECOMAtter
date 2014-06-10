@@ -144,41 +144,38 @@ class NECOMATter():
                 # Neo4j 2.0 からは None が返る可能性があるみたいなので
                 # ここで引っ掛けて無視することにします
                 continue
-            text = tweet[0]
-            unix_time = tweet[1]
-            tweet_owner_name = tweet[2]
-            tweet_id = tweet[4]
-            own_stard = True if tweet[5] is not None else False
-            own_retweeted = True if tweet[6] is not None else False
+            result = {}
+            result['text'] = tweet[0]
+            result['unix_time'] = tweet[1]
+            result['user_name'] = tweet_owner_name = tweet[2]
+            result['id'] = tweet[4]
+            result['own_stard'] = True if tweet[5] is not None else False
+            result['own_retweeted'] = True if tweet[6] is not None else False
             icon_url = "/static/img/footprint3.2.png"
             if tweet[3] is not None:
                 icon_url = tweet[3]
+            result['icon_url'] = icon_url
             is_retweet = False
             if len(tweet) >= 10 and tweet[9] == "RETWEET":
                 is_retweet = True
+            result['is_retweet'] = is_retweet
             retweet_user_name = None
             if len(tweet) >= 8 and tweet[7] is not None and tweet[7] != tweet_owner_name:
                 retweet_user_name = tweet[7]
             if is_retweet == False: # retweet されていない場合でもretweet_node_name が存在するようなクエリになっているのでここで回避します
                 retweet_user_name = None
+            result['retweet_user_name'] = retweet_user_name
             retweet_unix_time = None
             retweet_time = None
             if len(tweet) >= 9 and tweet[8] is not None:
                 retweet_unix_time = tweet[8]
                 retweet_time = self.FormatTime(retweet_unix_time)
-            result_list.append({'text': text
-                , "time": self.FormatTime(unix_time)
-                , "user_name": tweet_owner_name
-                , "unix_time": unix_time
-                , "icon_url": icon_url
-                , "id": tweet_id
-                , "own_stard": own_stard
-                , "own_retweeted": own_retweeted
-                , "is_retweet": is_retweet
-                , "retweet_user_name": retweet_user_name
-                , "retweet_time": retweet_time
-                , "retweet_unix_time": retweet_unix_time
-                })
+            result['retweet_unix_time'] = retweet_unix_time
+            result['retweet_time'] = retweet_time
+            if len(tweet) >= 11:
+                result['list_name'] = tweet[9]
+                result['list_owner_name'] = tweet[10]
+            result_list.append(result)
         return result_list
 
     # ユーザのノードを取得します。
@@ -264,8 +261,9 @@ class NECOMATter():
             tweet_node.create_path(("REPLY", {
                 "time": creation_time
             }), reply_to_tweet_node)
-        # リストに対してtweetする場合はPERMITリレーションシップを作ります
-        
+
+        # リストに対してPERMITリレーションシップを作ります。
+        # PERMIT されたノードから FOLLOW されていないユーザからは見えないようになるはずです。
         # 誰に向かってでもなくのtweetなら全員向けということにします。
         if target_list is None:
             target_list = self.GetAllFollowNode()
@@ -285,8 +283,8 @@ class NECOMATter():
             logging.error("User %s is undefined." % user_name)
             return {}
         list_node = None
+        list_owner_node = None
         if target_list is not None:
-            list_owner_node = None
             if list_owner_name is None:
                 list_owner_node = user_node
             else:
@@ -303,7 +301,7 @@ class NECOMATter():
             logging.error("tweet failed.")
             return {}
         icon_url = self.GetUserAbaterIconURL(user_node)
-        return {'user_name': user_name
+        result = {'user_name': user_name
                 , 'id': tweet_node._id
                 , 'text': tweet_node['text']
                 , 'time': self.FormatTime(tweet_node['time'])
@@ -316,7 +314,11 @@ class NECOMATter():
                 , "retweet_time": None
                 , "retweet_unix_time": None
                 }
-
+        if list_node is not None:
+            result['list_name'] = list_node['name']
+        if list_owner_node is not None:
+            result['list_owner_name'] = list_owner_node['name']
+        return result
     # tweet ID から tweet を削除します。一応書き込んだユーザを名乗らせて、同じユーザである必要をもたせます
     def DeleteTweetByTweetID(self, tweet_id, delete_user_name):
         user_node = self.GetUserNode(delete_user_name)
@@ -350,18 +352,20 @@ class NECOMATter():
         query += ", query_user = node(%d) " % query_user_id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
-        query += "WITH tweet, tweet_r, user "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
+        query += "WITH tweet, tweet_r, user, list_owner, list "
         query += ", query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
-        query += "WITH tweet, tweet_r, user, query_user, tweet_user "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user, list_owner, list "
         query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
-        query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r, list_owner, list "
         query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
         query += ", my_star_r, my_retweet_r "
         query += ", user.name, tweet_r.time, type(tweet_r) "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -404,18 +408,20 @@ class NECOMATter():
         query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) <-[:FOLLOW]- (user) "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
-        query += "WITH tweet, tweet_r, tweet_retweet_node "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
+        query += "WITH tweet, tweet_r, tweet_retweet_node, list, list_owner "
         query += ", query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH (tweet) -[:TWEET]-> (tweet_user) " # tweet_user は消える可能性があるので OPTIONAL MATCH にします
-        query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user "
+        query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user, list, list_owner "
         query += "OPTIONAL MATCH (tweet) <-[my_star_r:STAR]- (query_user) "
-        query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user "
+        query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user, list, list_owner "
         query += "OPTIONAL MATCH (tweet) -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet) "
         query += ", my_star_r, my_retweet_r "
         query += ", tweet_retweet_node.name, tweet_r.time, type(tweet_r) "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY tweet_r.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -443,18 +449,20 @@ class NECOMATter():
         query += "START query_user = node(%d) " % query_user_node._id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
-        query += "WITH tweet, tweet_r, tweet_retweet_node "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
+        query += "WITH tweet, tweet_r, tweet_retweet_node, list_owner, list "
         query += ", query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH (tweet) -[:TWEET]-> (tweet_user) " # tweet_user は消える可能性があるので OPTIONAL MATCH にします
-        query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user "
+        query += "WITH tweet, tweet_user, tweet_r, tweet_retweet_node, query_user, list_owner, list "
         query += "OPTIONAL MATCH (tweet) <-[my_star_r:STAR]- (query_user) "
-        query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user "
+        query += "WITH tweet, tweet_user, my_star_r, tweet_r, tweet_retweet_node, query_user, list_owner, list "
         query += "OPTIONAL MATCH (tweet) -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet) "
         query += ", my_star_r, my_retweet_r "
         query += ", tweet_retweet_node.name, tweet_r.time, type(tweet_r) "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY tweet_r.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -597,10 +605,8 @@ class NECOMATter():
 
     # 全てのユーザをフォローしているノードを取得します
     def GetAllFollowNode(self):
-        # 全てのユーザをフォローしているノードの名前は "<admin>" とします。
-        # こうしておけば、'<' と '>'  がユーザ名としてはエスケープされるはずなので、
-        # 通常のユーザと名前はかぶらないはずです。
-        return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "AllFollowNode", "AllFollowNode", properties={"type": "AllFollowNode", "name": "<admin>"})
+        # 全てのユーザをフォローしているリストの名前は "<ForAllUser>" とします。
+        return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "AllFollowNode", "AllFollowNode", properties={"type": "AllFollowNode", "name": "<ForAllUser>"})
 
     # 検閲権限(mew を事前に確認できる権限)を持っているユーザをフォローしているノードを取得します
     def GetCensorshipAuthorityNode(self):
@@ -735,15 +741,17 @@ class NECOMATter():
             query += "start tweet = node(%d) " % tweet_id
             query += ", query_user = node(%d) " % query_user_node._id
             query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+            query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
             query += "OPTIONAL MATCH (user) <-[:TWEET]- (tweet) "
-            query += "WITH user, tweet "
+            query += "WITH user, tweet, list, list_owner "
             query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-            query += "WITH user, tweet, star_r "
+            query += "WITH user, tweet, star_r, list, list_owner "
             query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
             query += "RETURN tweet.text, tweet.time, user.name"
             query += ", user.icon_url, id(tweet) "
             query += ", star_r, retweet_r"
             query += ", null, null, \"TWEET\" "
+            query += ", list.name, list_owner.name "
             pre_result_list, metadata = cypher.execute(self.gdb, query)
         except neo4j.CypherError:
             return []
@@ -764,17 +772,19 @@ class NECOMATter():
         query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH (tweet) -[:TAG]-> tag_node "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
-        query += "WITH tweet "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
+        query += "WITH tweet, list, list_owner "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH (user) <-[:TWEET]- (tweet) "
-        query += "WITH tweet, user "
+        query += "WITH tweet, user, list, list_owner "
         query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-        query += "WITH tweet, user, star_r "
+        query += "WITH tweet, user, star_r, list, list_owner "
         query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
         query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -904,17 +914,19 @@ class NECOMATter():
         query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH original_tweet -[:REPLY*1..]-> tweet "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
-        query += "WITH original_tweet, tweet "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
+        query += "WITH original_tweet, tweet, list, list_owner "
         query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
-        query += "WITH original_tweet, tweet, user "
+        query += "WITH original_tweet, tweet, user, list, list_owner "
         query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-        query += "WITH original_tweet, tweet, user, star_r "
+        query += "WITH original_tweet, tweet, user, star_r, list, list_owner "
         query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
         query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -931,17 +943,19 @@ class NECOMATter():
         query += ", query_user = node(%d) " % query_user_node._id
         query += "MATCH original_tweet <-[:REPLY*1..]- tweet "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
-        query += "WITH original_tweet, tweet "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
+        query += "WITH original_tweet, tweet, list, list_owner "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
-        query += "WITH original_tweet, tweet, user "
+        query += "WITH original_tweet, tweet, user, list, list_owner "
         query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-        query += "WITH original_tweet, tweet, user, star_r "
+        query += "WITH original_tweet, tweet, user, star_r, list, list_owner "
         query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
         query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -1782,18 +1796,20 @@ class NECOMATter():
         query += ", query_user=node(%d) " % query_user_node_id
         query += "MATCH tweet <-[matome_r:NECOMAtome]- (matome_node) "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
         query += "WITH tweet, matome_r "
-        query += ", query_user "
+        query += ", query_user, list, list_owner "
         query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
-        query += "WITH tweet, matome_r, user, query_user "
+        query += "WITH tweet, matome_r, user, query_user, list, list_owner "
         query += "OPTIONAL MATCH tweet <-[star_r:STAR]- query_user "
-        query += "WITH tweet, matome_r, user, star_r, query_user "
+        query += "WITH tweet, matome_r, user, star_r, query_user, list, list_owner "
         query += "OPTIONAL MATCH tweet -[retweet_r:RETWEET]-> query_user "
         query += "RETURN tweet.text, tweet.time, user.name, user.icon_url, id(tweet) "
         query += ", star_r, retweet_r"
         query += ", null, null, \"TWEET\" "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY matome_r.number ASC "
         if limit is not None:
             query += "LIMIT %d " % limit
@@ -1825,8 +1841,9 @@ class NECOMATter():
         query += "START query_user = node(%d) " % query_user_id
         query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
         query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         query += "WITH tweet, tweet_r, user "
-        query += ", query_user "
+        query += ", query_user, list, list_owner "
         if since_time is not None:
             query += "WHERE tweet.time < %f AND " % since_time
         else:
@@ -1837,13 +1854,14 @@ class NECOMATter():
             query += "%stweet.text =~ \".*%s.*\" " % (and_text, escaped_string)
             and_text = "AND "
         query += "OPTIONAL MATCH tweet -[:TWEET]-> (tweet_user) "
-        query += "WITH tweet, tweet_r, user, query_user, tweet_user "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user, list, list_owner "
         query += "OPTIONAL MATCH tweet <-[my_star_r:STAR]- (query_user) "
-        query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r "
+        query += "WITH tweet, tweet_r, user, query_user, tweet_user, my_star_r, list, list_owner "
         query += "OPTIONAL MATCH tweet -[my_retweet_r:RETWEET]-> (query_user) "
         query += "RETURN tweet.text, tweet.time, tweet_user.name, tweet_user.icon_url, id(tweet)"
         query += ", my_star_r, my_retweet_r "
         query += ", user.name, tweet_r.time, type(tweet_r) "
+        query += ", list.name, list_owner.name "
         query += "ORDER BY tweet_r.time DESC, tweet.time DESC "
         if limit is not None:
             query += "LIMIT %d " % limit
