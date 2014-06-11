@@ -378,7 +378,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	 || !('time' in target_tweet)
 	 || !('text' in target_tweet))
 	{
-		html += '<div class="tweet_column">broken tweet.</div>';
+		html = '<div class="tweet_column">broken tweet.</div>';
 		return html;
 	}
 	var icon_url = "/static/img/footprint3.1.png"; // 移行期用？アイコン未設定の場合のアイコンはこれにします
@@ -388,6 +388,22 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	if('icon_url' in target_tweet){
 		icon_url = target_tweet['icon_url'];
 	}
+	var list_name = target_tweet['list_name'];
+	var list_owner_name = target_tweet['list_owner_name'];
+	var is_censored_mew = false;
+	if(list_name == "<ForAllUser>"){
+          list_name = null;
+          list_owner_name = null;
+        }else if(list_name == "<ForCensorshipAuthority>"){
+          // 怪しく検閲を待っているmew の場合にはソレ用のbutton を on にできるようにします
+          // とりあえず、この mew が見えているユーザは
+          // mew を全体向けに変更できる権限を持っているはずなので、
+          // このフラグを使ってボタンを見えるようにすることにします。
+          is_censored_mew = true;
+          list_name = null;
+          list_owner_name = null;
+        }
+
 	// 怪しくこの時点でtweet文字列を書き換えます。
 	// ・改行は<br>に
 	// ・URLっぽい文字列はlinkに
@@ -443,6 +459,9 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			, "is_own_retweeted": is_own_retweeted
 			, "is_own_stard": is_own_stard
 			, "is_not_owner": displayUserName == "timeline" || displayUserName != target_tweet.user_name
+                        , "list_name": list_name
+                        , "list_owner_name": list_owner_name
+                        , "is_censored_mew": is_censored_mew
 		};
 	} catch(e) {
 		data = {
@@ -456,6 +475,9 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			, "is_own_retweeted": is_own_retweeted
 			, "is_own_stard": is_own_stard
 			, "is_not_owner": true
+                        , "list_name": list_name
+                        , "list_owner_name": list_owner_name
+                        , "is_censored_mew": is_censored_mew
 		};
         }
 	// jsrender でレンダリングして返します

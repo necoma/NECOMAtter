@@ -73,6 +73,39 @@ class IndexTestCase(unittest.TestCase):
     def signout(self):
         return self.app.get("/signout", follow_redirects=True)
 
+    # サインインしているユーザとしてtweetします
+    def tweetBySigninUser(self, text, reply_to=None, target_list=None, list_owner_name=None):
+        data = {}
+        data['text'] = text;
+        if reply_to is not None:
+            data['reply_to'] = reply_to
+        if target_list is not None:
+            data['target_list'] = target_list
+        if list_owner_name is not None:
+            data['list_owner_name'] = list_owner_name
+        rv = self.app.post("/post.json", data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual(text, data['text'])
+        return data
+
+    # ユーザを作成します
+    def addUser(self, user_name, password):
+        self.assertTrue(index.world.AddUser(user_name, password)[0])
+        user_node = index.world.GetUserNode(user_name)
+        self.assertIsNotNone(user_node)
+
+    # サインインしていないユーザにtweetさせます。tweet結果の辞書を返します
+    def tweetByUser(self, user_name, text, reply_to=None, target_list=None, list_owner_name=None):
+        result = index.world.TweetByName(user_name, text, reply_to=reply_to
+                                        , target_list=target_list, list_owner_name=list_owner_name)
+        self.assertEqual(text, result['text'])
+        return result
+
+    # リストにユーザを追加する(リストがなければ作ります)
+    def addUserToList(self, user_name, target_list, append_user_name):
+        self.assertTrue(index.world.AddNodeToListByName(user_name, target_list, append_user_name))
+
 class IndexTestCase_Simple(IndexTestCase):
     # サインインしていない場合
     def test_not_signin_get_user_name_list(self):
@@ -132,6 +165,29 @@ class IndexTestCase_Simple(IndexTestCase):
         self.assertEqual(1, len(data))
         self.assertEqual(tweet_text, data[0]['text'])
         self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual("<ForAllUser>", data[0]['list_name'])
+        self.assertIsNone(data[0]['list_owner_name'])
+
+    # /user/<user_name>.json の取得(ユーザがいて、list向けのtweetがある場合)
+    def test_user_name_json_with_user_with_tweet(self):
+        # ユーザを作成する
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # list を作る
+        list_name = "list"
+        self.addUserToList(user_name, list_name, self.admin_user_name)
+        # list宛にtweet する
+        tweet_text = "hello world"
+        self.tweetByUser(user_name, tweet_text, target_list=list_name, list_owner_name=user_name)
+        # 取得する
+        rv = self.app.get('/user/%s.json' % user_name)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual(list_name, data[0]['list_name'])
+        self.assertEqual(user_name, data[0]['list_owner_name'])
 
     # /tweet/tweetID.json の取得(存在しないtweet)
     def test_tweet_tweetID_json(self):
@@ -157,6 +213,238 @@ class IndexTestCase_Simple(IndexTestCase):
         data = json.loads(rv.data)
         self.assertEqual(0, len(data))
 
+    # /timeline/<user_name>.json の取得 <ForAllUser> の場合
+    def test_timeline_user_name_json_for_all_user(self):
+        # tweet する
+        tweet_text = "hello world"
+        self.tweetBySigninUser(tweet_text)
+        # 取得する
+        rv = self.app.get('/timeline/%s.json' % self.admin_user_name)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(self.admin_user_name, data[0]['user_name'])
+        self.assertEqual("<ForAllUser>", data[0]['list_name'])
+        self.assertIsNone(data[0]['list_owner_name'])
+
+    # /timeline/<user_name>.json の取得 自前のlistの場合
+    def test_timeline_user_name_json_for_private_list(self):
+        # ユーザを作成する
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # list を作る
+        list_name = "list"
+        self.addUserToList(user_name, list_name, self.admin_user_name)
+        # list宛にtweet する
+        tweet_text = "hello world"
+        self.tweetByUser(user_name, tweet_text, target_list=list_name, list_owner_name=user_name)
+        # 取得する
+        rv = self.app.get('/timeline/%s.json' % user_name)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual(list_name, data[0]['list_name'])
+        self.assertEqual(user_name, data[0]['list_owner_name'])
+
+    # /tweet/<tweetID>_child.json の取得(存在するものので、全体向けの場合)
+    def test_tweet_tweetID_child_json_for_all_user(self):
+        # tweet する
+        tweet_text = "hello world"
+        result = self.tweetBySigninUser(tweet_text)
+        tweet_id = result['id']
+        # そのtweet宛に返信する
+        tweet_text_second = "hello id: %d" % tweet_id
+        self.tweetByUser(self.admin_user_name, tweet_text_second, reply_to=tweet_id)
+        rv = self.app.get('/tweet/%d_child.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text_second, data[0]['text'])
+        self.assertEqual(self.admin_user_name, data[0]['user_name'])
+        self.assertEqual("<ForAllUser>", data[0]['list_name'])
+        self.assertIsNone(data[0]['list_owner_name'])
+
+    # /tweet/<tweetID>_child.json の取得(存在するものので、特定のリスト向けの場合)
+    def test_tweet_tweetID_child_json_for_list_user(self):
+        # ユーザを作成する
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # list を作る
+        list_name = "list"
+        self.addUserToList(user_name, list_name, self.admin_user_name)
+        # list宛にtweet する
+        tweet_text = "hello world"
+        result = self.tweetByUser(user_name, tweet_text)
+        tweet_id = result['id']
+        # そのtweet宛に返信する
+        tweet_text = "hello id: %d" % tweet_id
+        self.tweetByUser(user_name, tweet_text, reply_to=tweet_id, target_list=list_name, list_owner_name=user_name)
+        rv = self.app.get('/tweet/%d_child.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual(list_name, data[0]['list_name'])
+        self.assertEqual(user_name, data[0]['list_owner_name'])
+
+    # /tweet/<tweetID>_parent.json の取得(存在するものので、全体向けの場合)
+    def test_tweet_tweetID_parent_json_for_all_user(self):
+        # tweet する
+        tweet_text = "hello world"
+        result = self.tweetBySigninUser(tweet_text)
+        tweet_id = result['id']
+        # そのtweet宛に返信する
+        tweet_text_second = "hello id: %d" % tweet_id
+        result = self.tweetByUser(self.admin_user_name, tweet_text_second, reply_to=tweet_id)
+        tweet_id = result['id']
+        rv = self.app.get('/tweet/%d_parent.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(self.admin_user_name, data[0]['user_name'])
+        self.assertEqual("<ForAllUser>", data[0]['list_name'])
+        self.assertIsNone(data[0]['list_owner_name'])
+
+    # /tweet/<tweetID>_child.json の取得(存在するものので、特定のリスト向けの場合)
+    def test_tweet_tweetID_parent_json_for_list_user(self):
+        # ユーザを作成する
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # list を作る
+        list_name = "list"
+        self.addUserToList(user_name, list_name, self.admin_user_name)
+        # list宛にtweet する
+        tweet_text = "hello world"
+        result = self.tweetByUser(user_name, tweet_text, target_list=list_name, list_owner_name=user_name)
+        tweet_id = result['id']
+        # そのtweet宛に返信する
+        tweet_text_second = "hello id: %d" % tweet_id
+        result = self.tweetByUser(user_name, tweet_text_second, reply_to=tweet_id)
+        tweet_id = result['id']
+        rv = self.app.get('/tweet/%d_parent.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual(list_name, data[0]['list_name'])
+        self.assertEqual(user_name, data[0]['list_owner_name'])
+
+    # /tweet/tweetID.json の取得(全体向けのtweetの場合)
+    def test_tweet_tweetID_json_for_all_user(self):
+        # tweet する
+        tweet_text = "hello world"
+        result = self.tweetBySigninUser(tweet_text)
+        tweet_id = result['id']
+        rv = self.app.get('/tweet/%d.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(self.admin_user_name, data[0]['user_name'])
+        self.assertEqual("<ForAllUser>", data[0]['list_name'])
+        self.assertIsNone(data[0]['list_owner_name'])
+
+    # /tweet/tweetID.json の取得(list向けのtweetの場合)
+    def test_tweet_tweetID_json_for_list_user(self):
+        # ユーザを作成する
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # list を作る
+        list_name = "list"
+        self.addUserToList(user_name, list_name, self.admin_user_name)
+        # list宛にtweet する
+        tweet_text = "hello world"
+        result = self.tweetByUser(user_name, tweet_text, target_list=list_name, list_owner_name=user_name)
+        tweet_id = result['id']
+        rv = self.app.get('/tweet/%d.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(1, len(data))
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual(list_name, data[0]['list_name'])
+        self.assertEqual(user_name, data[0]['list_owner_name'])
+        
+    # /tweet/<tweetID>_tree.json の取得(全体向けの場合)
+    def test_tweet_tweetID_tree_json_for_all_user(self):
+        # ユーザを作成する
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # list を作る
+        list_name = "list"
+        self.addUserToList(user_name, list_name, self.admin_user_name)
+        # 全体宛にtweet する
+        tweet_text = "hello world"
+        result = self.tweetByUser(user_name, tweet_text)
+        tweet_id = result['id']
+        # tweet tree を作る
+        tweet_text_second = "hello world second"
+        result = self.tweetByUser(user_name, tweet_text_second, reply_to=tweet_id)
+        tweet_id = result['id']
+        tweet_text_third = "hello world third"
+        result = self.tweetByUser(user_name, tweet_text_third, reply_to=tweet_id)
+
+        rv = self.app.get('/tweet/%d_tree.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(3, len(data))
+
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual("<ForAllUser>", data[0]['list_name'])
+        self.assertIsNone(data[0]['list_owner_name'])
+
+        self.assertEqual(tweet_text_second, data[1]['text'])
+        self.assertEqual(user_name, data[1]['user_name'])
+        self.assertEqual("<ForAllUser>", data[1]['list_name'])
+        self.assertIsNone(data[1]['list_owner_name'])
+
+        self.assertEqual(tweet_text_third, data[2]['text'])
+        self.assertEqual(user_name, data[2]['user_name'])
+        self.assertEqual("<ForAllUser>", data[2]['list_name'])
+        self.assertIsNone(data[2]['list_owner_name'])
+
+    # /tweet/<tweetID>_tree.json の取得(list向けの場合)
+    def test_tweet_tweetID_tree_json_for_list_user(self):
+        # ユーザを作成する
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # list を作る
+        list_name = "list"
+        self.addUserToList(user_name, list_name, self.admin_user_name)
+        # 全体宛にtweet する
+        tweet_text = "hello world"
+        result = self.tweetByUser(user_name, tweet_text, target_list=list_name, list_owner_name=user_name)
+        tweet_id = result['id']
+        # tweet tree を作る
+        tweet_text_second = "hello world second"
+        result = self.tweetByUser(user_name, tweet_text_second, reply_to=tweet_id, target_list=list_name, list_owner_name=user_name)
+        tweet_id = result['id']
+        tweet_text_third = "hello world third"
+        result = self.tweetByUser(user_name, tweet_text_third, reply_to=tweet_id, target_list=list_name, list_owner_name=user_name)
+
+        rv = self.app.get('/tweet/%d_tree.json' % tweet_id)
+        data = json.loads(rv.data)
+        self.assertEqual(3, len(data))
+
+        self.assertEqual(tweet_text, data[0]['text'])
+        self.assertEqual(user_name, data[0]['user_name'])
+        self.assertEqual(list_name, data[0]['list_name'])
+        self.assertEqual(user_name, data[0]['list_owner_name'])
+
+        self.assertEqual(tweet_text_second, data[1]['text'])
+        self.assertEqual(user_name, data[1]['user_name'])
+        self.assertEqual(list_name, data[1]['list_name'])
+        self.assertEqual(user_name, data[1]['list_owner_name'])
+
+        self.assertEqual(tweet_text_third, data[2]['text'])
+        self.assertEqual(user_name, data[2]['user_name'])
+        self.assertEqual(list_name, data[2]['list_name'])
+        self.assertEqual(user_name, data[2]['list_owner_name'])
+        
 # 最初からユーザが何人かとtweetがいくつかある状態でテストを開始するテストケースです
 class IndexTestCase_SomeUserAndTweet(IndexTestCase):
     def setUp(self):
@@ -315,6 +603,8 @@ class IndexTestCase_SomeUserAndTweet(IndexTestCase):
         got_tweet = data[0]
         self.assertEqual(answer_tweet['text'], got_tweet['text'])
         self.assertEqual(answer_tweet._id, got_tweet['id'])
+        self.assertEqual('<ForAllUser>', got_tweet['list_name'])
+        self.assertIsNone(got_tweet['list_owner_name'])
 
     # /tweet/<tweetID>_tree.json の取得
     def test_tweet_tweetID_tree_json(self):

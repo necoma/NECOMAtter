@@ -149,6 +149,13 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
   <a href="/user/{{:user_id}}"><div class="ImageFloat"><img src="{{:user_icon_url}}" width="40" alt=""></div>
     <span class="tweet_name">{{:user_id}}</span></a>
   <span class="tweet_time"><a href="/tweet/{{:id}}_tree">{{:time}}</a></span>
+  <span class="tweet_list">
+  {{if list_owner_name}}
+  {{:list_owner_name}}/{{:list_name}}
+  {{else}}
+  {{:list_name}}
+  {{/if}}
+  </span>
   <div class="tweet_body">{{:tweet_body}}</div>
   {{if is_display_footer}}
   <div class="tweet_footer text-right">

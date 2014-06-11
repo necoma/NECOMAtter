@@ -146,6 +146,7 @@ class NECOMATter():
                 continue
             result = {}
             result['text'] = tweet[0]
+            result['time'] = self.FormatTime(tweet[1])
             result['unix_time'] = tweet[1]
             result['user_name'] = tweet_owner_name = tweet[2]
             result['id'] = tweet[4]
@@ -172,9 +173,9 @@ class NECOMATter():
                 retweet_time = self.FormatTime(retweet_unix_time)
             result['retweet_unix_time'] = retweet_unix_time
             result['retweet_time'] = retweet_time
-            if len(tweet) >= 11:
-                result['list_name'] = tweet[9]
-                result['list_owner_name'] = tweet[10]
+            if len(tweet) >= 12:
+                result['list_name'] = tweet[10]
+                result['list_owner_name'] = tweet[11]
             result_list.append(result)
         return result_list
 
@@ -610,7 +611,7 @@ class NECOMATter():
 
     # 検閲権限(mew を事前に確認できる権限)を持っているユーザをフォローしているノードを取得します
     def GetCensorshipAuthorityNode(self):
-        return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "CensorshipAuthorityNode", "CensorshipAuthorityNode", properties={"type": "CensorshipAuthorityNode", "name": "<CensorshipAuthority>"})
+        return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "CensorshipAuthorityNode", "CensorshipAuthorityNode", properties={"type": "CensorshipAuthorityNode", "name": "<ForCensorshipAuthority>"})
 
     # ユーザを削除します
     def DeleteUser(self, user_name):
