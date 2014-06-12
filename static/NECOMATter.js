@@ -37,7 +37,7 @@ function DeleteTweet(tweet_id, success_func, error_func){
 
 // tweet を公開状態にします
 function OpenToPublicTweet(tweet_id, success_func, error_func){
-  PostJSON("/"
+  PostJSON("/open_to_public.json"
           , {"id": tweet_id}
 	 , function(){
 	     if(success_func){
