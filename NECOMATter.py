@@ -271,7 +271,8 @@ class NECOMATter():
         # 一旦検閲が行われる仕組みにする場合はここで検閲出来る人にしかPERMITを与えない、とします。
         # つまり、検閲を行う場合は list向け のmew はできないことを意味します
         if self.GetIsCensorshipAuthorityFeatureEnabled():
-            target_list = self.GetCensorshipAuthorityNode()
+            if not self.IsUserHasCensorshipAuthority(user_node):
+                target_list = self.GetCensorshipAuthorityNode()
         tweet_node.create_path(("PERMIT", {
                     "time": creation_time
                     }), target_list)
@@ -1976,7 +1977,6 @@ class NECOMATter():
         if auth_node is None:
             return (False, "can not get auth node.")
         return self.IsFollowed(auth_node, user_node);
-        return False
 
     # user_node が検閲権限(mew を事前に確認できる権限)を持っているかどうかを確認します(名前版)
     def IsUserHasCensorshipAuthorityByName(self, user_name):

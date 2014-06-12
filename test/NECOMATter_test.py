@@ -2134,8 +2134,6 @@ class NECOMATter_CreateDummyData(unittest.TestCase):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
         self.world = NECOMATter("http://localhost:17474")
-        # ユーザ A, B, C, D を作っておきます。
-        self.user_node_list = []
         # それらしく寝る時間の倍率。
         self.sleep_mag = 1
 
@@ -2212,8 +2210,6 @@ class NECOMATter_TestSkelton(unittest.TestCase):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
         self.world = NECOMATter("http://localhost:17474")
-        # ユーザ A, B, C, D を作っておきます。
-        self.user_node_list = []
         # それらしく寝る時間の倍率。
         self.sleep_mag = 1
 
@@ -2267,7 +2263,7 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
 
         # mewします
         mew_msg = "hello world from admin."
-        self.mew(user_name, mew_msg)
+        self.mew(normal_user_name, mew_msg)
 
         # admin は読めます
         result = self.getAllUserTimeline(user_name)
@@ -2326,7 +2322,7 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
 
         # mewします
         mew_msg = "hello world from admin."
-        mew = self.mew(user_name, mew_msg)
+        mew = self.mew(normal_user_name, mew_msg)
 
         # 検閲を解除します
         self.world.OpenToPublicCensordMew(mew['id'])
