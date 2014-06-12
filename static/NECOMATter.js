@@ -35,6 +35,21 @@ function DeleteTweet(tweet_id, success_func, error_func){
 	      });
 }
 
+// tweet を公開状態にします
+function OpenToPublicTweet(tweet_id, success_func, error_func){
+  PostJSON("/"
+          , {"id": tweet_id}
+	 , function(){
+	     if(success_func){
+	       success_func();
+	     }
+	   }
+	 , function(){
+	     if(error_func){
+	       error_func();
+	     }
+	 });
+}
 
 // ツイート削除ボタンが押された場合の処理
 function DeleteButtonClick(tweet_id, tweet_delete_button_id, text, target_user_name){
@@ -47,6 +62,19 @@ function DeleteButtonClick(tweet_id, tweet_delete_button_id, text, target_user_n
     button_element_list.fadeOut('slow');
   }, function(){
     console.log("can not delete tweet");
+  });
+}
+
+// mew を公開するためのボタン
+function OpenToPublicButtonClick(tweet_id, open_to_public_button_id, button_id){
+  button_element_list = $('#' + button_id);
+  if(button_element_list.length <= 0){
+    return;
+  }
+  OpenToPublicTweet(tweet_id, function(){
+    button_element_list.fadeOut('slow');
+  }, function(){
+    console.log("open to public failed.");
   });
 }
 

@@ -159,6 +159,9 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
   <div class="tweet_body">{{:tweet_body}}</div>
   {{if is_display_footer}}
   <div class="tweet_footer text-right">
+    {{if is_censored_mew}}
+    <a href="javascript: OpenToPublicButtonClick({{:id}}, 'TweetID_{{:id}}', 'OpenToPublicButton_ID_{{:id}}');" id="OpenToPublicButton_ID_{{:id}}" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-ok"></span> <span class="hidden-xs">open to public</span></a>
+    {{/if}}
     {{if is_own_tweeted}}
     <a href="javascript: DeleteButtonClick({{:id}}, 'TweetID_{{:id}}', '@{{:user_id}} ', '{{:user_id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-remove"></span> <span class="hidden-xs">delete</span></a>
     {{else}}

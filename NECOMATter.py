@@ -269,6 +269,7 @@ class NECOMATter():
         if target_list is None:
             target_list = self.GetAllFollowNode()
         # 一旦検閲が行われる仕組みにする場合はここで検閲出来る人にしかPERMITを与えない、とします。
+        # つまり、検閲を行う場合は list向け のmew はできないことを意味します
         if self.GetIsCensorshipAuthorityFeatureEnabled():
             target_list = self.GetCensorshipAuthorityNode()
         tweet_node.create_path(("PERMIT", {
@@ -1969,9 +1970,21 @@ class NECOMATter():
 
     # user_node が検閲権限(mew を事前に確認できる権限)を持っているかどうかを確認します
     def IsUserHasCensorshipAuthority(self, user_node):
-        # 今のところだれでもOKということにします。
-        return True
-       
+        # 閲覧権限があるか無いかは、GetCensorshipAuthorityNode() で得られたノードから
+        # follow されているか否かで判定されます。
+        auth_node = self.GetCensorshipAuthorityNode()
+        if auth_node is None:
+            return (False, "can not get auth node.")
+        return self.IsFollowed(auth_node, user_node);
+        return False
+
+    # user_node が検閲権限(mew を事前に確認できる権限)を持っているかどうかを確認します(名前版)
+    def IsUserHasCensorshipAuthorityByName(self, user_name):
+        user_node = None
+        if user_name is not None:
+            user_node = self.GetUserNode(user_name)
+        return self.IsUserHasCensorshipAuthority(user_node)
+    
     # 検閲権限の概念を有効化します
     def EnableCensorshipAuthorityFeature(self):
         self.IsCensorshipAuthorityEnabled = True
@@ -1985,21 +1998,43 @@ class NECOMATter():
         return self.IsCensorshipAuthorityEnabled
 
     # 指定されたID(int) の mew を検閲を外す(全体に向かって見える)ようにします
-    def PublishCensordMew(self, mew_id):
+    def OpenToPublicCensordMew(self, mew_id):
         permit_node = self.GetCensorshipAuthorityNode()
         if permit_node is None:
             logging.fatal("GetCensorshipAuthorityNode() return None")
-            return False
+            return (False, "internal server error.")
         all_follow_node = self.GetAllFollowNode()
         if all_follow_node is None:
             logging.fatal("GetCensorshipAuthorityNode() return None")
-            return False
+            return (False, "internal server error.")
         query = "START mew=node(%d), permit_node=node(%d), all_follow_node=node(%d) " % (mew_id, permit_node._id, all_follow_node._id)
         query += "OPTIONAL MATCH (mew) -[permit_r:PERMIT]-> (permit_node) "
         query += "DELETE permit_r "
         query += "CREATE mew -[new_permit_r:PERMIT]-> all_follow_node "
         query += "RETURN new_permit_r "
         result_list, metadata = cypher.execute(self.gdb, query)
-        return len(result_list) > 0
+        return (len(result_list) > 0, None)
 
-    
+    # ユーザに検閲権限を与えます
+    def AssignCensorshipAuthorityToUser(self, user_node):
+        if user_node is None:
+            return (False, "undefined user.")
+        if self.IsUserHasCensorshipAuthority(user_node):
+            # 既に権限を持っているなら何もしません
+            return (True, None)
+        auth_node = self.GetCensorshipAuthorityNode()
+        if auth_node is None:
+            return (False, "can not get auth node.")
+        result = self.FollowUserByNode(auth_node, user_node)
+        if not result:
+            return (False, "can not follow. internal server error")
+        return (True, None)
+
+    # ユーザに検閲権限を与えます(名前指定版)
+    def AssignCensorshipAuthorityToUserByName(self, user_name):
+        user_node = None
+        if user_name is not None:
+            user_node = self.GetUserNode(user_name)
+        return self.AssignCensorshipAuthorityToUser(user_node)
+        
+        

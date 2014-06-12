@@ -835,6 +835,18 @@ def AddUser_Json():
         return json.dumps({'result': 'error', 'description': result[1]}), 400
     return json.dumps({'result': 'ok'})
 
+# mewを公開状態にします
+@app.route("/open_to_public.json", methods=['POST'])
+def OpenToPublic_Json():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        return json.dumps({'result': 'error', 'description': "unautholized"}), 401
+    mew_id = request.json['id']
+    result =  world.OpenToPublicCensordMew(mew_id)
+    if result[0] != True:
+        return json.dumps({'result': 'error', 'description': result[1]}), 400
+    return json.dumps({'result': 'ok'})
+
 if __name__ == '__main__':
     port = 80
     if len(sys.argv) > 1 and int(sys.argv[1]) > 1024:

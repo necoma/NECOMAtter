@@ -837,8 +837,6 @@ class IndexTestCase_SomeUserAndTweet(IndexTestCase):
             answer_tweet = self.user_tweet[user_index][tweet_index]
             self.assertEqual(answer_tweet['text'], tweet_data['text'])
             self.assertEqual(answer_tweet._id, tweet_data['id'])
-            
-        
         
 if __name__ == '__main__':
     assert StartNeo4J()

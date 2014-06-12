@@ -100,7 +100,7 @@ class NECOMATterTestCase(unittest.TestCase):
             query = ""
             query += 'START user=node:user(name="%s") ' % qa['search_string']
             query += 'MATCH node -[:FOLLOW]-> user '
-            query += 'WHERE node.name <> "<admin>" '
+            query += 'WHERE node.name <> "<ForAllUser>" '
             query += 'RETURN user.name, node.name '
             result_list, metadata = cypher.execute(gdb, query)
             self.assertEqual(qa['result'], result_list)
@@ -143,7 +143,7 @@ class NECOMATterTestCase(unittest.TestCase):
         query = ""
         query += 'START user=node(*) '
         query += 'MATCH user -[:FOLLOW]-> node '
-        query += 'WHERE user.name <> "<admin>" '
+        query += 'WHERE user.name <> "<ForAllUser>" '
         query += 'RETURN user.name '
         query += 'ORDER BY user.name '
         result_list, metadata = cypher.execute(gdb, query)
@@ -197,7 +197,7 @@ class NECOMATterTestCase(unittest.TestCase):
         query += 'START user=node(*) '
         query += 'MATCH user -[:FOLLOW]-> node '
         query += 'WHERE user.name <> node.name '
-        query += 'AND user.name <> "<admin>" '
+        query += 'AND user.name <> "<ForAllUser>" '
         query += 'RETURN node.name '
         query += 'ORDER BY node.name '
         result_list, metadata = cypher.execute(gdb, query)
@@ -209,7 +209,7 @@ class NECOMATterTestCase(unittest.TestCase):
         query += 'START user=node(*) '
         query += 'MATCH user -[:FOLLOW]-> node '
         query += 'WHERE user.name <> node.name '
-        query += 'AND user.name <> "<admin>" '
+        query += 'AND user.name <> "<ForAllUser>" '
         query += 'RETURN node.name '
         query += 'ORDER BY node.name '
         result_list, metadata = cypher.execute(gdb, query)
@@ -595,7 +595,7 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertIsNone(my_star_r)
         self.assertIsNone(my_retweet_r)
         self.assertEqual("TWEET", retweet_type)
-        self.assertEqual("<admin>", list_name)
+        self.assertEqual("<ForAllUser>", list_name)
         self.assertIsNone(list_owner_name)
 
     def test_CheckUserPasswordIsValid(self):
@@ -2205,7 +2205,173 @@ https://www.phishtank.com/phish_detail.php?phish_id=2431357""", tweet_node)
         self.Tweet("iimura", u"""とりあえずまとめを作ってみたよ。
 http://necomatter.necoma-project.jp/matome/85""")
 
+        
+# テストのひな形
+class NECOMATter_TestSkelton(unittest.TestCase):
+    def setUp(self):
+        # 全てのノードやリレーションシップを削除します
+        gdb.clear()
+        self.world = NECOMATter("http://localhost:17474")
+        # ユーザ A, B, C, D を作っておきます。
+        self.user_node_list = []
+        # それらしく寝る時間の倍率。
+        self.sleep_mag = 1
 
+    def tearDown(self):
+        pass
+
+    # 書き込みます
+    def mew(self, name, text, reply_to=None, target_list=None, list_owner_name=None):
+        tweet_result = self.world.TweetByName(name, text, reply_to=reply_to, target_list=target_list, list_owner_name=list_owner_name)
+        self.assertIsNotNone(tweet_result)
+        self.assertEqual(text, tweet_result['text'])
+        return tweet_result
+
+    # 指定された秒だけ寝て、logをそれらしく並べます。
+    def sleep(self, second):
+        time.sleep(second * self.sleep_mag)
+
+    # ユーザを作成します
+    def addUser(self, user_name, password):
+        result = self.world.AddUser(user_name, password)
+        self.assertTrue(result[0])
+
+    # リストにユーザを追加します
+    def addUserToList(self, user_name, target_list, append_user_name):
+        self.assertTrue(self.world.AddNodeToListByName(user_name, target_list, append_user_name))
+
+    # 全てのユーザのtweetを参照します
+    def getAllUserTimeline(self, query_user_name):
+        return self.world.GetAllUserTimelineFormatted(query_user_name)
+
+# 検閲済みのテスト
+class NECOMATter_CensordMew(NECOMATter_TestSkelton):
+    # ユーザを検閲権限ありに設定します
+    def pullUpCert(self, user_name):
+        self.assertTrue(self.world.AssignCensorshipAuthorityToUserByName(user_name))
+    
+    # 検閲ありに設定してtweetするとadminにしか読めない
+    def test_CanReadAdmin(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # 作ったユーザの権限を検閲できる人間に変更します
+        self.pullUpCert(user_name)
+
+        # 別のユーザを作ります
+        normal_user_name = "normal user"
+        self.addUser(normal_user_name, password)
+
+        # mewします
+        mew_msg = "hello world from admin."
+        self.mew(user_name, mew_msg)
+
+        # admin は読めます
+        result = self.getAllUserTimeline(user_name)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        self.assertEqual("<ForCensorshipAuthority>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
+        # 通常ユーザは読めません
+        result = self.getAllUserTimeline(normal_user_name)
+        self.assertEqual(0, len(result))
+        
+    
+    # 検閲ありに設定してtweetするとadminにしか読めない(通常ユーザのtweet版)
+    def test_CanReadAdminFromNormalUser(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # 作ったユーザの権限を検閲できる人間に変更します
+        self.pullUpCert(user_name)
+
+        # 別のユーザを作ります
+        normal_user_name = "normal user"
+        self.addUser(normal_user_name, password)
+
+        # mewします
+        mew_msg = "hello world from normal user."
+        self.mew(normal_user_name, mew_msg)
+
+        # admin は読めます
+        result = self.getAllUserTimeline(user_name)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        self.assertEqual("<ForCensorshipAuthority>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
+        # 通常ユーザは読めません
+        result = self.getAllUserTimeline(normal_user_name)
+        self.assertEqual(0, len(result))
+
+    # 検閲ありに設定してtweetしたものを、検閲解除すると誰からでも読める
+    def test_CanReadPublishedMew(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # 作ったユーザの権限を検閲できる人間に変更します
+        self.pullUpCert(user_name)
+
+        # 別のユーザを作ります
+        normal_user_name = "normal user"
+        self.addUser(normal_user_name, password)
+
+        # mewします
+        mew_msg = "hello world from admin."
+        mew = self.mew(user_name, mew_msg)
+
+        # 検閲を解除します
+        self.world.OpenToPublicCensordMew(mew['id'])
+
+        # admin は読めます
+        result = self.getAllUserTimeline(user_name)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        # 通常ユーザも読めます
+        result = self.getAllUserTimeline(normal_user_name)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        
+    # 検閲ありに設定してtweetしたものを、検閲解除すると誰からでも読める(通常ユーザのtweet版)
+    def test_CanReadPublishedMewNormalUser(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # 作ったユーザの権限を検閲できる人間に変更します
+        self.pullUpCert(user_name)
+
+        # 別のユーザを作ります
+        normal_user_name = "normal user"
+        self.addUser(normal_user_name, password)
+
+        # mewします
+        mew_msg = "hello world from normal user."
+        mew = self.mew(normal_user_name, mew_msg)
+
+        # 検閲を解除します
+        self.world.OpenToPublicCensordMew(mew['id'])
+
+        # admin は読めます
+        result = self.getAllUserTimeline(user_name)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        # 通常ユーザも読めます
+        result = self.getAllUserTimeline(normal_user_name)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        
+       
 if __name__ == '__main__':
     assert StartNeo4J()
     unittest.main()
