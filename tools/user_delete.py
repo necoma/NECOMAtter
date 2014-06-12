@@ -17,7 +17,7 @@ if len(sys.argv) != 2:
 
 user_name = sys.argv[1].decode('utf-8')
 
-if not world.DelUser(user_name):
+if not world.DeleteUser(user_name):
     print "delete user failed."
     exit(1)
 
