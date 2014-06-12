@@ -22,7 +22,7 @@ if result[0] != True:
     print "add user failed. ", result[1]
     exit(1)
 
-print "user %s was given censorship authority.", user_node
+print "user %s was given censorship authority." % user_name
 
 
 
