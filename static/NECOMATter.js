@@ -201,7 +201,7 @@ function TweetColumnClicked(){
 		GetJSON('/tweet/' + tweet_id + '/retweet_user_list.json'
 			, ""
 			, function(data){
-				var description_html = 'Retweet users: ';
+				var description_html = 'Re-mew users: ';
 				if(!('retweet_user_list' in data)){
 					// 中身がなければ何もしません
 					return;
@@ -220,6 +220,9 @@ function TweetColumnClicked(){
 					var icon_url = user['icon_url'];
 					var name = user['name'];
 					var user_id = user['id'];
+                                        if(name == null || user_id == 0){
+                                          continue;
+                                        }
 					description_html += '<a href="/user/' + name + '" data-toggle="tooltip" title="' + name + '">';
 					description_html += '<img src="' + icon_url + '" ' + 'height="16px">';
 					description_html += '</a> ';
