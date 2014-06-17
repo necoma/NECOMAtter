@@ -636,8 +636,7 @@ class NECOMATter():
             return (None, "user_node is None")
         user_id = user_node._id
         self_follow_node = self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "SelfFollowNode_UID_%d" % user_id, "SelfFollowNode", properties={"type": "SelfFollowNode", "name": "<SelfFollowNode>"})
-        if not self.FollowUserByNode(self_follow_node, user_node):
-            return (None, "follow failed")
+        self.FollowUserByNode(self_follow_node, user_node)
         return (self_follow_node, None)
 
     # ユーザを削除します

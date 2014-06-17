@@ -2326,6 +2326,51 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
         result = self.getAllUserTimeline(normal_user_name_2)
         self.assertEqual(0, len(result))
 
+    # 検閲ありに設定して通常ユーザがtweetするとadminと本人にしか読めない(二回mew しても大丈夫か確認する)
+    def test_CanReadAdminFromNormalUser(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # 作ったユーザの権限を検閲できる人間に変更します
+        self.pullUpCert(user_name)
+
+        # 別のユーザを二人作ります
+        normal_user_name_1 = "normal user 1"
+        self.addUser(normal_user_name_1, password)
+        normal_user_name_2 = "normal user 2"
+        self.addUser(normal_user_name_2, password)
+
+        # 2回mewします
+        mew_msg_1 = "hello world from normal user 1."
+        self.mew(normal_user_name_1, mew_msg_1)
+        mew_msg_2 = "hello world from normal user 1 2nd."
+        self.mew(normal_user_name_1, mew_msg_2)
+
+        # admin は読めます
+        result = self.getAllUserTimeline(user_name)
+        self.assertEqual(2, len(result))
+        self.assertEqual(mew_msg_2, result[0]['text'])
+        self.assertEqual("<ForCensorshipAuthority>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
+        self.assertEqual(mew_msg_1, result[1]['text'])
+        self.assertEqual("<ForCensorshipAuthority>", result[1]['list_name'])
+        self.assertIsNone(result[1]['list_owner_name'])
+        # 通常ユーザでも自分は読めます
+        result = self.getAllUserTimeline(normal_user_name_1)
+        self.assertEqual(2, len(result))
+        self.assertEqual(mew_msg_2, result[0]['text'])
+        self.assertEqual("<SelfFollowNode>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
+        self.assertEqual(mew_msg_1, result[1]['text'])
+        self.assertEqual("<SelfFollowNode>", result[1]['list_name'])
+        self.assertIsNone(result[1]['list_owner_name'])
+        # 通常ユーザは読めません
+        result = self.getAllUserTimeline(normal_user_name_2)
+        self.assertEqual(0, len(result))
+        
     # 検閲ありに設定してtweetしたものを、検閲解除すると誰からでも読める
     def test_CanReadPublishedMew(self):
         # 検閲ありに設定します
