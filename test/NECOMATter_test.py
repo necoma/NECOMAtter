@@ -2247,7 +2247,7 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
     def pullUpCert(self, user_name):
         self.assertTrue(self.world.AssignCensorshipAuthorityToUserByName(user_name))
     
-    # 検閲ありに設定してtweetするとadminにしか読めない
+    # 検閲ありに設定してadmin がtweetすると全員に読める
     def test_CanReadAdmin(self):
         # 検閲ありに設定します
         self.world.EnableCensorshipAuthorityFeature()
@@ -2266,6 +2266,47 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
         self.addUser(normal_user_name_2, password)
 
         # mewします
+        mew_msg = "hello world from admin."
+        self.mew(user_name, mew_msg)
+
+        # admin は読めます
+        result = self.getAllUserTimeline(user_name)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        self.assertEqual("<ForAllUser>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
+        # 通常ユーザも読めます
+        result = self.getAllUserTimeline(normal_user_name_1)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        self.assertEqual("<ForAllUser>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
+        # 通常ユーザ(二人目)も読めます
+        result = self.getAllUserTimeline(normal_user_name_2)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        self.assertEqual("<ForAllUser>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
+
+        
+    # 検閲ありに設定して通常ユーザがtweetするとadminと本人にしか読めない
+    def test_CanReadAdminFromNormalUser(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password)
+        # 作ったユーザの権限を検閲できる人間に変更します
+        self.pullUpCert(user_name)
+
+        # 別のユーザを二人作ります
+        normal_user_name_1 = "normal user 1"
+        self.addUser(normal_user_name_1, password)
+        normal_user_name_2 = "normal user 2"
+        self.addUser(normal_user_name_2, password)
+
+        # mewします
         mew_msg = "hello world from normal user 1."
         self.mew(normal_user_name_1, mew_msg)
 
@@ -2279,40 +2320,10 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
         result = self.getAllUserTimeline(normal_user_name_1)
         self.assertEqual(1, len(result))
         self.assertEqual(mew_msg, result[0]['text'])
-        self.assertEqual("<ForCensorshipAuthority>", result[0]['list_name'])
+        self.assertEqual("<SelfFollowNode>", result[0]['list_name'])
         self.assertIsNone(result[0]['list_owner_name'])
         # 通常ユーザは読めません
         result = self.getAllUserTimeline(normal_user_name_2)
-        self.assertEqual(0, len(result))
-        
-    
-    # 検閲ありに設定してtweetするとadminにしか読めない(通常ユーザのtweet版)
-    def test_CanReadAdminFromNormalUser(self):
-        # 検閲ありに設定します
-        self.world.EnableCensorshipAuthorityFeature()
-        # 新しくユーザを作ります
-        user_name = "iimura"
-        password = "password"
-        self.addUser(user_name, password)
-        # 作ったユーザの権限を検閲できる人間に変更します
-        self.pullUpCert(user_name)
-
-        # 別のユーザを作ります
-        normal_user_name = "normal user"
-        self.addUser(normal_user_name, password)
-
-        # mewします
-        mew_msg = "hello world from normal user."
-        self.mew(normal_user_name, mew_msg)
-
-        # admin は読めます
-        result = self.getAllUserTimeline(user_name)
-        self.assertEqual(1, len(result))
-        self.assertEqual(mew_msg, result[0]['text'])
-        self.assertEqual("<ForCensorshipAuthority>", result[0]['list_name'])
-        self.assertIsNone(result[0]['list_owner_name'])
-        # 通常ユーザは読めません
-        result = self.getAllUserTimeline(normal_user_name)
         self.assertEqual(0, len(result))
 
     # 検閲ありに設定してtweetしたものを、検閲解除すると誰からでも読める
@@ -2332,7 +2343,7 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
 
         # mewします
         mew_msg = "hello world from admin."
-        mew = self.mew(normal_user_name, mew_msg)
+        mew = self.mew(user_name, mew_msg)
 
         # 検閲を解除します
         self.world.OpenToPublicCensordMew(mew['id'])

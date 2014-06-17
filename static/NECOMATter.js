@@ -422,6 +422,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 	var list_name = target_tweet['list_name'];
 	var list_owner_name = target_tweet['list_owner_name'];
 	var is_censored_mew = false;
+	var is_self_only_mew = false;
 	if(list_name == "<ForAllUser>"){
           list_name = null;
           list_owner_name = null;
@@ -431,6 +432,10 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
           // mew を全体向けに変更できる権限を持っているはずなので、
           // このフラグを使ってボタンを見えるようにすることにします。
           is_censored_mew = true;
+          list_name = null;
+          list_owner_name = null;
+        }else if(list_name == "<SelfFollowNode>"){
+          is_self_only_mew = true;
           list_name = null;
           list_owner_name = null;
         }
@@ -493,6 +498,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
                         , "list_name": list_name
                         , "list_owner_name": list_owner_name
                         , "is_censored_mew": is_censored_mew
+                        , "is_self_only_mew": is_self_only_mew
 		};
 	} catch(e) {
 		data = {
@@ -509,6 +515,7 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
                         , "list_name": list_name
                         , "list_owner_name": list_owner_name
                         , "is_censored_mew": is_censored_mew
+                        , "is_self_only_mew": is_self_only_mew
 		};
         }
 	// jsrender でレンダリングして返します

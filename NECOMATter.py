@@ -138,6 +138,7 @@ class NECOMATter():
             logging.warning("can not get tweet list from tag.")
             return []
         result_list = []
+        prev_result = {}
         for tweet in tweet_list:
             if tweet[4] is None:
                 # tweet[4] はobjectが入っていないと駄目ですが、
@@ -176,7 +177,11 @@ class NECOMATter():
             if len(tweet) >= 12:
                 result['list_name'] = tweet[10]
                 result['list_owner_name'] = tweet[11]
+            if result == prev_result:
+                # 直前と同じものならスキップします(TODO: 複数のリストに登録されている場合の対応なのだけれど、綺麗じゃないなぁ)
+                continue
             result_list.append(result)
+            prev_result = result
         return result_list
 
     # ユーザのノードを取得します。
@@ -273,6 +278,15 @@ class NECOMATter():
         if self.GetIsCensorshipAuthorityFeatureEnabled():
             if not self.IsUserHasCensorshipAuthority(user_node):
                 target_list = self.GetCensorshipAuthorityNode()
+                # 検閲済みにする場合は、自分のみフォローしているノードへも PERMIT を与えておきます
+                self_follow_node, result = self.GetSelfFollowNode(user_node)
+                if self_follow_node is not None:
+                    tweet_node.create_path(("PERMIT", {
+                                "time": creation_time
+                                }), self_follow_node)
+                else:
+                    logging.warn("self follow node get failed: %s" % result)
+                    
         tweet_node.create_path(("PERMIT", {
                     "time": creation_time
                     }), target_list)
@@ -614,6 +628,17 @@ class NECOMATter():
     # 検閲権限(mew を事前に確認できる権限)を持っているユーザをフォローしているノードを取得します
     def GetCensorshipAuthorityNode(self):
         return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "CensorshipAuthorityNode", "CensorshipAuthorityNode", properties={"type": "CensorshipAuthorityNode", "name": "<ForCensorshipAuthority>"})
+
+    # 自分しか指していないノードを取得します
+    # 怪しく "SelfFollowNode_UID_%d" という UID を含んだ名前を Key とした node を作らせます。
+    def GetSelfFollowNode(self, user_node):
+        if user_node is None:
+            return (None, "user_node is None")
+        user_id = user_node._id
+        self_follow_node = self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "SelfFollowNode_UID_%d" % user_id, "SelfFollowNode", properties={"type": "SelfFollowNode", "name": "<SelfFollowNode>"})
+        if not self.FollowUserByNode(self_follow_node, user_node):
+            return (None, "follow failed")
+        return (self_follow_node, None)
 
     # ユーザを削除します
     def DeleteUser(self, user_name):
@@ -1998,16 +2023,13 @@ class NECOMATter():
         return self.IsCensorshipAuthorityEnabled
 
     # 指定されたID(int) の mew を検閲を外す(全体に向かって見える)ようにします
+    # 注意：全てのPERMIT先を消してから、全体向けへのPERMITを通すようにしています。
     def OpenToPublicCensordMew(self, mew_id):
-        permit_node = self.GetCensorshipAuthorityNode()
-        if permit_node is None:
-            logging.fatal("GetCensorshipAuthorityNode() return None")
-            return (False, "internal server error.")
         all_follow_node = self.GetAllFollowNode()
         if all_follow_node is None:
             logging.fatal("GetCensorshipAuthorityNode() return None")
             return (False, "internal server error.")
-        query = "START mew=node(%d), permit_node=node(%d), all_follow_node=node(%d) " % (mew_id, permit_node._id, all_follow_node._id)
+        query = "START mew=node(%d), all_follow_node=node(%d) " % (mew_id, all_follow_node._id)
         query += "OPTIONAL MATCH (mew) -[permit_r:PERMIT]-> (permit_node) "
         query += "DELETE permit_r "
         query += "CREATE mew -[new_permit_r:PERMIT]-> all_follow_node "
