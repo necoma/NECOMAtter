@@ -2155,6 +2155,7 @@ class NECOMATter_CreateDummyData(unittest.TestCase):
         time.sleep(second * self.sleep_mag)
 
     def test_Scenario1(self):
+        self.user_node_list = []
         for user_name in ['iimura', 'hadoop team', u"NECOMATter System", u"tarou"]:
             self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
@@ -2165,42 +2166,42 @@ class NECOMATter_CreateDummyData(unittest.TestCase):
 
 date: from 2014/04/20 to 2014/04/22
 ```
-f528764d624db129b32c21fbca0cb8d6.com
-gcqsjy2111ybiibq96yxixixduny7tdf6f94czn.com
-rotzfrech360grad24hnonstopshoutcastradio.net
-eef795a4eddaf1e7bd79212acc9dde16.net
-www.gan24ql0lf558kn66l376079sy9qxr6bs.org
+f528764d624db129b32c21fbca0cb8d6.com  
+gcqsjy2111ybiibq96yxixixduny7tdf6f94czn.com  
+rotzfrech360grad24hnonstopshoutcastradio.net  
+eef795a4eddaf1e7bd79212acc9dde16.net  
+www.gan24ql0lf558kn66l376079sy9qxr6bs.org  
 ```""")
         self.Sleep(63)
         self.Tweet("hadoop team", """hadoop team discovered a sign of the phishing.
 
 date: from 2014/04/20 to 2014/04/22
 
-paypal #phishing :
+paypal #phishing :  
 ```
-paypal.com.cgi.bin.webscr.cmd.login.submit.dispatch.c13c0dn63663d3faee8db2b24f7
-paypal.com.ddcfa29tjh8dna9.gcqsjy2111ybiibq96yxixixduny7tdf6f94czn.com
-paypal.com.de.bin.webscr.cmd.login.submit.dispatch.c13c0dn63663d3faee8db2b24f7l
-paypal.com.verify.securearea.billing.confirm.update.information.service.5885d80
-paypal.fr.cgi.bin.webscr.cmd.login.submit.dispatch.5885d80a13c0db1f8e263663d3fa
-paypal-update.848cdd7e94f206f9de2ab99f072709fb91461cb553bde1e86ae4d.com.techice
-paypal-update.848cdd7e94f206f9de2ab99f072709fb91461cb553bde1e86ae4d.com.techice
-www.paypal.com.verify.securearea.billing.confirm.update.information.service.588
+paypal.com.cgi.bin.webscr.cmd.login.submit.dispatch.c13c0dn63663d3faee8db2b24f7  
+paypal.com.ddcfa29tjh8dna9.gcqsjy2111ybiibq96yxixixduny7tdf6f94czn.com  
+paypal.com.de.bin.webscr.cmd.login.submit.dispatch.c13c0dn63663d3faee8db2b24f7l  
+paypal.com.verify.securearea.billing.confirm.update.information.service.5885d80  
+paypal.fr.cgi.bin.webscr.cmd.login.submit.dispatch.5885d80a13c0db1f8e263663d3fa  
+paypal-update.848cdd7e94f206f9de2ab99f072709fb91461cb553bde1e86ae4d.com.techice  
+paypal-update.848cdd7e94f206f9de2ab99f072709fb91461cb553bde1e86ae4d.com.techice  
+www.paypal.com.verify.securearea.billing.confirm.update.information.service.588  
 ```""")
         self.Sleep(32)
-        tweet_node = self.Tweet("iimura", u"""#ZEUS-DGA 周りで何か出ているね。Agurim 側で出てるこれって何かの兆候？
+        tweet_node = self.Tweet("iimura", u"""#ZEUS-DGA 周りで何か出ているね。Agurim 側で出てるこれって何かの兆候？  
 --iframe[http//mawi.wide.ad.jp/members_only/aguri2/agurim/detail.html?&criteria=packet&duration=64800&endTimeStamp=2014-01-15]--""")
         self.Sleep(4)
-        self.Tweet("NECOMATter System", """node link summary:
+        self.Tweet("NECOMATter System", """node link summary:  
 --iframe[/static/img/Neo4J.png]--""")
         self.Sleep(43)
-        self.Reply("tarou", u"""@iimura #ZEUS-DGA でヒットした結果を見ると前に比べて最近は落ち着いているみたいに見えるけれど、どうなのかなこれ。
+        self.Reply("tarou", u"""@iimura #ZEUS-DGA でヒットした結果を見ると前に比べて最近は落ち着いているみたいに見えるけれど、どうなのかなこれ。  
 --iframe[http//hadoop-master.sekiya-lab.info/matatabi/zeus-dga/query_count/?time.min=20140101&time.max=20141231]--""", tweet_node)
         self.Sleep(23)
-        self.Reply("tarou", u"""@limura PhishTank のこれとかが近いかも。
+        self.Reply("tarou", u"""@limura PhishTank のこれとかが近いかも。  
 https://www.phishtank.com/phish_detail.php?phish_id=2431357""", tweet_node)
         self.Sleep(72)
-        self.Tweet("iimura", u"""とりあえずまとめを作ってみたよ。
+        self.Tweet("iimura", u"""とりあえずまとめを作ってみたよ。  
 http://necomatter.necoma-project.jp/matome/85""")
 
         
@@ -2257,13 +2258,16 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
         # 作ったユーザの権限を検閲できる人間に変更します
         self.pullUpCert(user_name)
 
+        # 別のユーザを二人作ります
+        normal_user_name_1 = "normal user 1"
+        self.addUser(normal_user_name_1, password)
         # 別のユーザを作ります
-        normal_user_name = "normal user"
-        self.addUser(normal_user_name, password)
+        normal_user_name_2 = "normal user 2"
+        self.addUser(normal_user_name_2, password)
 
         # mewします
-        mew_msg = "hello world from admin."
-        self.mew(normal_user_name, mew_msg)
+        mew_msg = "hello world from normal user 1."
+        self.mew(normal_user_name_1, mew_msg)
 
         # admin は読めます
         result = self.getAllUserTimeline(user_name)
@@ -2271,8 +2275,14 @@ class NECOMATter_CensordMew(NECOMATter_TestSkelton):
         self.assertEqual(mew_msg, result[0]['text'])
         self.assertEqual("<ForCensorshipAuthority>", result[0]['list_name'])
         self.assertIsNone(result[0]['list_owner_name'])
+        # 通常ユーザでも自分は読めます
+        result = self.getAllUserTimeline(normal_user_name_1)
+        self.assertEqual(1, len(result))
+        self.assertEqual(mew_msg, result[0]['text'])
+        self.assertEqual("<ForCensorshipAuthority>", result[0]['list_name'])
+        self.assertIsNone(result[0]['list_owner_name'])
         # 通常ユーザは読めません
-        result = self.getAllUserTimeline(normal_user_name)
+        result = self.getAllUserTimeline(normal_user_name_2)
         self.assertEqual(0, len(result))
         
     
