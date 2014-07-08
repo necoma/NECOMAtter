@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # coding: UTF-8
-# NECOMATter のテスト
+# NECOMAtter のテスト
 
 import sys
 import os
@@ -10,7 +10,7 @@ import shutil
 import logging
 import json
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from NECOMATter import NECOMATter
+from NECOMAtter import NECOMAtter
 import index
 from py2neo import neo4j, cypher
 
@@ -55,8 +55,8 @@ class IndexTestCase(unittest.TestCase):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
         self.app = index.app.test_client()
-        # 怪しくapp の world object を別のNECOMATter object で上書きします
-        index.world = NECOMATter(DummyDBURL)
+        # 怪しくapp の world object を別のNECOMAtter object で上書きします
+        index.world = NECOMAtter(DummyDBURL)
 
         # ユーザを作ってサインインしないと駄目なので、一旦作ってサインインさせてしまいます
         self.admin_user_name = "admin"

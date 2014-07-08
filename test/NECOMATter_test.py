@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # coding: UTF-8
-# NECOMATter のテスト
+# NECOMAtter のテスト
 
 import sys
 import os
@@ -9,7 +9,7 @@ import subprocess
 import shutil
 import time
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from NECOMATter import NECOMATter
+from NECOMAtter import NECOMAtter
 from py2neo import neo4j, cypher
 
 Neo4JCmd = "./neo4j/bin/neo4j"
