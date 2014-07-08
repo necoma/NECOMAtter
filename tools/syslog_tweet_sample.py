@@ -5,7 +5,7 @@
 # 動作としては、標準入力から受け取った文字列をそのままtweetするだけです。
 # syslog-ng 側では、
 """
-destination d_necomatter { program("/home/iimura/NECOMATter/tools/syslog_tweet_sample.py limura 3394fa5eb1f97f0b84405eeb4ad0b51bb6d320f8c1ffd56ed5f069a005c17521");};
+destination d_necomatter { program("/home/iimura/NECOMAtter/tools/syslog_tweet_sample.py limura 3394fa5eb1f97f0b84405eeb4ad0b51bb6d320f8c1ffd56ed5f069a005c17521");};
 filter f_test   { facility(local6) and level(info) and message(TEST); };
 log { source(s_src); filter(f_test);  destination(d_necomatter); };
 """

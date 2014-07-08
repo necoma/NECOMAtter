@@ -7,9 +7,9 @@ import sys
 import os
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from NECOMATter import NECOMATter
+from NECOMAtter import NECOMAtter
 
-world = NECOMATter("http://localhost:7474")
+world = NECOMAtter("http://localhost:7474")
 
 if len(sys.argv) != 3:
     print "Usage: %s UserName(follower) UserName(target)" % sys.argv[0]

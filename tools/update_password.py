@@ -8,10 +8,10 @@ import os
 import getpass
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from NECOMATter import NECOMATter
+from NECOMAtter import NECOMAtter
 import time
 
-world = NECOMATter("http://localhost:7474")
+world = NECOMAtter("http://localhost:7474")
 
 if len(sys.argv) != 2:
     print "Usage: %s UserName" % sys.argv[0]

@@ -55,11 +55,11 @@ def CheckTweet(tweet, text, user_name=None):
             return False
     return True
 
-class NECOMATterTestCase(unittest.TestCase):
+class NECOMAtterTestCase(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
-        self.world = NECOMATter("http://localhost:17474")
+        self.world = NECOMAtter("http://localhost:17474")
 
     def tearDown(self):
         pass
@@ -926,11 +926,11 @@ class NECOMATterTestCase(unittest.TestCase):
         self.assertEqual(user_name, tweet_list[0]['user_name'])
 
 # list関連のテストケースはここにまとめます
-class NECOMATter_list_TestCase(unittest.TestCase):
+class NECOMAtter_list_TestCase(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
-        self.world = NECOMATter("http://localhost:17474")
+        self.world = NECOMAtter("http://localhost:17474")
         # ユーザ A, B, C を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー"]:
@@ -1884,11 +1884,11 @@ class NECOMATter_list_TestCase(unittest.TestCase):
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
 
-class NECOMATter_Retweet_TestCase(unittest.TestCase):
+class NECOMAtter_Retweet_TestCase(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
-        self.world = NECOMATter("http://localhost:17474")
+        self.world = NECOMAtter("http://localhost:17474")
         # ユーザ A, B, C を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー"]:
@@ -2028,11 +2028,11 @@ class NECOMATter_Retweet_TestCase(unittest.TestCase):
         self.assertIsNone(timeline_tweet_list[0]['retweet_user_name'])
         self.assertEqual(False, timeline_tweet_list[0]['is_retweet'])
 
-class NECOMATter_Star_TestCase(unittest.TestCase):
+class NECOMAtter_Star_TestCase(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
-        self.world = NECOMATter("http://localhost:17474")
+        self.world = NECOMAtter("http://localhost:17474")
         # ユーザ A, B, C, D を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー", u"でぃー"]:
@@ -2091,11 +2091,11 @@ class NECOMATter_Star_TestCase(unittest.TestCase):
 
 
 # 検索のテストケース
-class NECOMATter_Search_TestCase(unittest.TestCase):
+class NECOMAtter_Search_TestCase(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
-        self.world = NECOMATter("http://localhost:17474")
+        self.world = NECOMAtter("http://localhost:17474")
         # ユーザ A, B, C, D を作っておきます。
         self.user_node_list = []
         for user_name in ['A', 'B', u"しー", u"でぃー"]:
@@ -2129,11 +2129,11 @@ class NECOMATter_Search_TestCase(unittest.TestCase):
         self.assertEqual(tweet_text, tweet_list[0][0])
 
 # ダミーデータを突っ込むためのテストケース
-class NECOMATter_CreateDummyData(unittest.TestCase):
+class NECOMAtter_CreateDummyData(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
-        self.world = NECOMATter("http://localhost:17474")
+        self.world = NECOMAtter("http://localhost:17474")
         # それらしく寝る時間の倍率。
         self.sleep_mag = 1
 
@@ -2156,7 +2156,7 @@ class NECOMATter_CreateDummyData(unittest.TestCase):
 
     def test_Scenario1(self):
         self.user_node_list = []
-        for user_name in ['iimura', 'hadoop team', u"NECOMATter System", u"tarou"]:
+        for user_name in ['iimura', 'hadoop team', u"NECOMAtter System", u"tarou"]:
             self.assertTrue(self.world.AddUser(user_name, "password")[0])
             user_node = self.world.GetUserNode(user_name)
             self.assertIsNotNone(user_node)
@@ -2192,7 +2192,7 @@ www.paypal.com.verify.securearea.billing.confirm.update.information.service.588
         tweet_node = self.Tweet("iimura", u"""#ZEUS-DGA 周りで何か出ているね。Agurim 側で出てるこれって何かの兆候？  
 --iframe[http//mawi.wide.ad.jp/members_only/aguri2/agurim/detail.html?&criteria=packet&duration=64800&endTimeStamp=2014-01-15]--""")
         self.Sleep(4)
-        self.Tweet("NECOMATter System", """node link summary:  
+        self.Tweet("NECOMAtter System", """node link summary:  
 --iframe[/static/img/Neo4J.png]--""")
         self.Sleep(43)
         self.Reply("tarou", u"""@iimura #ZEUS-DGA でヒットした結果を見ると前に比べて最近は落ち着いているみたいに見えるけれど、どうなのかなこれ。  
@@ -2206,11 +2206,11 @@ http://necomatter.necoma-project.jp/matome/85""")
 
         
 # テストのひな形
-class NECOMATter_TestSkelton(unittest.TestCase):
+class NECOMAtter_TestSkelton(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します
         gdb.clear()
-        self.world = NECOMATter("http://localhost:17474")
+        self.world = NECOMAtter("http://localhost:17474")
         # それらしく寝る時間の倍率。
         self.sleep_mag = 1
 
@@ -2242,7 +2242,7 @@ class NECOMATter_TestSkelton(unittest.TestCase):
         return self.world.GetAllUserTimelineFormatted(query_user_name)
 
 # 検閲済みのテスト
-class NECOMATter_CensordMew(NECOMATter_TestSkelton):
+class NECOMAtter_CensordMew(NECOMAtter_TestSkelton):
     # ユーザを検閲権限ありに設定します
     def pullUpCert(self, user_name):
         self.assertTrue(self.world.AssignCensorshipAuthorityToUserByName(user_name))
