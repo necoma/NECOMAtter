@@ -16,7 +16,7 @@ from xml.sax.saxutils import *
 from py2neo import neo4j, cypher
 from werkzeug.utils import secure_filename
 
-class NECOMATter():
+class NECOMAtter():
     def __init__(self, url=None):
         if url is None:
             url = "http://localhost:7474"

@@ -48,6 +48,7 @@ body {
     -moz-box-shadow:5px 5px 3px #aedaf2;
     -webkit-box-shadow:5px 5px 3px #aedaf2;
     opacity: 0.9;
+    z-index: 50;
 }
 
 .tweet_time {
@@ -141,6 +142,10 @@ body {
     z-index: 100;
 }
 
+.MenuOptionDropdownBox {
+    z-index: 100;
+}
+
 #NECOMAtome_top.matome_active #NECOMAtome_sidebar {
 	margin-right: 0%;
 	transition: all 0.4s ease 0s;
@@ -169,5 +174,6 @@ body {
     background-image: linear-gradient(45deg,  #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%),
     linear-gradient(-135deg, #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%);
 }
+
 
 

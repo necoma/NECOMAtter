@@ -5,7 +5,7 @@ import sys,os
 import logging
 
 from flask import Flask, flash, redirect, url_for, session, request, jsonify, g, render_template, stream_with_context, Response, abort
-from NECOMATter import NECOMATter
+from NECOMAtter import NECOMAtter
 import time
 import json
 import re
@@ -16,8 +16,8 @@ from werkzeug.utils import secure_filename
 
 from OpenSSL import SSL
 ssl_context = SSL.Context(SSL.SSLv23_METHOD)
-ssl_context.use_privatekey_file('ssl_keys/NECOMATter_server.key')
-ssl_context.use_certificate_file('ssl_keys/NECOMATter_server.crt')
+ssl_context.use_privatekey_file('ssl_keys/NECOMAtter_server.key')
+ssl_context.use_certificate_file('ssl_keys/NECOMAtter_server.crt')
 
 #logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig()
@@ -26,7 +26,7 @@ app = Flask(__name__)
 app.secret_key = 'f34b38b053923d1cb202fc5b9e8d2614'
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
-world = NECOMATter("http://localhost:7474")
+world = NECOMAtter("http://localhost:7474")
 force_scheme = "https"
 
 # streaming API で監視を走らせる時のwatcherを管理するclass
@@ -78,7 +78,7 @@ class StreamingWatcherManager():
 
 watchDogManager = StreamingWatcherManager()
 
-# NECOMATter で認証完了しているユーザ名を取得します。
+# NECOMAtter で認証完了しているユーザ名を取得します。
 # 認証完了していない場合にはNoneを返します
 def GetAuthenticatedUserName():
     user_name = session.get('user_name')

@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block body %}
 <script src="/static/index.js"></script>
-  <h1>NECOMATter</h1>
+  <h1>NECOMAtter</h1>
   {% if 'user_name' not in session or 'session_key' not in session %}
     <p><a href="{{ url_for('signinPage') }}">sign in</a></p>
     <!--p><a href="{{ url_for('signupPage') }}">sign up</a></p-->
@@ -12,14 +12,14 @@
   <p>
 	  <a href="/stream/client_list">alive stream watcher list</a>
   </p>
-  <p><a href="/static/bot_tutorial.html">How to make NECOMATter BOT</a></p>
+  <p><a href="/static/bot_tutorial.html">How to make NECOMAtter BOT</a></p>
   <p><a href="/alluser/timeline">all user timeline</a></p>
   <hr>
   <div class="memo">
 	  <h3>link</h3>
 	  <ul>
 		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=necoma.git;a=summary">git/necoma</a></li>
-		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=summary">git/NECOMATter</a></li>
+		  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMAtter.git;a=summary">git/NECOMAtter</a></li>
 		  <li><a href="http://ns3-dev.sekiya-lab.info/ganglia/">ganglia</a></li>
 		  <li><a href="http://hadoop-master.sekiya-lab.info:8088/cluster">hadoop cluster</a></li>
 		  <li><a href="http://docs.neo4j.org/refcard/1.9/">Cypher query language for Neo4j</a>, <a href="http://docs.neo4j.org/chunked/stable/cypher-query-lang.html">other</a>, <a href="http://lewuathe.com/blog/2013/09/20/neo4jfalseshi-ifang-1/">JP doc</a></li>
@@ -42,7 +42,7 @@
 			  <div id="DevMemo-4" class="panel-collapse collapse in">
 				  <div class="panel-body">
 		  <ul>
-			  <li>NECOMATter にユーザ登録をする(sign up)
+			  <li>NECOMAtter にユーザ登録をする(sign up)
 			  <li>サインインした状態で<a href="/user_setting/">API key の設定ページ</a>を開く
 			  <li>create key ボタンを押してAPI keyを生成する
 			  <li><a href="http://ns3-dev.sekiya-lab.info/gitweb/gitweb.cgi?p=NECOMATter.git;a=blob;f=tools/hello_bot.py;h=b0e3216ca26283eeab89dd47c103e3b18b827e3f;hb=HEAD">hello_bot.py</a>を参考にしてBOTを作る
