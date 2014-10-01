@@ -10,8 +10,10 @@ import time
 import json
 import re
 import gevent
+import signal
 from gevent.wsgi import WSGIServer
 import gevent.queue
+from gevent import Timeout
 from werkzeug.utils import secure_filename
 
 from OpenSSL import SSL
@@ -29,6 +31,12 @@ app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 world = NECOMAtter("http://localhost:7474")
 force_scheme = "https"
 
+# StreamingWatcherManager で heartbeat を叩くための greenlet method
+def HeartBeatKicker(watcher):
+    while True:
+        gevent.sleep(25)
+        watcher.SendHeartbeat()
+
 # streaming API で監視を走らせる時のwatcherを管理するclass
 # ストリーミングのクライアントが現れる毎にwatchdogリストに登録する
 # 登録されたものはクライアント側で何らかのエラーがあったら登録を削除する
@@ -36,6 +44,12 @@ class StreamingWatcherManager():
     def __init__(self):
         self.uniq_id = 0
         self.regexp_watcher_list = {}
+        # タイムアウトで self.SendHeartbeat() を呼ぶための greenlet を作る
+        self.heartbeat_greenlet = gevent.spawn(HeartBeatKicker, self)
+
+    def __del__(self):
+        if self.heartbeat_greenlet is not None:
+            self.heartbeat_greenlet.join()
 
     def RegisterWatcher_RegexpMatch(self, regexp_pattern, queue, user_name, description="undefined"):
         regist_id = self.uniq_id
@@ -50,6 +64,12 @@ class StreamingWatcherManager():
     def UnregisterWatcher(self, delete_id):
         del self.regexp_watcher_list[delete_id]
 
+    def SendHeartbeat(self):
+        for regexp_watcher in self.regexp_watcher_list.values():
+            queue = regexp_watcher['queue']
+            #print "send heartbeat to %s (%s)" % (regexp_watcher['user_name'], regexp_watcher['description'])
+            queue.put_nowait((None, None))
+
     def UpdateTweet(self, tweet_text, tweet_dic):
         for regexp_watcher in self.regexp_watcher_list.values():
             if 're_prog' not in regexp_watcher or 'queue' not in regexp_watcher:
@@ -61,6 +81,7 @@ class StreamingWatcherManager():
             match_result = re_prog.findall(tweet_text)
             if not match_result:
                 continue
+            print "streaming hit for %s (%s)" % (regexp_watcher['user_name'], regexp_watcher['description'])
             queue.put_nowait((tweet_dic, match_result))
 
     def GetWatcherListNum(self):
@@ -77,6 +98,16 @@ class StreamingWatcherManager():
         return description_list
 
 watchDogManager = StreamingWatcherManager()
+
+# GET か POST(JSON) の場合で key の値を取り出します。
+# int や float に変換するのは自前でやってください。
+def GetValueFromRequest(request, key):
+    if (request.json is not None and
+        key in request.json):
+        return request.json[key]
+    if key in request.values:
+        return request.values[key]
+    return None
 
 # NECOMAtter で認証完了しているユーザ名を取得します。
 # 認証完了していない場合にはNoneを返します
@@ -239,19 +270,19 @@ def userFollowedGet(user_name):
     return json.dumps(world.GetUserFollowedUserNameList(user_name))
 
 # ユーザのタイムラインを返します
-@app.route('/timeline/<user_name>.json')
+@app.route('/timeline/<user_name>.json', methods=['GET', 'POST'])
 def timelinePage_Get_Rest(user_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401)
     query_user_name = auth_user_name
-    since_time = None
-    limit = None
-    if 'since_time' in request.values:
-        since_time = float(request.values['since_time'])
-    if 'limit' in request.values:
-        limit = int(request.values['limit'])
-    tweet_list = world.GetUserTimelineFormatted(user_name, query_user_name, limit, since_time)
+    since_time = GetValueFromRequest(request, 'since_time')
+    limit = GetValueFromRequest(request, 'limit')
+    if since_time is not None:
+        since_time = float(since_time)
+    if limit is not None:
+        limit = int(limit)
+    tweet_list = world.GetUserTimelineFormatted(user_name, query_user_name, limit=limit, since_time=since_time)
     return json.dumps(tweet_list)
 
 # ユーザのタイムラインページ
@@ -492,6 +523,8 @@ def RegexpMatchWait(queue):
         gevent.sleep(1)
         return ''
     (tweet_dic, match_result) = queue.get()
+    if tweet_dic is None or match_result is None:
+        return "\n"
     result_dic = tweet_dic.copy()
     result_dic['match_result'] = match_result
     logging.info('waiting tweet text got: %s' % str(result_dic))
@@ -529,37 +562,68 @@ def streamed_response():
     #return Response(generate(), mimetype='application/json; charset=utf-8')
     return Response(generate(), mimetype='text/event-stream')
 
-# リストにユーザを追加します
-@app.route('/list/<user_name>/add.json', methods=['POST', 'PUT'])
-def list_add(user_name):
+#
+# LIST機能周り
+#
+# list を新しく作成します
+@app.route("/list/<user_name>.json", methods=['POST'])
+def add_new_list_JSON():
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401, {'result': 'error', 'description': 'authentication required'})
     if auth_user_name != user_name:
         abort(400, {'result': 'error', 'description': 'only owner-user can add list.'})
+    if 'list_name' not in request.json:
+        abort(400, {'result': 'error', 'description': 'list_name required'})
+    list_name = request.json['list_name']
+    if list_name is None or len(list_name) <= 0:
+        abort(500, {'result': 'error', 'description': 'invalid list_name'})
+    description = request.json['description']
+    hidden = False
+    if 'hidden' in request.json and request.json['hidden']:
+        hidden = True
+    list_node = world.CreateOrGetListNodeFromName(auth_user_name, list_name, description=description, hidden=hidden)
+    if list_node is None:
+        abort(500, {'result': 'error', 'description': 'list create error'})
+    return json.dumps({'result': 'ok', 'description': 'list "%s" created.' % (list_name, )})
+
+# リストに含まれるユーザのリストを取得します
+@app.route('/list/<user_name>/<list_name>.json', methods=['GET'])
+def list_user_list_get(target_user, list_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401, {'result': 'error', 'description': 'authentication required'})
+    user_list = world.GetListUserListByName(user_name, list_name, auth_user_name)
+    if user_list is None:
+        abort(500, {'result': 'error', 'description': 'user list fetch failed.'})
+    return json.dumps({'result': 'ok', 'user_list': user_list})
+
+# リストにユーザを追加します
+@app.route('/list/<user_name>/<list_name>.json', methods=['POST'])
+def list_add(user_name, list_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401, {'result': 'error', 'description': 'authentication required'})
+    if auth_user_name != user_name:
+        abort(400, {'result': 'error', 'description': 'only owner-user can add user to list.'})
     if 'target_user' not in request.json or 'list_name' not in request.json:
         abort(400, {'result': 'error', 'description': 'target_user and list_name required'})
     target_user = request.json['target_user']
-    list_name = request.json['list_name']
     if world.AddNodeToListByName(user_name, list_name, target_user):
         return json.dumps({'result': 'ok', 'list_name': list_name})
     abort(500, {'result': 'error', 'description': 'list add failed.'})
 
-# リストからユーザを削除します(本当ならdel.jsonではなくて
-#/list/<user_name>/<list_name>/<delete_user_name> へのDELETEな気がしますが)
+# リストからユーザを削除します(本当なら/list_delete/.... ではなくて
+#/list/<user_name>/<list_name>/<delete_user_name> へのDELETEです)
 #POSTでないと駄目な場合にこれを使います
-@app.route('/list/<user_name>/del.json', methods=['POST'])
-def list_user_delete_post(user_name):
+@app.route('/list_delete/<user_name>/<list_name>/<target_user_name>.json', methods=['POST'])
+def list_user_delete_post(user_name, list_name, target_user_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401, {'result': 'error', 'description': 'authentication required'})
     if auth_user_name != user_name:
-        abort(400, {'result': 'error', 'description': 'only owner-user can add list.'})
-    if 'target_user' not in request.json or 'list_name' not in request.json:
-        abort(400, {'result': 'error', 'description': 'target_user and list_name required'})
-    target_user = request.json['target_user']
-    list_name = request.json['list_name']
-    if world.UnfollowUserFromListByName(user_name, list_name, target_user):
+        abort(400, {'result': 'error', 'description': 'only owner-user can modify list.'})
+    if world.UnfollowUserFromListByName(user_name, list_name, target_user_name):
         return json.dumps({'result': 'ok', 'list_name': list_name,
             "delete_user": target_user})
     abort(500, {'result': 'error', 'description':
@@ -572,28 +636,28 @@ def list_user_delete_rest(user_name, list_name, target_user_name):
     if auth_user_name is None:
         abort(401, {'result': 'error', 'description': 'authentication required'})
     if auth_user_name != user_name:
-        abort(400, {'result': 'error', 'description': 'only owner-user can add list.'})
+        abort(400, {'result': 'error', 'description': 'only owner-user can modify list.'})
     if world.UnfollowUserFromListByName(user_name, list_name, target_user_name):
         return json.dumps({'result': 'ok', 'list_name': list_name,
             "delete_user": target_user_name})
     abort(500, {'result': 'error', 'description':
         'user "%s" delete from list "%s" failed.' % (target_user_name, list_name)})
 
-# ユーザのリスト名のリストを取得します
+# ユーザの定義したリスト名を取得します
 #TODO: 非公開リストに未対応
 @app.route('/list/<user_name>.json', methods=['GET'])
 def list_get(user_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401)
-    list_name_list = world.GetListNameListByName(user_name) # TODO この method 無い?
-    if list_name_list is None:
+    list_list = world.GetUserListListFormatted(user_name, auth_user_name)
+    if list_list is None:
         abort(500, {'result': 'error', 'description': 'user list get failed.'})
-    return json.dumps({'result': 'ok', 'list_name_list': list_name_list})
+    return json.dumps({'result': 'ok', 'list': list_list})
 
 # ユーザのリストにあるユーザのリストのタイムラインを取得します
 #TODO: 非公開リストに未対応
-@app.route('/list/<user_name>/<list_name>.json', methods=['GET'])
+@app.route('/list_timeline/<user_name>/<list_name>.json', methods=['GET'])
 def list_user_get(user_name, list_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
@@ -607,8 +671,8 @@ def list_user_get(user_name, list_name):
     tweet_list = world.GetListTimelineFormatted(user_name, list_name, auth_user_name, limit, since_time)
     return json.dumps(tweet_list)
 
-# ユーザのリストページ
-@app.route('/list/<user_name>/<list_name>', methods=['GET'])
+# リストのタイムラインページ
+@app.route('/list_timeline/<user_name>/<list_name>', methods=['GET'])
 def list_user_page(user_name, list_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
@@ -616,11 +680,11 @@ def list_user_page(user_name, list_name):
             session.pop('session_key', None)
             return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
         return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
-    return render_template('timeline_page_v2.html', user_name=user_name, list_name=list_name)
+    return render_template('timeline_page.html', user_name="%s/%s" %(user_name, list_name), list_name="list")
 
 # ユーザのリストのリストページ
 @app.route('/list/<user_name>', methods=['GET'])
-def list_user_page_(user_name, list_name):
+def list_user_page_(user_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         if session.get('user_name') is not None:
@@ -854,6 +918,7 @@ if __name__ == '__main__':
     #app.run('0.0.0.0', port=port, debug=True)
     #app.run('::', port=port, debug=True)
     https_server_1 = WSGIServer(('::', port + 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
+    #gevent.signal(signal.SIGQUIT, gevent.shutdown)
     https_server_1_greenlet = gevent.spawn(https_server_1.start)
     https_server = WSGIServer(('::', 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
     https_server_greenlet = gevent.spawn(https_server.start)

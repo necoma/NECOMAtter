@@ -48,7 +48,12 @@ class NECOMAtter():
     # 何かあとで使いそうな文字に関しては使えないことにします
     def VaridateUserNameString(self, text):
         escaped_text = re.sub(r'[#@*&]', '_', text)
-        return escaped_text == text
+        if escaped_text != text:
+            return False
+        # 名前が .json で終わると誤動作するのでこれは防ぎます
+        if re.search(r'\.json$', text):
+            return False
+        return True
 
     # ユーザ用のインデックスを取得します
     def GetUserIndex(self):
@@ -1060,6 +1065,9 @@ class NECOMAtter():
         if self.VaridateCypherString(list_name) == False:
             logging.error("list name %s has escape string. please user other name" % list_name)
             return None
+        if self.VaridateUserNameString(list_name) == False:
+            logging.error("list name '%s' is invalid name. please user other name" % list_name)
+            return None
 
         # とりあえずクエリして存在確認をします。
         list_node = self.GetListNodeFromName(owner_node, list_name)
@@ -1290,7 +1298,7 @@ class NECOMAtter():
         query += "MATCH list_node <-[:LIST]- owner_node "
         query += "MATCH list_node -[:OWNER]-> list_owner_node "
         query += "WHERE list_owner_node = owner_node " # owner_node のものだけをリストします
-        query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node "
+        query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node, list_node.description "
         query += "ORDER BY list_node.time ASC "
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
@@ -1306,7 +1314,8 @@ class NECOMAtter():
                 "time": self.FormatTime(list[1]),
                 "owner_name": list[2],
                 "unix_time": list[1],
-                "id": list[3]._id})
+                "id": list[3]._id,
+                "description": list[4]})
         return result_list
 
     # owner_node のlistのリストを返します(名前版)(owner_nodeのものだけを返します)
@@ -1326,7 +1335,7 @@ class NECOMAtter():
         query += "START owner_node=node(%d) " % owner_node_id
         query += "MATCH list_node <-[:LIST]- owner_node "
         query += "MATCH list_node -[:OWNER]-> list_owner_node "
-        query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node "
+        query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node, list_node.description "
         query += "ORDER BY list_node.time ASC "
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list

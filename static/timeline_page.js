@@ -37,6 +37,7 @@ var url_path = "";
 if(url_path_matched && url_path_matched.length > 1){
   url_path = url_path_matched.slice(1)[0];
 }
+
 var pathList_matched = location_href.match("://[^/]+:?\d*/([^/]+)/([^/]+)+");
 var pathList = [];
 if(pathList_matched && pathList_matched.length > 1){

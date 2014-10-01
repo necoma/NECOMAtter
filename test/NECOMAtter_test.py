@@ -91,12 +91,13 @@ class NECOMAtterTestCase(unittest.TestCase):
                 {"user": "iimura", "password": "test", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
                 {"user": "iimura", "password": "password change", "AddUserResult": False, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
                 {"user": "iimura other user name", "password": "test", "AddUserResult": True, "search_string": 'iimura', "result": [[u'iimura', u'iimura']]},
+                {"user": "iimura.json", "password": "test", "AddUserResult": False, "search_string": "iimura.json", "result": []},
                 ]
         for qa in test_cases:
             if qa['AddUserResult']:
-                self.assertTrue(self.world.AddUser(qa['user'], qa['password'])[0])
+                self.assertTrue(self.world.AddUser(qa['user'], qa['password'])[0], "AddUser('%s', '%s') failed." % (qa['user'], qa['password']))
             else:
-                self.assertFalse(self.world.AddUser(qa['user'], qa['password'])[0])
+                self.assertFalse(self.world.AddUser(qa['user'], qa['password'])[0], "AddUser('%s', '%s') success." % (qa['user'], qa['password']))
             query = ""
             query += 'START user=node:user(name="%s") ' % qa['search_string']
             query += 'MATCH node -[:FOLLOW]-> user '
