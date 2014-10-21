@@ -560,7 +560,9 @@ def streamed_response():
                 watchDogManager.UnregisterWatcher(regist_id)
                 break
     #return Response(generate(), mimetype='application/json; charset=utf-8')
-    return Response(generate(), mimetype='text/event-stream')
+    res = Response(generate(), mimetype='text/event-stream')
+    res.headers.add('X-Accel-Buffering', 'no')
+    return res
 
 #
 # LIST機能周り
