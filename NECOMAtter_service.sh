@@ -5,6 +5,7 @@
 
 cwd=`dirname "${0}"`
 expr "${0}" : "/.*" > /dev/null || cwd=`(cd "${cwd}" && pwd)`
+cd $cwd
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 PROG=${cwd}/index.py
