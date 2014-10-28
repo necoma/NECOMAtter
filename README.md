@@ -11,5 +11,9 @@ This is NECOMAtter server.
  - py2neo
  - requests
  - dateutil
-3. Run index.py
+3. Run index.py (You can use NECOMAtter_service.sh)
 4. Add initial user. use tools/user_add.py
+
+## ansible playbook
+
+NECOMAtter server and neo4j ansible playbook is alive on [ansible-playbook](./ansible-playbook)
