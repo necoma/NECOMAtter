@@ -1,0 +1,27 @@
+- hosts: default
+  tasks:
+
+  - name: Add required packages
+    sudo: yes
+    apt: pkg={{ item }} state=installed update_cache=yes force=yes
+    tags: [packages]
+    with_items:
+      - python-gevent
+      - python-flask
+      - python-pip
+      - python-requests
+      - python-openssl
+      - python-dateutil
+      - git
+
+  - name: Add required Python modules
+    pip: name={{ item }}
+    with_items:
+      - py2neo
+    sudo: yes
+
+  - name: clone NECOMAtter from github
+    git: accept_hostkey=yes repo=http://github.com/necoma/NECOMAtter.git dest=NECOMAtter
+
+  - name: start NECOMAtter  
+    command: NECOMAtter/NECOMAtter_service.sh start

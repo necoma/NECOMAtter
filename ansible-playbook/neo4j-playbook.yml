@@ -1,0 +1,22 @@
+- hosts: default
+  sudo: yes
+  tasks:
+
+  - name: Add key for Neo4j repo
+    apt_key: url=http://debian.neo4j.org/neotechnology.gpg.key state=present
+    sudo: yes
+  
+  - name: Add Neo4j repo to sources list
+    apt_repository: repo='deb http://debian.neo4j.org/repo stable/' state=present
+    sudo: yes
+
+  #- name: Update all packages
+  #  apt: upgrade=dist
+  #  sudo: yes
+
+  - name: Install Neo4j packages 
+    sudo: yes
+    apt: pkg={{ item }} state=installed update_cache=yes force=yes
+    tags: [packages]
+    with_items:
+      - neo4j
