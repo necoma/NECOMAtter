@@ -913,27 +913,35 @@ def OpenToPublic_Json():
         return json.dumps({'result': 'error', 'description': result[1]}), 400
     return json.dumps({'result': 'ok'})
 
+def StartHttp(host, port, app):
+    http_server = WSGIServer((host, port), app)
+    http_server_greenlet = gevent.spawn(http_server.start)
+    return http_server_greenlet
+
+def StartHttps(host, port, app, keyFile, certFile):
+    https_server = WSGIServer((host, port), app, keyfile=keyFile, certfile=certFile)
+    http_server_greenlet = gevent.spawn(https_server.start)
+    return http_server_greenlet
+
 if __name__ == '__main__':
     port = 80
     if len(sys.argv) > 1 and int(sys.argv[1]) > 1024:
         port = int(sys.argv[1])
-    #app.run('0.0.0.0', port=port, debug=True)
-    #app.run('::', port=port, debug=True)
-    https_server_1 = WSGIServer(('::', port + 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
-    #gevent.signal(signal.SIGQUIT, gevent.shutdown)
-    https_server_1_greenlet = gevent.spawn(https_server_1.start)
-    https_server = WSGIServer(('::', 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
-    https_server_greenlet = gevent.spawn(https_server.start)
-    #https_server_v4 = WSGIServer(('0.0.0.0', 443), app, keyfile="ssl_keys/necoma-project.key", certfile="ssl_keys/necoma-project.pem")
-    #https_server_v4_greenlet = gevent.spawn(https_server_v4.start)
-    http_server = WSGIServer(('::', port), app)
-    http_server_greenlet = gevent.spawn(http_server.start)
-    #https_server.serve_forever()
-    #http_server.serve_forever()
+
+    servers = []
+    if len(sys.argv) > 3:
+        ssl_key = sys.argv[2]
+        ssl_cert = sys.argv[3]
+        if port != 80:
+            servers.append(StartHttps('::', port + 443, app, ssl_key, ssl_cert))
+            servers.append(StartHttp('0.0.0.0', port + 443, app))
+        else:
+            servers.append(StartHttps('::', 443, app, ssl_key, ssl_cert))
+            servers.append(StartHttp('0.0.0.0', 443, app))
+
+    servers.append(StartHttp('::', port, app))
+    servers.append(StartHttp('0.0.0.0', port, app))
+
     gevent.sleep(3)
-    #os.setgid(1001)
-    #os.setuid(1001)
     gevent.sleep(60*60*24*365*3)
-    #gevent.joinall([https_server_greenlet])
-    #gevent.joinall([https_server_greenlet, http_server_greenlet, https_server_v4_greenlet, https_server_1_greenlet])
-    gevent.joinall([https_server_greenlet, http_server_greenlet, https_server_1_greenlet])
+    gevent.joinall(servers)
