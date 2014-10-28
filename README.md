@@ -11,5 +11,6 @@ This is NECOMAtter server.
  - py2neo
  - OpenSSL
  - requests
+ - dateutil
 3. Run index.py
 4. Add initial user. use tools/user_add.py
