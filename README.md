@@ -17,3 +17,7 @@ This is NECOMAtter server.
 ## ansible playbook
 
 NECOMAtter server and neo4j ansible playbook is alive on [ansible-playbook](./ansible-playbook)
+
+# create BOTs
+
+[How to create NECOMAtter BOT](./static/bot_tutorial.html)
