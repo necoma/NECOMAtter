@@ -938,6 +938,8 @@ if __name__ == '__main__':
         else:
             servers.append(StartHttps('::', 443, app, ssl_key, ssl_cert))
             servers.append(StartHttp('0.0.0.0', 443, app))
+    else:
+        force_scheme = "http"
 
     servers.append(StartHttp('::', port, app))
     servers.append(StartHttp('0.0.0.0', port, app))
