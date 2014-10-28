@@ -34,7 +34,7 @@ function start_necomatter(){
     else
 	echo -n $"Starting $PROGNAME: "
 	rm -f $PIDFILE
-	$CMD > $LOGFILE 2>&1 &
+	nohup $CMD > $LOGFILE 2>&1 &
 	echo $! > $PIDFILE
 	echo 
     fi
