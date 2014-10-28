@@ -16,10 +16,10 @@ import gevent.queue
 from gevent import Timeout
 from werkzeug.utils import secure_filename
 
-from OpenSSL import SSL
-ssl_context = SSL.Context(SSL.SSLv23_METHOD)
-ssl_context.use_privatekey_file('ssl_keys/NECOMAtter_server.key')
-ssl_context.use_certificate_file('ssl_keys/NECOMAtter_server.crt')
+#from OpenSSL import SSL
+#ssl_context = SSL.Context(SSL.SSLv23_METHOD)
+#ssl_context.use_privatekey_file('ssl_keys/NECOMAtter_server.key')
+#ssl_context.use_certificate_file('ssl_keys/NECOMAtter_server.crt')
 
 #logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig()

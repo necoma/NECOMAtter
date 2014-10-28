@@ -9,7 +9,6 @@ This is NECOMAtter server.
  - gevent
  - flask
  - py2neo
- - OpenSSL
  - requests
  - dateutil
 3. Run index.py
