@@ -13,8 +13,9 @@ PROGNAME=NECOMAtter
 DateTime=`date +%Y%m%d%H%M%S`
 LOGFILE=${cwd}/logs/${PROGNAME}-${DateTime}.log
 PIDFILE=${cwd}/${PROGNAME}.pid
+PORT=8000
 
-CMD="python $PROG 8000"
+CMD="python $PROG $PORT"
 
 if [ -f $PIDFILE ]; then
    pid=`cat $PIDFILE`

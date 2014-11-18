@@ -569,7 +569,7 @@ def streamed_response():
 #
 # list を新しく作成します
 @app.route("/list/<user_name>.json", methods=['POST'])
-def add_new_list_JSON():
+def add_new_list_JSON(user_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401, {'result': 'error', 'description': 'authentication required'})
@@ -584,21 +584,26 @@ def add_new_list_JSON():
     hidden = False
     if 'hidden' in request.json and request.json['hidden']:
         hidden = True
-    list_node = world.CreateOrGetListNodeFromName(auth_user_name, list_name, description=description, hidden=hidden)
+    list_node = world.CreateOrGetListNodeFromNameString(auth_user_name, list_name, description=description, hidden=hidden)
     if list_node is None:
         abort(500, {'result': 'error', 'description': 'list create error'})
     return json.dumps({'result': 'ok', 'description': 'list "%s" created.' % (list_name, )})
 
-# リストに含まれるユーザのリストを取得します
+# リストに含まれるユーザのリストとリストの詳細を取得します
 @app.route('/list/<user_name>/<list_name>.json', methods=['GET'])
-def list_user_list_get(target_user, list_name):
+def list_user_list_get(user_name, list_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401, {'result': 'error', 'description': 'authentication required'})
     user_list = world.GetListUserListByName(user_name, list_name, auth_user_name)
     if user_list is None:
         abort(500, {'result': 'error', 'description': 'user list fetch failed.'})
-    return json.dumps({'result': 'ok', 'user_list': user_list})
+    description = world.GetListDescriptionByName(user_name, list_name, auth_user_name)
+    if description is None:
+        abort(500, {'result': 'error', 'description': 'list description fetch failed.'})
+    result = {'result': 'ok', 'user_list': user_list}
+    result.update(description)
+    return json.dumps(result)
 
 # リストにユーザを追加します
 @app.route('/list/<user_name>/<list_name>.json', methods=['POST'])
@@ -608,13 +613,30 @@ def list_add(user_name, list_name):
         abort(401, {'result': 'error', 'description': 'authentication required'})
     if auth_user_name != user_name:
         abort(400, {'result': 'error', 'description': 'only owner-user can add user to list.'})
-    if 'target_user' not in request.json or 'list_name' not in request.json:
-        abort(400, {'result': 'error', 'description': 'target_user and list_name required'})
+    if 'target_user' not in request.json:
+        abort(400, {'result': 'error', 'description': 'target_user required'})
     target_user = request.json['target_user']
     if world.AddNodeToListByName(user_name, list_name, target_user):
         return json.dumps({'result': 'ok', 'list_name': list_name})
     abort(500, {'result': 'error', 'description': 'list add failed.'})
 
+# リストの description を変更します。
+@app.route('/list/<user_name>/<list_name>.json', methods=['PUT'])
+def list_user_list_put(user_name, list_name):
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401, {'result': 'error', 'description': 'authentication required'})
+    if auth_user_name != user_name:
+        abort(400, {'result': 'error', 'description': 'You are not ouner'})
+    if 'description' not in request.json:
+        abort(400, {'result': 'error', 'description': 'description required'})
+    result = world.UpdateListAttributeByName(user_name, list_name, auth_user_name, {
+            'description': request.json['description']
+            })
+    if result is not True:
+        abort(500, {'result': 'error', 'description': 'update description failed.'})
+    return json.dumps({'result': 'ok'})
+    
 # リストからユーザを削除します(本当なら/list_delete/.... ではなくて
 #/list/<user_name>/<list_name>/<delete_user_name> へのDELETEです)
 #POSTでないと駄目な場合にこれを使います
@@ -627,7 +649,7 @@ def list_user_delete_post(user_name, list_name, target_user_name):
         abort(400, {'result': 'error', 'description': 'only owner-user can modify list.'})
     if world.UnfollowUserFromListByName(user_name, list_name, target_user_name):
         return json.dumps({'result': 'ok', 'list_name': list_name,
-            "delete_user": target_user})
+            "delete_user": target_user_name})
     abort(500, {'result': 'error', 'description':
         'user "%s" delete from list "%s" failed.' % (target_user, list_name)})
 
@@ -809,6 +831,34 @@ def necomatome_POST():
     if matome_id < 0:
         abort(400, {'result': 'error', 'description': 'create NECOMAtome failed.'})
     return json.dumps({'result': 'ok', 'matome_id': matome_id})
+
+# NECOMAtome のリスト取得
+@app.route('/matome.json', methods=['GET'])
+def necomatome_GET_JSON():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    since_id = None
+    limit = None
+    if 'since_id' in request.values:
+        since_id = float(request.values['since_id'])
+    if 'limit' in request.values:
+        limit = int(request.values['limit'])
+    matome_list = world.GetAllNECOMAtomeNodeListFormatted(auth_user_name, limit=limit, since_id=since_id)
+    if matome_list is None:
+        abort(400, {'result': 'error', 'description': 'NECOMAtome load error'})
+    return json.dumps({'result': 'ok', 'NEOCMAtome_list': matome_list})
+
+# NECOMAtome のリストページ
+@app.route('/matome', methods=['GET'])
+def necomatome_index_GET():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        if session.get('user_name') is not None:
+            session.pop('session_key', None)
+            return redirect(url_for('signinPage', _external=True, _scheme=force_scheme))
+        return redirect(url_for('signoutPage', _external=True, _scheme=force_scheme))
+    return render_template('necomatome_list_page.html')
 
 # 検索
 @app.route('/search.json', methods=['GET', 'POST'])

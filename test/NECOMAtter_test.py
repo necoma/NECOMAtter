@@ -1224,11 +1224,11 @@ class NECOMAtter_list_TestCase(unittest.TestCase):
         # オーナがリストを作成します
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # フォロアはまだ自分のlistのリストには何も無いはずです
-        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name))
+        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name, owner_user_name))
         # 作成されたリストをフォローします
         self.assertTrue(self.world.AddOtherUserListByName(follower_user_name, owner_user_name, list_name))
         # フォロアのリストに新しく追加されるはずです
-        list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
+        list_dic_list = self.world.GetUserListListFormatted(follower_user_name, owner_user_name)
         self.assertEqual(1, len(list_dic_list))
         self.assertEqual(list_name, list_dic_list[0]['name'])
         self.assertEqual(owner_user_name, list_dic_list[0]['owner_name'])
@@ -1237,7 +1237,7 @@ class NECOMAtter_list_TestCase(unittest.TestCase):
         # 存在しないユーザを指定するとフォローできないはずです
         self.assertFalse(self.world.AddOtherUserListByName(follower_user_name, undefined_user_name, list_name))
         # フォロアのリストは特に代わりが無いはずです
-        new_list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
+        new_list_dic_list = self.world.GetUserListListFormatted(follower_user_name, owner_user_name)
         self.assertEqual(list_dic_list, new_list_dic_list)
 
     def test_DeleteOtherUserListByNode(self):
@@ -1262,11 +1262,11 @@ class NECOMAtter_list_TestCase(unittest.TestCase):
         # オーナがリストを作成します
         self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
         # フォロアはまだ自分のlistのリストには何も無いはずです
-        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name))
+        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name, owner_user_name))
         # 作成されたリストをフォローします
         self.assertTrue(self.world.AddOtherUserListByName(follower_user_name, owner_user_name, list_name))
         # フォロアのリストに新しく追加されるはずです
-        list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
+        list_dic_list = self.world.GetUserListListFormatted(follower_user_name, owner_user_name)
         self.assertEqual(1, len(list_dic_list))
         self.assertEqual(list_name, list_dic_list[0]['name'])
         self.assertEqual(owner_user_name, list_dic_list[0]['owner_name'])
@@ -1275,12 +1275,12 @@ class NECOMAtter_list_TestCase(unittest.TestCase):
         # 存在しないユーザを指定すると失敗するはずです
         self.assertFalse(self.world.DeleteOtherUserListByName(follower_user_name, undefined_user_name, list_name))
         # フォロアのリストは特に代わりが無いはずです
-        new_list_dic_list = self.world.GetUserListListFormatted(follower_user_name)
+        new_list_dic_list = self.world.GetUserListListFormatted(follower_user_name, owner_user_name)
         self.assertEqual(list_dic_list, new_list_dic_list)
         # 通常のリストのフォローの削除
         self.assertTrue(self.world.DeleteOtherUserListByName(follower_user_name, owner_user_name, list_name))
         # フォロアのlistのリストには何も無くなっているはずです
-        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name))
+        self.assertEqual([], self.world.GetUserListListFormatted(follower_user_name, owner_user_name))
         # フォロアがリストを作成します
         self.assertTrue(self.world.AddNodeToListByName(follower_user_name, list_name, target_user_name))
         # 自分のリストへのフォローの削除は、それが存在していても失敗します
@@ -1885,6 +1885,72 @@ class NECOMAtter_list_TestCase(unittest.TestCase):
         self.assertEqual(1, len(tweet_list))
         self.assertEqual(tweet_text_to_all, tweet_list[0]['text'])
 
+    def test_GetAllNECOMAtomeNodeListFormatted(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # tweetされる文書
+        tweet_text = "hello world"
+        # tweetされる文書
+        tweet_text_to_all = "hello world to all"
+        # まとめの要約
+        matome_description = "matome description"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.AddNodeToListByName(owner_user_name, list_name, target_user_name))
+        # そのオーナーの作ったリストをフォローします
+        self.assertTrue(self.world.AddOtherUserListByName(target_user_name, owner_user_name, list_name))
+        self.assertTrue(self.world.AddOtherUserListByName(unlisted_user_name, owner_user_name, list_name))
+
+        # target_user が 全体に向かってtweetします
+        tweet_dic_1 = self.world.TweetByName(target_user_name, tweet_text_to_all)
+        self.assertEqual(tweet_text_to_all, tweet_dic_1['text'])
+        # 同じくリストに向かってtweetします
+        tweet_dic_2 = self.world.TweetByName(target_user_name, tweet_text, list_owner_name=owner_user_name, target_list=list_name)
+        self.assertEqual(tweet_text, tweet_dic_2['text'])
+       
+        # NECOMAtome を作ります
+        matome_id = self.world.CreateNewNECOMAtomeByName(owner_user_name, [tweet_dic_1['id'], tweet_dic_2['id']], matome_description)
+        self.assertTrue(matome_id >= 0)
+
+        # NECOMAtome のリストを取得します
+        matome_list = self.world.GetAllNECOMAtomeNodeListFormatted(query_user_name=owner_user_name)
+        self.assertEqual(1, len(matome_list))
+        self.assertEqual(matome_id, matome_list[0]['matome_id'])
+        self.assertEqual(matome_description, matome_list[0]['description'])
+        self.assertEqual(owner_user_name, matome_list[0]['owner_node_name'])
+        self.assertEqual(2, matome_list[0]['mew_count'])
+
+        # 全く同じ NECOMAtome をもう一つ作ります
+        matome_id_2 = self.world.CreateNewNECOMAtomeByName(owner_user_name, [tweet_dic_1['id'], tweet_dic_2['id']], matome_description)
+        self.assertTrue(matome_id_2 >= 0)
+
+        # NECOMAtome のリストを取得します
+        matome_list = self.world.GetAllNECOMAtomeNodeListFormatted(query_user_name=owner_user_name)
+        self.assertEqual(2, len(matome_list))
+
+        # 新しい方が上に来ます
+        self.assertEqual(matome_id_2, matome_list[0]['matome_id'])
+        self.assertEqual(matome_description, matome_list[0]['description'])
+        self.assertEqual(owner_user_name, matome_list[0]['owner_node_name'])
+        self.assertEqual(2, matome_list[0]['mew_count'])
+
+        self.assertEqual(matome_id, matome_list[1]['matome_id'])
+        self.assertEqual(matome_description, matome_list[1]['description'])
+        self.assertEqual(owner_user_name, matome_list[1]['owner_node_name'])
+        self.assertEqual(2, matome_list[1]['mew_count'])
+        
 class NECOMAtter_Retweet_TestCase(unittest.TestCase):
     def setUp(self):
         # 全てのノードやリレーションシップを削除します

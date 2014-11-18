@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block title %}NECOMAtome lists{% endblock %}
+{% block body %}
+<script src="/static/necomatome_list_page.js"></script>
+<h2>NECOMAtome list</h2>
+<div class="NECOMAtome memo">
+  {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
+  <div id="Matome_text">
+	now loading...
+  </div>
+  <div><input type="button" id="ReadMoreButton" value="more..." onClick="ReadMoreButtonClicked();"><div>
+</div>
+
+{%raw%}
+<script id="Template_MatomeBlock" type="text/x-jsrender">
+<div class="MatomeBlock">
+  <span class="btn"><a href="/matome/{{:matome_id}}">{{:description}}</a> (owner: {{:owner_node_name}}, count: {{:mew_count}})</span>
+</div>
+</script>
+{%endraw%}
+{% endblock %}

@@ -1131,6 +1131,14 @@ class NECOMAtter():
                 list_node = candidate_node
         return list_node
 
+    # owner_name(string) のlist_name(string) 用のノードを取得します(owner_node_name版)
+    def CreateOrGetListNodeFromNameString(self, owner_name, list_name, description="", hidden=False):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name '%s' is not registerd." % owner_name)
+            return False
+        return self.CreateOrGetListNodeFromName(owner_node, list_name, description=description, hidden=hidden)
+    
     # owner_node のlist_node について、フォローしている他のユーザのフォローを外します
     # (主にlistが非公開リストになったときの対応です)
     def DeleteListFollowedUsers(self, owner_node, list_node):
@@ -1327,27 +1335,118 @@ class NECOMAtter():
         return self.FormatList(self.GetUserOwnedListListByNode(owner_node))
 
     # owner_node のフォローしているlistのリストを返します(他のユーザのものも含みます)
-    def GetUserListListByNode(self, owner_node):
-        if owner_node is None:
+    def GetUserListListByNode(self, owner_node, query_user_node):
+        if owner_node is None or query_user_node is None:
             return None
         owner_node_id = owner_node._id
+        query_user_node_id = query_user_node._id
         query = ""
-        query += "START owner_node=node(%d) " % owner_node_id
+        query += "START owner_node=node(%d) " % (owner_node_id, )
+        query += ", query_user_node=node(%d) " % (query_user_node_id, )
         query += "MATCH list_node <-[:LIST]- owner_node "
         query += "MATCH list_node -[:OWNER]-> list_owner_node "
+        query += "OPTIONAL MATCH list_node -[permit_r:PERMIT]-> permit_node "
+        query += "WHERE permit_r = NULL OR permit_node = query_user_node " # TODO: XXXX これは動きません。常に true になるようです
         query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node, list_node.description "
         query += "ORDER BY list_node.time ASC "
         result_list, metadata = cypher.execute(self.gdb, query)
         return result_list
 
     # owner_node のlistのリストを返します(名前版)(他のユーザのものも含みます)
-    def GetUserListListFormatted(self, owner_name):
+    def GetUserListListFormatted(self, owner_name, query_user_name):
         owner_node = self.GetUserNode(owner_name)
         if owner_node is None:
-            logging.error("owner_name %s is not registerd." % owner_name)
+            logging.error("owner_name %s is not registerd." % (owner_name, ))
             return []
-        return self.FormatList(self.GetUserListListByNode(owner_node))
+        query_user_node = self.GetUserNode(query_user_name)
+        if query_user_node is None:
+            logging.error("query_user_name %s is not registerd." % query_user_name)
+            return []
+        return self.FormatList(self.GetUserListListByNode(owner_node, query_user_node))
 
+    # owner_node の list_name のリストの情報を書き換えます
+    # 帰り値は True(成功)/False(失敗) です。
+    def UpdateListAttribute(self, owner_node, list_node, attribute_dictionary):
+        if owner_node is None or list_node is None:
+            return False
+        owner_node_id = owner_node._id
+        list_node_id = list_node._id
+        updated = False
+        query = ""
+        query += "START owner_node=node(%d) " % (owner_node_id, )
+        query += ", list_node=node(%d) " % (list_node_id, )
+        query += "MATCH list_node -[:OWNER]-> owner_node "
+        if "description" in attribute_dictionary:
+            validated_string = self.VaridateCypherString(attribute_dictionary['description'])
+            if validated_string == attribute_dictionary['description']:
+                query += "SET list_node.description = '%s' " % (validated_string)
+                updated = True
+        query += "RETURN list_node.description "
+        if updated == False:
+            return False
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return True
+    
+    # owner_name の list_name のリストの情報を書き換えます
+    # 帰り値は True(成功)/False(失敗) です。
+    def UpdateListAttributeByName(self, owner_name, list_name, query_user_name, attribute_dictionary):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name %s is not registerd." % (owner_name, ))
+            return False
+        query_user_node = self.GetUserNode(query_user_name)
+        if query_user_node is None:
+            logging.error("query_user_name %s is not registerd." % (query_user_name, ))
+            return False
+        list_node = self.GetListNodeByNode(owner_node, list_name, query_user_node)
+        if list_node is None:
+            logging.error("list '%s' not found." % list_name)
+            return False
+        return self.UpdateListAttribute(owner_node, list_node, attribute_dictionary)
+
+    # owner_node の list_node のリストの情報を取得します
+    def GetListDescription(self, owner_node, list_node, query_user_node):
+        if owner_node is None or list_node is None or query_user_node is None:
+            return None
+        owner_node_id = owner_node._id
+        list_node_id = list_node._id
+        query_user_node_id = query_user_node._id
+        
+        query = ""
+        query += "START list_node=node(%d) " % list_node_id
+        query += ", owner_node=node(%d) " % owner_node_id
+        query += ", query_user_node=node(%d) " % query_user_node_id
+        query += "MATCH (owner_node) <-[:OWNER]- list_node "
+        query += "OPTIONAL MATCH list_node -[permit_r:PERMIT]-> permit_node "
+        query += "WHERE permit_r = NULL OR permit_node = query_user_node " # TODO: XXXX これは動きません。常に true になるようです
+        query += "RETURN list_node.name, list_node.description "
+        result_list, metadata = cypher.execute(self.gdb, query)
+        if result_list is None or len(result_list) != 1:
+            return None
+        result = result_list[0]
+        if result is None or len(result) < 2:
+            return None
+        return {
+            "name": result[0]
+            , 'description': result[1]
+            }
+    
+    # owner_name の list_name のリストの情報を取得します
+    def GetListDescriptionByName(self, owner_name, list_name, query_user_name):
+        owner_node = self.GetUserNode(owner_name)
+        if owner_node is None:
+            logging.error("owner_name %s is not registerd." % (owner_name, ))
+            return None
+        query_user_node = self.GetUserNode(query_user_name)
+        if query_user_node is None:
+            logging.error("query_user_name %s is not registerd." % (query_user_name, ))
+            return None
+        list_node = self.GetListNodeByNode(owner_node, list_name, query_user_node)
+        if list_node is None:
+            logging.error("list '%s' not found." % list_name)
+            return None
+        return self.GetListDescription(owner_node, list_node, query_user_node)
+    
     # list_idのリストからフォローしているユーザのユーザ名リストを取得します
     def GetListUserListByListID(self, list_id):
         query = ""
@@ -1799,7 +1898,7 @@ class NECOMAtter():
             print tweet_id_list
             print "CreateNewNECOMAtome() return None"
             return None
-        matome_node, = self.gdb.create({"NECOMAtome": description})
+        matome_node, = self.gdb.create({"NECOMAtome": description, "time": time.time()})
         matome_node.create_path("Owner", owner_user_node)
         n = 0
         for tweet_id in tweet_id_list:
@@ -1861,7 +1960,44 @@ class NECOMAtter():
         except neo4j.CypherError:
             return [] 
         return self.FormatTweet(tweet_list)
-        
+
+    # NECOMAtome のリストを取得します。
+    # 取得されるのは [description(0), owner_name(1), まとめに含まれるmewの数(2), まとめノードのID(3)] のリストです。
+    def GetAllNECOMAtomeNodeList(self, query_user_node, limit=None, since_id=None):
+        if query_user_node is None:
+            logging.error("query_user_node is undefined.")
+            return []
+        # クエリを作ります
+        query = ""
+        query += "START query_user = node(%d) " % query_user_node._id
+        query += "MATCH (owner_node) <-[:Owner]- (matome_node) -[:NECOMAtome]-> (mew) "
+        if since_id is not None:
+            query += "WHERE id(matome_node) < %d " % since_id
+        query += "RETURN matome_node.NECOMAtome, owner_node.name, count(mew), id(matome_node) as matome_node_id "
+        query += "ORDER BY matome_node_id DESC "
+        if limit is not None:
+            query += "LIMIT %d " % limit
+        result_list, metadata = cypher.execute(self.gdb, query)
+        return result_list
+
+    # NECOMAtome のリストを辞書にします
+    def FormatNECOMAtomeNodeList(self, list):
+        result = []
+        for obj in list:
+            result.append({
+                    "description": obj[0]
+                    , "owner_node_name": obj[1]
+                    , "mew_count": obj[2]
+                    , "matome_id": obj[3]
+                    })
+        return result
+
+    # NECOMAtome のリストを取得します
+    def GetAllNECOMAtomeNodeListFormatted(self, query_user_name, limit=None, since_id=None):
+        query_user_node = self.GetUserNode(query_user_name)
+        tweet_list = self.GetAllNECOMAtomeNodeList(query_user_node, limit, since_id)
+        return self.FormatNECOMAtomeNodeList(tweet_list)
+    
     # 指定された文字(複数の場合はAND検索)が書かれているtweet を取得します。
     # 取得された結果は GetUserTweet() と同じ形式です
     def SearchTweet(self, string_list, query_user_node, limit=None, since_time=None):

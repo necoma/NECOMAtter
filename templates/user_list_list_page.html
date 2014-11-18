@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block title %}{{user_name}}'s list{% endblock %}
+{% block body %}
+<script src="/static/user_list_list_page.js"></script>
+<h2>{{user_name}}'s list</h2>
+  {% if error %}<p class="error"><strong>Error:</strong>{{ error }}</p>{% endif %}
+  <div id="List_text">
+    now loading...
+  </div>
+  {%raw%}
+  <script id="Template_ListBlock" type="text/x-jsrender">
+    <ul>
+    {{for list}}
+    <li><a href="/list/{{:owner_name}}/{{:name}}/">{{:owner_name}}/{{:name}}</a></li>
+    {{/for}}
+    </ul>
+
+    <div class="panel-group roundBlock" id="ListNames">
+      {{for list}}
+      <div class="panel panel-default">
+	<div class="panel-heading">
+	  <h4 class="panel-title">
+	    <a class="accordion-toggle" data-toggle="collapse" data-parent="#ListNames" href="#ListName_{{:owner_name}}_{{:name}}">{{:owner_name}}/{{:name}}</a>
+	  </h4>
+	</div>
+	<div id="ListName_{{:owner_name}}_{{:name}}" class="panel-collapse collapse in">
+	  <div class="panel-body">
+	    <ul>
+	      <li>てすと
+	      <li>ふたりめ
+	      <li>3rd
+	    </ul>
+	  </div>
+	</div>
+      </div>
+      {{/for}}
+    </div>
+  </script>
+  {%endraw%}
+{% endblock %}

@@ -837,7 +837,360 @@ class IndexTestCase_SomeUserAndTweet(IndexTestCase):
             answer_tweet = self.user_tweet[user_index][tweet_index]
             self.assertEqual(answer_tweet['text'], tweet_data['text'])
             self.assertEqual(answer_tweet._id, tweet_data['id'])
+
+# テストのひな形(NECOMAtter_test.py からパクってきた)
+class Index_TestSkelton(unittest.TestCase):
+    def setUp(self):
+        # 全てのノードやリレーションシップを削除します
+        gdb.clear()
+        # それらしく寝る時間の倍率。
+        self.sleep_mag = 1
+        # get や post をする時に使う奴を取り出します
+        self.app = index.app.test_client()
+        # 怪しくapp の world object を別のNECOMAtter object で上書きします
+        index.world = NECOMAtter(DummyDBURL)
+        # NECOMAtter_test.py と互換にするために、self.world を設定しておきます
+        self.world = index.world
+
+        # ユーザを作ってサインインしないと駄目なので、一旦作ってサインインさせてしまいます
+        self.admin_user_name = "admin"
+        self.admin_password = "password"
+        self.assertTrue(index.world.AddUser(self.admin_user_name, self.admin_password)[0])
+        self.signin(self.admin_user_name, self.admin_password)
+
+    def tearDown(self):
+        pass
+
+    # 書き込みます
+    def mew(self, name, text, reply_to=None, target_list=None, list_owner_name=None):
+        tweet_result = self.world.TweetByName(name, text, reply_to=reply_to, target_list=target_list, list_owner_name=list_owner_name)
+        self.assertIsNotNone(tweet_result)
+        self.assertEqual(text, tweet_result['text'])
+        return tweet_result
+
+    # 指定された秒だけ寝て、logをそれらしく並べます。
+    def sleep(self, second):
+        time.sleep(second * self.sleep_mag)
+
+    # ユーザを作成します
+    def addUser(self, user_name, password):
+        result = self.world.AddUser(user_name, password)
+        self.assertTrue(result[0])
+
+    # リストにユーザを追加します
+    def addUserToList(self, user_name, target_list, append_user_name):
+        self.assertTrue(self.world.AddNodeToListByName(user_name, target_list, append_user_name))
+
+    # 全てのユーザのtweetを参照します
+    def getAllUserTimeline(self, query_user_name):
+        return self.world.GetAllUserTimelineFormatted(query_user_name)
+
+class ListTestCase(IndexTestCase):
+    # list を追加する
+    def test_AddList(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # listの説明
+        description = "test list"
+
+        # リストを追加します。
+        data = {
+            "list_name": list_name
+            , "description": description
+            , "hidden": False
+            }
+        rv = self.app.post("/list/%s.json" % (user_name, ), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # list が作成されていることを確認します
+        rv = self.app.get("/list/%s.json" % (user_name, )
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        self.assertEqual(1, len(data['list']))
+        listObj = data['list'][0]
+        self.assertEqual(list_name, listObj['name'])
+        self.assertEqual(user_name, listObj['owner_name'])
+        self.assertEqual(description, listObj['description'])
+
+    # list にユーザを追加する(空のリストを追加してからの版)
+    def test_AddNodeToList(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # list に追加されるユーザ
+        append_user_name = "append-kun"
+        # list に追加されるユーザのパスワード
+        append_user_password = "password"
+
+        # リストを追加します。
+        data = {
+            "list_name": list_name
+            , "description": "test list"
+            , "hidden": False
+            }
+        rv = self.app.post("/list/%s.json" % (user_name, ), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # 追加されるユーザを作成します
+        self.addUser(append_user_name, append_user_password)
+        # リストにユーザを追加します
+        data = {
+            "target_user": append_user_name
+            }
+        rv = self.app.post("/list/%s/%s.json" % (user_name, list_name), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # list に登録されているユーザ名のリストを取得します
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        self.assertEqual(1, len(data['user_list']))
+        listObj = data['user_list']
+        self.assertEqual(1, len(listObj))
+        self.assertEqual(append_user_name, listObj[0])
+
+    # list にユーザを追加する(ユーザ追加時に同時に list が作られる版)
+    def test_AddNodeToListNoCreateList(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # list に追加されるユーザ
+        append_user_name = "append-kun"
+        # list に追加されるユーザのパスワード
+        append_user_password = "password"
+
+        # 追加されるユーザを作成します
+        self.addUser(append_user_name, append_user_password)
+
+        # リストにユーザを追加します(リストが生成されるはずです)
+        data = {
+            "target_user": append_user_name
+            }
+        rv = self.app.post("/list/%s/%s.json" % (user_name, list_name), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # list に登録されているユーザ名のリストを取得します
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        self.assertEqual(1, len(data['user_list']))
+        listObj = data['user_list']
+        self.assertEqual(1, len(listObj))
+        self.assertEqual(append_user_name, listObj[0])
+
+    # list にユーザを追加する(複数ユーザを追加する版)
+    def test_AddNodeToList_MultiUser(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # list に追加されるユーザ
+        append_user_name_list = ["append-kun", u"日本語君", u"日本語君その2"]
+        # list に追加されるユーザのパスワード
+        append_user_password = "password"
+
+        # リストを追加します。
+        data = {
+            "list_name": list_name
+            , "description": "test list"
+            , "hidden": False
+            }
+        rv = self.app.post("/list/%s.json" % (user_name, ), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # 追加されるユーザを作成します
+        for append_user_name in append_user_name_list:
+            self.addUser(append_user_name, append_user_password)
+            # リストにユーザを追加します
+            data = {
+                "target_user": append_user_name
+                }
+            rv = self.app.post("/list/%s/%s.json" % (user_name, list_name), data=json.dumps(data)
+                               , headers={"Content-Type": "application/json"})
+            data = json.loads(rv.data)
+            self.assertEqual('ok', data['result'])
+
+        # list に登録されているユーザ名のリストを取得します
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        self.assertEqual(len(append_user_name_list), len(data['user_list']))
+        listObj = sorted(data['user_list'])
+        comp_list = sorted(append_user_name_list)
+        self.assertEqual(comp_list, listObj)
+
         
+    # list からユーザを削除する
+    def test_DeleteNodeToList(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # list に追加されるユーザ
+        append_user_name = "append-kun"
+        # list に追加されるユーザのパスワード
+        append_user_password = "password"
+
+        # リストに追加するユーザを作成します
+        self.addUser(append_user_name, append_user_password)
+        # リストにユーザを追加します
+        self.addUserToList(user_name, list_name, append_user_name)
+
+        # リストからユーザを削除します
+        data = {
+            }
+        rv = self.app.post("/list_delete/%s/%s/%s.json" % (user_name, list_name, append_user_name)
+                           , data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # list に登録されているユーザ名のリストを取得します
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        self.assertEqual(0, len(data['user_list']))
+        
+    # list からユーザを削除する(複数人版)
+    def test_DeleteNodeToList_ManyUser(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # list から削除されるユーザ
+        delete_user_name_list = ['delete-kun1', u'消されるユーザ']
+        # list に追加されるユーザ
+        append_user_name_list = ["append-kun", "delete-kun1", u"日本語君", u"日本語君そのに", u'消されるユーザ']
+        # delete された後のユーザ名のリスト
+        result_user_name_list = ["append-kun", u"日本語君", u"日本語君そのに"]
+        
+        # list に追加されるユーザのパスワード
+        append_user_password = "password"
+
+        # リストに追加するユーザを作成します
+        for append_user_name in append_user_name_list:
+            self.addUser(append_user_name, append_user_password)
+            # リストにユーザを追加します
+            self.addUserToList(user_name, list_name, append_user_name)
+
+        # リストからユーザを削除します
+        for delete_user_name in delete_user_name_list:
+            data = {
+                }
+            rv = self.app.post("/list_delete/%s/%s/%s.json" % (user_name, list_name, delete_user_name)
+                               , data=json.dumps(data)
+                               , headers={"Content-Type": "application/json"})
+            data = json.loads(rv.data)
+            self.assertEqual('ok', data['result'])
+
+        # list に登録されているユーザ名のリストを取得します
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        self.assertEqual(len(result_user_name_list), len(data['user_list']))
+        listObj = sorted(data['user_list'])
+        comp_list = sorted(result_user_name_list)
+        self.assertEqual(comp_list, listObj)
+
+    # list からユーザを削除する(DELETE method 版)
+    def test_DeleteNodeToList_UseDELETEMethod(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # list に追加されるユーザ
+        append_user_name = "append-kun"
+        # list に追加されるユーザのパスワード
+        append_user_password = "password"
+
+        # リストに追加するユーザを作成します
+        self.addUser(append_user_name, append_user_password)
+        # リストにユーザを追加します
+        self.addUserToList(user_name, list_name, append_user_name)
+
+        # リストからユーザを削除します
+        rv = self.app.delete("/list/%s/%s/%s.json" % (user_name, list_name, append_user_name)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # list に登録されているユーザ名のリストを取得します
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        self.assertEqual(0, len(data['user_list']))
+        
+
+    # list の description を変更する
+    def test_UpdateListDescription(self):
+        # list を追加するユーザ
+        user_name = self.admin_user_name
+        # list名
+        list_name = "list1"
+        # 最初の description
+        first_description = u"最初の概要"
+        # 更新された後の description
+        after_description = u"更新された description"
+
+        # リストを追加します。
+        data = {
+            "list_name": list_name
+            , "description": first_description
+            , "hidden": False
+            }
+        rv = self.app.post("/list/%s.json" % (user_name, ), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+
+        # 初期の description を確認します。
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        print data
+        self.assertEqual(first_description, data['description'])
+
+        # description を更新します
+        data = {
+            "description": after_description
+            }
+        rv = self.app.put("/list/%s/%s.json" % (user_name, list_name), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        
+        # 更新された description を確認します。
+        rv = self.app.get("/list/%s/%s.json" % (user_name, list_name), data=json.dumps(data)
+                           , headers={"Content-Type": "application/json"})
+        data = json.loads(rv.data)
+        self.assertEqual('ok', data['result'])
+        print after_description
+        print data['description']
+        self.assertEqual(after_description, data['description'])
+        
+
 if __name__ == '__main__':
     assert StartNeo4J()
     unittest.main()
