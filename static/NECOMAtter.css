@@ -1,5 +1,10 @@
 /* { font-weight: bold; }*/
 
+.ScriptData {
+    visibility: hidden;
+    display: none;
+}
+
 /* body */
 body {
 	background-color: #ffffff;
@@ -150,7 +155,10 @@ body {
 }
 
 .MenuOptionDropdownBox {
-    z-index: 100;
+    z-index: 1000;
+}
+#MenuOptionDropdownBox {
+    z-index: 1000;
 }
 
 #NECOMAtome_top.matome_active #NECOMAtome_sidebar {
@@ -181,6 +189,7 @@ body {
     background-image: linear-gradient(45deg,  #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%),
     linear-gradient(-135deg, #bbbbbb 25%, #bbbbbb 25%, transparent 25%, transparent 75%, #bbbbbb 75%, #bbbbbb 75%);
 }
+
 
 
 

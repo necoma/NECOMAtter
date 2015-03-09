@@ -335,7 +335,7 @@ def tagPage_Get(tag_name):
     return render_template('tag_page.html', tag_name=tag_name, title=tag_name)
 
 # タグのタイムラインを返します
-@app.route('/tag/<tag_name>.json')
+@app.route('/tag/<tag_name>.json', methods=['GET', 'POST'])
 def tagPage_Get_Rest(tag_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
@@ -490,6 +490,31 @@ def signoutPage():
     session.pop('session_key', None)
     return redirect(url_for('topPage', _scheme=force_scheme, _external=True))
 
+# 自分のアカウントを消します
+@app.route("/delete_me.js", methods=['POST'])
+def deleteMeJson():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401)
+    delete_request = request.form['delete_request']
+    if delete_request != "yes":
+        abort(400) # bad request
+    password = request.form['password_retype']
+    if world.CheckUserPasswordIsValid(auth_user_name, password) != True:
+        return abort(401, {"result": "failed", "description": "password mismatch"})
+    result = world.DeleteUser(auth_user_name)
+    if result is True:
+        return json.dumps({"result": "success", "description": "user %s deleted." % (auth_user_name, )});
+    return abort(500, {"result": "failed", "description": "delete failed. unknown error"})
+
+# 自分のアカウントを消すためのページ
+@app.route("/delete_me")
+def deleteMePage():
+    auth_user_name = GetAuthenticatedUserName()
+    if auth_user_name is None:
+        abort(401) # unauthorized
+    return render_template('delete_me.html', auth_user_name=auth_user_name)
+
 # 登録されているユーザ名をリストで返します
 @app.route('/user_name_list.json')
 def userNameList():
@@ -607,7 +632,7 @@ def list_user_list_get(user_name, list_name):
 
 # リストにユーザを追加します
 @app.route('/list/<user_name>/<list_name>.json', methods=['POST'])
-def list_add(user_name, list_name):
+def list_add_user(user_name, list_name):
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
         abort(401, {'result': 'error', 'description': 'authentication required'})
@@ -995,5 +1020,7 @@ if __name__ == '__main__':
     servers.append(StartHttp('0.0.0.0', port, app))
 
     gevent.sleep(3)
+    if len(sys.argv) > 4:
+        os.setuid(int(sys.argv[4]))
     gevent.sleep(60*60*24*365*3)
     gevent.joinall(servers)

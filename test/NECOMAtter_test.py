@@ -1950,6 +1950,46 @@ class NECOMAtter_list_TestCase(unittest.TestCase):
         self.assertEqual(matome_description, matome_list[1]['description'])
         self.assertEqual(owner_user_name, matome_list[1]['owner_node_name'])
         self.assertEqual(2, matome_list[1]['mew_count'])
+
+
+    # リストの情報書き換え UpdateListAttribute
+    def test_UpdateListAttribute(self):
+        # 作成されるリスト名
+        list_name = u"list"
+        # リストオーナーのノード
+        owner_user_node = self.user_node_list[0]
+        # リストオーナのユーザ名
+        owner_user_name = owner_user_node['name']
+        # リストに登録されるユーザのノード
+        target_user_node = self.user_node_list[1]
+        # リストに登録されるユーザ名
+        target_user_name = target_user_node['name']
+        # リストに登録されていないユーザのノード
+        unlisted_user_node = self.user_node_list[2]
+        # リストに登録されていないユーザ名
+        unlisted_user_name = unlisted_user_node['name']
+        # 最初に設定されているリストの概要
+        first_list_description = u"first リスト description"
+        # 最初に設定されているリストの概要
+        second_list_description = u"2番目の リスト description"
+
+        # オーナがリストを作成します(target_user_nameの一人だけが入ったリストになります)
+        self.assertTrue(self.world.CreateListByName(owner_user_name, list_name, description=first_list_description))
+
+        # リストの情報を取得して確認します
+        list_description = self.world.GetListDescriptionByName(owner_user_name, list_name, owner_user_name)
+        self.assertIsNotNone(list_description)
+        self.assertEqual(first_list_description, list_description['description'])
+
+        # リストの概要を書き換えます。
+        self.assertEqual(True, self.world.UpdateListAttributeByName(owner_user_name, list_name, owner_user_name, {
+                'description': second_list_description
+                }))
+        
+        # リストの情報を取得して確認します
+        list_description = self.world.GetListDescriptionByName(owner_user_name, list_name, owner_user_name)
+        self.assertIsNotNone(list_description)
+        self.assertEqual(second_list_description, list_description['description'])
         
 class NECOMAtter_Retweet_TestCase(unittest.TestCase):
     def setUp(self):
@@ -2501,6 +2541,64 @@ class NECOMAtter_CensordMew(NECOMAtter_TestSkelton):
         self.assertEqual(mew_msg, result[0]['text'])
         
        
+# ユーザ作成権限のテスト
+class NECOMAtter_CreateUserAuthority(NECOMAtter_TestSkelton):
+    # ユーザをユーザ作成権限ありに設定します
+    def addCreateUserAuthority(self, user_name):
+        self.assertTrue(self.world.AssignCreateUserAuthorityToUserByName(user_name))
+    
+    # ユーザをユーザ作成権限ありに設定します
+    def delCreateUserAuthority(self, user_name):
+        self.assertTrue(self.world.DeleteCreteUserAuthorityFromUserByName(user_name))
+    
+    # ユーザ作成権限ありに設定したユーザが、新規にユーザを作成できる
+    def test_CanCreateUser_Success(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password) # これは権限を確認しないで作成する method です
+        # 作ったユーザの権限をユーザ作成のできる人間に変更します
+        self.addCreateUserAuthority(user_name)
+
+        # 別のユーザを作ってみます
+        other_user_name_1 = "other user 1"
+        (result, errmsg) = self.world.AddUserWithAuthCheckByName(user_name, other_user_name_1, password)
+        self.assertEqual(True, result)
+    
+    # ユーザ作成権限未設定のユーザが、新規にユーザを作成できない
+    def test_CanCreateUser_VanilaUser(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password) # これは権限を確認しないで作成する method です
+        # 作ったユーザの権限を変更しません
+
+        # 別のユーザを作ってみます(失敗するはずです)
+        other_user_name_1 = "other user 1"
+        (result, errmsg) = self.world.AddUserWithAuthCheckByName(user_name, other_user_name_1, password)
+        self.assertEqual(False, result)
+
+    # ユーザ作成権限をあたえられていない ユーザが、新規にユーザを作成できない
+    def test_CanCreateUser_NotAuthorizedUser(self):
+        # 検閲ありに設定します
+        self.world.EnableCensorshipAuthorityFeature()
+        # 新しくユーザを作ります
+        user_name = "iimura"
+        password = "password"
+        self.addUser(user_name, password) # これは権限を確認しないで作成する method です
+        # 作ったユーザの権限を剥奪します
+        self.delCreateUserAuthority(user_name)
+
+        # 別のユーザを作ってみます(失敗するはずです)
+        other_user_name_1 = "other user 1"
+        (result, errmsg) = self.world.AddUserWithAuthCheckByName(user_name, other_user_name_1, password)
+        self.assertEqual(False, result)
+
+
 if __name__ == '__main__':
     assert StartNeo4J()
     unittest.main()

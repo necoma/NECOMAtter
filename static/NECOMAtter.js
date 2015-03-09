@@ -119,6 +119,10 @@ function AssignTweetColumnClickEvent(){
 	$('.tweet_column').unbind('click', TweetColumnClicked); // 一旦イベントを解除して
 	$('.tweet_column').click(TweetColumnClicked); // 再登録します
 	$('.tweet_column .btn').click(function(event){event.stopPropagation();}); // このdivにはボタンも含むので、ボタンについてはクリックイベントを親に伝えないようにします
+
+  	// MewOptionDropdownButton の再登録もしておきます。
+	$('.MewOptionDropdownButton').unbind('click', MewOptionDropdownClicked); // 一旦イベントを解除して
+	$('.MewOptionDropdownButton').click(MewOptionDropdownClicked); // 再登録します
 }
 
 // NECOMAtome でまとめられているもののIDをリストします
@@ -183,6 +187,70 @@ function PostMatome(description, tweet_id_list){
 	}, function(){
 		console.log('NECOMAtome post failed.');
 	});
+}
+
+// 対象のユーザをフォローしているか否かで関数を呼び分けます
+function CheckUserFollowed(user_id, func_followed, func_unfollowed, func_error){
+
+  GetJSON("/user/" + authUserName + "/followed_user_name_list.json"
+         , {}
+         , function(user_name_list, textStatus){
+             if(user_name_list.indexOf(user_id) >= 0){
+               if(func_followed){
+                 //console.log(user_id, "is followed.");
+                 func_followed();
+               }
+             }else{
+               if(func_unfollowed){
+                 //console.log(user_id, "is NOT followed.");
+                 func_unfollowed();
+               }
+             }
+         }
+         , func_error);
+}
+
+// フォローの link を書き換えます
+function UpdateMewOptionDropdownFollowButton(user_id, mew_id){
+  CheckUserFollowed(user_id, function(){
+    // フォローしている場合
+    var target = $("#MewOptionDropdown_FollowButton_ID_" + mew_id);
+    var target_A = $("#MewOptionDropdown_FollowButton_A_ID_" + mew_id);
+    target_A.html('unfollow');
+    target.removeAttr("disabled");
+    //target.attr("disabled", true);
+  }, function(){
+    // フォローしていない場合
+    var target = $("#MewOptionDropdown_FollowButton_ID_" + mew_id);
+    var target_A = $("#MewOptionDropdown_FollowButton_A_ID_" + mew_id);
+    target_A.html('follow');
+    target.removeAttr("disabled");
+    //target.attr("disabled", false);
+  });
+}
+
+// mew のオプション部分をクリックした時に反応するためのイベントハンドラです
+function MewOptionDropdownClicked(){
+  // 怪しく id に mew の ID を潜ませてあるはずなので、それを取り出します。
+  var id_index = this.id.lastIndexOf("_ID_");
+  if(id_index < 0){
+    // ID がみつけられなかった
+    return;
+  }
+  id_index += 4; // _ID_ の分だけズラしてます
+  var mew_id = this.id.substring(id_index);
+
+  // 怪しく ScriptData class の中に入っているデータから、user_id とかを取り出します
+  user_id = $("#" + mew_id + " .ScriptData user_id").html();
+  UpdateMewOptionDropdownFollowButton(user_id, mew_id);
+}
+
+function MenuOptionDropdownFollowButtonClicked(id, target){
+  console.log("MenuOptionDropdownFollowButtonClicked", this, id, target);
+}
+
+function MenuOptionDropdownAddListButtonClicked(id, target){
+  console.log("MenuOptionDropdownAddListButtonClicked", this, id, target);
 }
 
 // ツイートで、link以外の部分をクリックした場合に反応するためのイベントハンドラです
@@ -808,4 +876,7 @@ $(document).ready(function(){
 	// フォローしているユーザ名を取得して、Tweet用のテキストエリアに
 	// typeahead(文字入力してるときの候補) を設定する
 	ApplyUserNameTypeAhead("#GlobalTweetModalText", authUserName);
+
 });
+
+

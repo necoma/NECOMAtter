@@ -33,9 +33,9 @@
   {% endfor %}
   </ul>
 
-  {% if is_can_create_user %}
   <h2>Create New User or BOT account</h2>
   <div class="CreateNewUser">
+  {% if is_can_create_user %}
     <form action="javascript:AddUser('#new_user_name', '#create_user_password_1', '#create_user_password_2', '#create_user_result', '#create_user_submit_button');">
       user name: <input type="text" id="new_user_name" name="new_user_name" autocomplete="off" placeholder="new user name">
       <br><span>password: <input id="create_user_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value, '#create_user_password_1', '#create_user_password_2', '#create_user_password_strength', '#create_user_submit_button')" placeholder="password"></span>
@@ -44,7 +44,9 @@
       <br><input id="create_user_submit_button" type="submit" value="create new user" disabled>
     </form>
     <div id="create_user_result"></div>
-  </div>
+  {% else %}
+    You have no &quot;Create USER&quot; authority.
   {% endif %}
+  </div>
 </div>
 {% endblock %}

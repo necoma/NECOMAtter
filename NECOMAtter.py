@@ -35,6 +35,8 @@ class NECOMAtter():
 
         # 閲覧権限を持ったユーザを使うかどうかの真偽値
         self.IsCensorshipAuthorityEnabled = False
+        # ユーザ作成権限の概念を使うかどうかの真偽値
+        self.IsCreateUserAuthorityEnabled = True
 
     # HTML でXSSさせないようなエスケープをします。
     def EscapeForXSS(self, text):
@@ -1062,6 +1064,8 @@ class NECOMAtter():
     def CreateOrGetListNodeFromName(self, owner_node, list_name, description="", hidden=False):
         if owner_node is None:
             return None
+        if list_name is None:
+            return None
         if self.VaridateCypherString(list_name) == False:
             logging.error("list name %s has escape string. please user other name" % list_name)
             return None
@@ -1171,7 +1175,7 @@ class NECOMAtter():
         return True
 
     # owner_node(node) のlist_name(string) を作成します
-    def CreateListByNode(self, owner_node, list_name, description="", hiddin=False):
+    def CreateListByNode(self, owner_node, list_name, description="", hidden=False):
         list_node = self.CreateOrGetListNodeFromName(owner_node, list_name, description, hidden)
         if list_node is None:
             return None
@@ -1180,7 +1184,7 @@ class NECOMAtter():
         return list_node
 
     # owner_node(node) のlist_name(string) を作成します(名前指定版)
-    def CreateListByName(self, owner_node, list_name, description="", hiddin=False):
+    def CreateListByName(self, owner_name, list_name, description="", hidden=False):
         owner_node = self.GetUserNode(owner_name)
         if owner_node is None:
             logging.error("owner_name '%s' is not registerd." % owner_name)
@@ -1364,29 +1368,6 @@ class NECOMAtter():
             return []
         return self.FormatList(self.GetUserListListByNode(owner_node, query_user_node))
 
-    # owner_node の list_name のリストの情報を書き換えます
-    # 帰り値は True(成功)/False(失敗) です。
-    def UpdateListAttribute(self, owner_node, list_node, attribute_dictionary):
-        if owner_node is None or list_node is None:
-            return False
-        owner_node_id = owner_node._id
-        list_node_id = list_node._id
-        updated = False
-        query = ""
-        query += "START owner_node=node(%d) " % (owner_node_id, )
-        query += ", list_node=node(%d) " % (list_node_id, )
-        query += "MATCH list_node -[:OWNER]-> owner_node "
-        if "description" in attribute_dictionary:
-            validated_string = self.VaridateCypherString(attribute_dictionary['description'])
-            if validated_string == attribute_dictionary['description']:
-                query += "SET list_node.description = '%s' " % (validated_string)
-                updated = True
-        query += "RETURN list_node.description "
-        if updated == False:
-            return False
-        result_list, metadata = cypher.execute(self.gdb, query)
-        return True
-    
     # owner_name の list_name のリストの情報を書き換えます
     # 帰り値は True(成功)/False(失敗) です。
     def UpdateListAttributeByName(self, owner_name, list_name, query_user_name, attribute_dictionary):
@@ -1398,11 +1379,13 @@ class NECOMAtter():
         if query_user_node is None:
             logging.error("query_user_name %s is not registerd." % (query_user_name, ))
             return False
-        list_node = self.GetListNodeByNode(owner_node, list_name, query_user_node)
-        if list_node is None:
-            logging.error("list '%s' not found." % list_name)
-            return False
-        return self.UpdateListAttribute(owner_node, list_node, attribute_dictionary)
+        description = None
+        hidden = None
+        if 'description' in attribute_dictionary:
+            description = attribute_dictionary['description']
+        if 'hidden' in attribute_dictionary:
+            hidden = attribute_dictionary['hidden']
+        return self.UpdateListAttribute(owner_node, list_name, description=description, hidden=hidden)
 
     # owner_node の list_node のリストの情報を取得します
     def GetListDescription(self, owner_node, list_node, query_user_node):
@@ -2120,7 +2103,8 @@ class NECOMAtter():
 
     # user_node がユーザを作る権限があるかどうかを確認します
     def IsUserCanCreateUser(self, user_node):
-        # 今のところだれでもOKということにします。
+        if self.GetIsCreteUserAuthorityFeatureEnabled() == False or not self.IsUserHasCreateUserAuthorityByName(user_node):
+            return False
         return True
     
     # parent_user_node がユーザを作る権限があるかどうかを確認した上で、新しいユーザを作成します
@@ -2203,4 +2187,80 @@ class NECOMAtter():
             user_node = self.GetUserNode(user_name)
         return self.AssignCensorshipAuthorityToUser(user_node)
         
+
+    # ユーザ作成権限の概念を有効化します
+    def EnableCreateUserAuthorityFeature(self):
+        self.IsCreateUserAuthorityEnabled = True
+
+    # ユーザ作成権限の概念を無効化します
+    def DisableCreateUserAuthorityFeature(self):
+        self.IsCreateUserAuthorityEnabled = False
+
+    # 現在、ユーザ作成権限の概念が有効であるか否かを取得します
+    def GetIsCreteUserAuthorityFeatureEnabled(self):
+        return self.IsCreateUserAuthorityEnabled
+
+    # ユーザ作成権限を持っているユーザをフォローしているノードを取得します
+    def GetCreateUserAuthorityNode(self):
+        return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "CreateUserAuthorityNode", "CreateUserAuthorityNode", properties={"type": "CreateUserAuthorityNode", "name": "<ForCreateUserAuthority>"})
         
+    # user_node がユーザ作成権限を持っているかどうかを確認します
+    def IsUserHasCreateUserAuthority(self, user_node):
+        # ユーザ作成権限があるか無いかは、GetCreateUserAuthorityNode() で得られたノードから
+        # follow されているか否かで判定されます。
+        auth_node = self.GetCreateUserAuthorityNode()
+        if auth_node is None:
+            return (False, "can not get auth node.")
+        return self.IsFollowed(auth_node, user_node);
+
+    # user_node がユーザ作成権限を持っているかどうかを確認します(名前版)
+    def IsUserHasCreateUserAuthorityByName(self, user_name):
+        user_node = None
+        if user_name is not None:
+            user_node = self.GetUserNode(user_name)
+        return self.IsUserHasCreateUserAuthority(user_node)
+
+    # ユーザにユーザ作成権限を与えます
+    def AssignCreateUserAuthorityToUser(self, user_node):
+        if user_node is None:
+            return (False, "undefined user.")
+        if self.IsUserHasCreateUserAuthority(user_node):
+            # 既に権限を持っているなら何もしません
+            return (True, None)
+        auth_node = self.GetCreateUserAuthorityNode()
+        if auth_node is None:
+            return (False, "can not get auth node.")
+        result = self.FollowUserByNode(auth_node, user_node)
+        if not result:
+            return (False, "can not follow. internal server error")
+        return (True, None)
+
+    # ユーザにユーザ作成権限を与えます(名前指定版)
+    def AssignCreateUserAuthorityToUserByName(self, user_name):
+        user_node = None
+        if user_name is not None:
+            user_node = self.GetUserNode(user_name)
+        return self.AssignCreateUserAuthorityToUser(user_node)
+
+    # ユーザからユーザ作成権限を剥奪します
+    def DeleteCreateUserAuthorityFromUser(self, user_node):
+        if user_node is None:
+            return (False, "undefined user.")
+        if not self.IsUserHasCreateUserAuthority(user_node):
+            # 既に権限を持っていないので何もしません
+            return (True, None)
+        auth_node = self.GetCreateUserAuthorityNode()
+        if auth_node is None:
+            return (False, "can not get auth node")
+        result = self.UnFollowUserByNode(auth_node, user_node)
+        if not result:
+            return (False, "can not unfollow. internal server error")
+        return (True, None)
+
+    # ユーザからユーザ作成権限を剥奪します(名前指定版)
+    def DeleteCreteUserAuthorityFromUserByName(self, user_name):
+        user_node = None
+        if user_name is not None:
+            user_node = self.GetUserNode(user_name)
+        return self.DeleteCreateUserAuthorityFromUser(user_node)
+    

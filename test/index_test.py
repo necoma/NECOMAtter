@@ -1178,6 +1178,8 @@ class ListTestCase(IndexTestCase):
             }
         rv = self.app.put("/list/%s/%s.json" % (user_name, list_name), data=json.dumps(data)
                            , headers={"Content-Type": "application/json"})
+        print rv
+        print rv.data
         data = json.loads(rv.data)
         self.assertEqual('ok', data['result'])
         

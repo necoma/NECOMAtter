@@ -145,6 +145,7 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
 </script>
 <script id="Template_TweetBlock" type="text/x-jsrender">
 <div class="tweet_column img-responsive ui-draggable" id="{{:id}}">
+  <div class="ScriptData"><user_id>{{:user_id}}</user_id></div>
   <div class="drag_handle text-right TweetDragBar">&nbsp;<span class="glyphicon glyphicon-remove NECOMAtome_tweet_delete_button" style="display: none"></span></div>
   <a href="/user/{{:user_id}}"><div class="ImageFloat"><img src="{{:user_icon_url}}" width="40" alt=""></div>
     <span class="tweet_name">{{:user_id}}</span></a>
@@ -181,10 +182,10 @@ You sign in on <span id="AuthUserName">{{session['user_name']}}</span>
     <a id="StarButton_ID_{{:id}}" href="javascript: StarButtonClick({{:id}}, 'StarButton_ID_{{:id}}');" class="btn btn-default btn-mini" type="button"><span class="glyphicon glyphicon-star-empty" span=""> <span class="hidden-xs">star</span></span></a>
     {{/if}}
     {{if is_not_owner}}
-    <span class="dropdown MewOptionDropdown"><button class="btn btn-default dropdown-toggle" data-toggle="dropdown" data-placement="top" title="Show more user action"><span class="glyphicon glyphicon-cog"></span> <b class="caret"></b></button>
-      <ul class="dropdown-menu text-left MenuOptionDropdownBox">
-	<li>follow </li>
-	<li>add list</li>
+    <span class="btn-group dropup MewOptionDropdown"><button type="button" class="btn btn-default dropdown-toggle MewOptionDropdownButton" data-toggle="dropdown" title="Show more user action" aria-expanded="true" id="MewButtonDropdownButton_ID_{{:id}}"><span class="glyphicon glyphicon-cog"></span> <b class="caret"></b></button>
+      <ul class="dropdown-menu text-left MenuOptionDropdownBox" role="menu">
+	<li id="MewOptionDropdown_FollowButton_ID_{{:id}}" class="disabled" role="presentation"><a id="MewOptionDropdown_FollowButton_A_ID_{{:id}}" role="menuitem" tabindex="-1" href="javascript: MenuOptionDropdownFollowButtonClicked({{:id}}, 'MewOptionDropdown_FollowButton_ID_{{:id}}');">follow</a></li>
+	<li id="MewOptionDropdown_AddListButton_ID_{{:id}}" class="disabled" role="presentation"><a id="MewOptionDropdown_AddListButton_A_ID_{{:id}}" role="menuitem" tabindex="-1" href="javascript: MenuOptionDropdownAddListButtonClicked({{:id}}, 'MewOptionDropdown_AddListButton_ID_{{:id}}');">add list</a></li>
     </ul></span>
     {{/if}}
   </div>
