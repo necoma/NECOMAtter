@@ -28,6 +28,7 @@ class NECOMAtter():
         self.APIKeyIndex = None
         self.ListIndex = None
         self.NECOMAtomeIndex = None
+        self.AllFollowNodeIndex = None
         self.SessionExpireSecond = 60*60*24*7
         # Cypher transactions are not supported by this server version
         # と言われたのでとりあえずの所はtransaction は封印します
@@ -92,6 +93,12 @@ class NECOMAtter():
         if self.NECOMAtomeIndex is None:
             self.NECOMAtomeIndex = self.gdb.get_or_create_index(neo4j.Node, "NECOMATome")
         return self.NECOMATomeIndex
+
+    # NECOMAtome用のインデックスを取得します
+    def GetAllFollowNodeIndexIndex(self):
+        if self.AllFollowNodeIndex is None:
+            self.AllFollowNodeIndex = self.gdb.get_or_create_index(neo4j.Node, "AllFollowNodeIndex")
+        return self.AllFollowNodeIndex
 
     # time.time() で得られたエポックからの時間をフォーマットします
     def FormatTime(self, time_epoc):
@@ -2103,9 +2110,18 @@ class NECOMAtter():
 
     # user_node がユーザを作る権限があるかどうかを確認します
     def IsUserCanCreateUser(self, user_node):
-        if self.GetIsCreteUserAuthorityFeatureEnabled() == False or not self.IsUserHasCreateUserAuthorityByName(user_node):
+        if self.GetIsCreateUserAuthorityFeatureEnabled() == False:
+            return True
+        result = self.IsUserHasCreateUserAuthority(user_node)
+        if result != True:
             return False
         return True
+    
+    # user_node がユーザを作る権限があるかどうかを確認します(名前指定版)
+    def IsUserCanCreateUserByName(self, user_name):
+        if user_name is not None:
+            user_node = self.GetUserNode(user_name)
+        return self.IsUserCanCreateUser(user_node)
     
     # parent_user_node がユーザを作る権限があるかどうかを確認した上で、新しいユーザを作成します
     def AddUserWithAuthCheck(self, parent_user_node, new_user_name, new_user_password):
@@ -2197,12 +2213,14 @@ class NECOMAtter():
         self.IsCreateUserAuthorityEnabled = False
 
     # 現在、ユーザ作成権限の概念が有効であるか否かを取得します
-    def GetIsCreteUserAuthorityFeatureEnabled(self):
+    def GetIsCreateUserAuthorityFeatureEnabled(self):
         return self.IsCreateUserAuthorityEnabled
 
     # ユーザ作成権限を持っているユーザをフォローしているノードを取得します
     def GetCreateUserAuthorityNode(self):
-        return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "CreateUserAuthorityNode", "CreateUserAuthorityNode", properties={"type": "CreateUserAuthorityNode", "name": "<ForCreateUserAuthority>"})
+        #return self.gdb.get_or_create_indexed_node("AllFollowNodeIndex", "CreateUserAuthorityNode", "CreateUserAuthorityNode", properties={"type": "CreateUserAuthorityNode", "name": "<ForCreateUserAuthority>"})
+        index = self.GetAllFollowNodeIndexIndex()
+        return index.get_or_create("CreateUserAuthorityNode", "CreateUserAuthorityNode", {"type": "CreateUserAuthorityNode", "name": "<ForCreateUserAuthority>"})
         
     # user_node がユーザ作成権限を持っているかどうかを確認します
     def IsUserHasCreateUserAuthority(self, user_node):
@@ -2210,7 +2228,7 @@ class NECOMAtter():
         # follow されているか否かで判定されます。
         auth_node = self.GetCreateUserAuthorityNode()
         if auth_node is None:
-            return (False, "can not get auth node.")
+            return False
         return self.IsFollowed(auth_node, user_node);
 
     # user_node がユーザ作成権限を持っているかどうかを確認します(名前版)

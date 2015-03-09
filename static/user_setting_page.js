@@ -26,19 +26,21 @@ function CreateNewKeyButtonClicked(){
 		});
 }
 
-function AddUser(user_name_id, password_1_id, password_2_id, result_field_id, submit_button_id){
-  if(!user_name_id || !password_1_id || !password_2_id || !result_field_id || !submit_button_id){
+function AddUser(user_name_id, password_1_id, password_2_id, result_field_id, submit_button_id, can_create_user){
+  if(!user_name_id || !password_1_id || !password_2_id || !result_field_id || !submit_button_id || !can_create_user){
     return false;
   }
   var user_name = $(user_name_id).val();
   var password_1 = $(password_1_id).val();
   var password_2 = $(password_2_id).val();
-  console.log("user_name: ", user_name, "password: ", password_1);
+  var canCreateUser = $(can_create_user).prop('checked');
+  console.log("user_name: ", user_name, "password: ", password_1, "canCreateUser", canCreateUser);
   $(submit_button_id).attr("disabled", true);
   PostJSON(
     "/add_user.json", {
       'new_user_name': user_name
       , 'new_user_password': password_1
+      , 'new_user_can_create_user': canCreateUser
     }
     , function(){
         $(result_field_id).slideUp(0).removeClass('bg-danger').addClass('bg-success').text('user ' + user_name + " created.").slideDown('slow');
@@ -53,8 +55,11 @@ function AddUser(user_name_id, password_1_id, password_2_id, result_field_id, su
              err_txt = err_obj['description'];
            }
          }
-        $(result_field_id).slideUp(0).removeClass('bg-success').addClass('bg-danger').text('user ' + user_name + " create failed (" + err_txt + ").").slideDown('slow');
-        $(submit_button_id).removeAttr("disabled");
+         $(result_field_id).slideUp(0).removeClass('bg-success').addClass('bg-danger').text('user ' + user_name + " create failed (" + err_txt + ").").slideDown('slow');
+         $(submit_button_id).removeAttr("disabled");
+         $(user_name_id).val('');
+         $(password_1_id).val('');
+         $(password_2_id).val('');
     }
   );
   return false;

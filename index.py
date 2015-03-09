@@ -357,7 +357,7 @@ def userSettingsPage_Get():
         return render_template('user_setting_page.html', error="authenticate required", is_can_create_user=False)
     key_list = world.GetUserAPIKeyListByName(user_name)
     icon_url = world.GetUserAbaterIconURLByName(user_name)
-    return render_template('user_setting_page.html', user=user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(user_name))
+    return render_template('user_setting_page.html', user=user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUserByName(user_name))
 
 # API Key の削除
 @app.route('/user_setting/key/<key>.json', methods=['DELETE', 'POST'])
@@ -798,16 +798,16 @@ def retweet_users_get_json(tweet_id):
 def post_user_icon_image():
     auth_user_name = GetAuthenticatedUserName()
     if auth_user_name is None:
-        return render_template('user_setting_page.html', error="authentication required", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+        return render_template('user_setting_page.html', error="authentication required", is_can_create_user=world.IsUserCanCreateUserByName(auth_user_name))
     if 'icon' not in request.files:
-        return render_template('user_setting_page.html', error="post data invalid", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+        return render_template('user_setting_page.html', error="post data invalid", is_can_create_user=world.IsUserCanCreateUserByName(auth_user_name))
     file = request.files['icon']
     key_list = world.GetUserAPIKeyListByName(auth_user_name)
     icon_url = world.GetUserAbaterIconURLByName(auth_user_name)
     if not world.UpdateAbaterIconByName(auth_user_name, file):
-        return render_template('user_setting_page.html', error="icon save error", user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+        return render_template('user_setting_page.html', error="icon save error", user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUserByName(auth_user_name))
     return redirect(url_for('userSettingsPage_Get', _scheme=force_scheme, _external=True))
-    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, is_can_create_user=world.IsUserCanCreateUserByName(auth_user_name))
 
 # NECOMAtome json
 @app.route('/matome/<int:id>.json', methods=['GET', 'POST'])
@@ -949,9 +949,9 @@ def passwordChangePage():
     if 'password_2' in request.values:
         new_password_2 = request.values['password_2']
     if new_password_1 != new_password_2:
-        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password verify failed.", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password verify failed.", is_can_create_user=world.IsUserCanCreateUserByName(auth_user_name))
     if world.UpdateUserPassword(auth_user_name, old_password, new_password_1) == False:
-        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password change failed.", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+        return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, error="password change failed.", is_can_create_user=world.IsUserCanCreateUserByName(auth_user_name))
 
     # 再度ログインさせるためにセッションを切ります
     session.pop('session_key', None)
@@ -959,7 +959,7 @@ def passwordChangePage():
     world.DeleteUserSessionKey(auth_user_name)
 
     return redirect(url_for('topPage', _scheme=force_scheme, _external=True))
-    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, success="password changed.", is_can_create_user=world.IsUserCanCreateUser(auth_user_name))
+    #return render_template('user_setting_page.html', user=auth_user_name, key_list=key_list, icon_url=icon_url, success="password changed.", is_can_create_user=world.IsUserCanCreateUserByName(auth_user_name))
 
 # ユーザの追加
 @app.route('/add_user.json', methods=['POST', 'PUT'])
@@ -969,11 +969,16 @@ def AddUser_Json():
         abort(401)
     new_user_name = request.json['new_user_name']
     new_user_password = request.json['new_user_password']
+    new_user_can_create_user = request.json['new_user_can_create_user']
     if new_user_name is None or new_user_password is None or new_user_name == "" or new_user_password == "":
         abort(400)
     result =  world.AddUserWithAuthCheckByName(auth_user_name, new_user_name, new_user_password)
     if result[0] != True:
         return json.dumps({'result': 'error', 'description': result[1]}), 400
+    if new_user_can_create_user:
+        result = world.AssignCreateUserAuthorityToUserByName(new_user_name)
+        if result[0] != True:
+            return json.dumps({'result': 'error', "description": "create user is success. but add \"create user ahthority\" failed."}), 500
     return json.dumps({'result': 'ok'})
 
 # mewを公開状態にします

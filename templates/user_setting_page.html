@@ -36,11 +36,13 @@
   <h2>Create New User or BOT account</h2>
   <div class="CreateNewUser">
   {% if is_can_create_user %}
-    <form action="javascript:AddUser('#new_user_name', '#create_user_password_1', '#create_user_password_2', '#create_user_result', '#create_user_submit_button');">
+    <form action="javascript:AddUser('#new_user_name', '#create_user_password_1', '#create_user_password_2', '#create_user_result', '#create_user_submit_button', '#create_user_can_create_user');">
       user name: <input type="text" id="new_user_name" name="new_user_name" autocomplete="off" placeholder="new user name">
       <br><span>password: <input id="create_user_password_1" type=password name="password" autocomplete="off" onkeyup="SignUp_checkPassword(this.value, '#create_user_password_1', '#create_user_password_2', '#create_user_password_strength', '#create_user_submit_button')" placeholder="password"></span>
       strength：<span id="create_user_password_strength">weak</span>
       <br><span>password(again): <input id="create_user_password_2" type="password" name="password_2" autocomplete="off" onkeyup="SignUp_checkPassword(this.value, '#create_user_password_1', '#create_user_password_2', '#create_user_password_strength', '#create_user_submit_button')" placeholder="password (again)"></span>
+      <br>This user has &quot;Create other user authority&quot; 
+      <input type="checkbox" name="new_user_can_create_user" value="1" id="create_user_can_create_user">
       <br><input id="create_user_submit_button" type="submit" value="create new user" disabled>
     </form>
     <div id="create_user_result"></div>
