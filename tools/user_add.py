@@ -23,6 +23,11 @@ if result[0] != True:
     print "add user failed. ", result[1]
     exit(1)
 
+result = world.AssignCreateUserAuthorityToUserByName(user_name)
+if result[0] != True:
+    print "add user success. but \"create user authority\" append failed."
+    exit(1)
+
 user_node = world.GetUserNode(user_name)
 print "user created: ", user_node
 
