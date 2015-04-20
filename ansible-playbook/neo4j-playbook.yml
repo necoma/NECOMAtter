@@ -19,4 +19,5 @@
     apt: pkg={{ item }} state=installed update_cache=yes force=yes
     tags: [packages]
     with_items:
-      - neo4j
+      - neo4j=2.1.1
+
