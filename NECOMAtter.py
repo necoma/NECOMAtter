@@ -754,6 +754,28 @@ class NECOMAtter():
                 user_name_list.append(user_node["name"])
         return user_name_list
 
+    # ユーザの mew 回数を取得します
+    def GetUserMewCountFromName(self, user_name):
+        user_node = self.GetUserNode(user_name)
+        if user_node is None:
+            logging.error("user %s is not registered." % user_name)
+            return 0
+        user_id = user_node._id
+        try:
+            query = ""
+            query += "START user = node(%d) " % user_id
+            query += "MATCH (mew) -[:TWEET]-> (user) "
+            query += "RETURN COUNT(mew) "
+            pre_result_list, metadata = cypher.execute(self.gdb, query)
+        except neo4j.CypherError:
+            logging.error("cypher error.")
+            return 0
+        ret = 0
+        for result in pre_result_list:
+            if result is not None and result[0] is not None:
+                ret = int(result[0])
+        return ret
+
     # 対象のユーザがフォローしているユーザ名のリストを取得します
     def GetUserFollowedUserNameList(self, user_name):
         user_node = self.GetUserNode(user_name)

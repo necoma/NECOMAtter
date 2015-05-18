@@ -1,11 +1,19 @@
-//ページを読んでいるユーザ名(document.ready() で更新されるはずです)
-var authUserName = "";
+// split を定義します
+String.prototype.splice = function(idx, rem, s) {
+    return (this.slice(0, idx) + s + this.slice(idx + Math.abs(rem)));
+};
 
 // インラインフレームで呼び出されているか否かを示す真偽値
 // どうやら document と、window.parent.document(インラインフレームだったら一つ上のdocument) を == で比較すると、
 // chrome であれば自分がインラインフレームで呼び出されているか否かが取得できるみたい。
 // IEとかFirefoxはわかりません。(ﾟ∀ﾟ)
 var isInlineFrame = window.parent.document != document;
+
+var idBase = 0;
+function CreateNewId(){
+  idBase += 1;
+  return "GeneratedID_" + idBase;
+}
 
 // GlobalTweetModal をreplyモードにします
 function GlobalTweetModal_SetReplyMode(tweet_id, target_user_name){
@@ -469,6 +477,44 @@ function StrCSV2Table(str){
   return new_str;
 }
 
+function MewExpandToggle(idString){
+  var target = $("#" + idString);
+  var buttonTarget = $("#" + idString + "_Button");
+  if(target.is(':visible')){
+    target.hide();
+    buttonTarget.show();
+  }else{
+    target.show();
+    buttonTarget.hide();
+  }
+}
+
+// 長いHTML文字列に対して、"more..." というのを入れて表示範囲を絞れるようにします。
+// 文字列は "<br>" で区切られている必要があります。
+function AddOverFlowHtml(html) {
+  var threashold = 8;
+  var target = '<br>';
+  var splitedHtml = html.split(target);
+  if(splitedHtml.length <= threashold){
+    return html;
+  }
+
+  var pos = 0;
+  for(var i = 0; i < threashold; i++){
+    pos = html.indexOf(target, pos);
+    pos += target.length;
+  }
+  if(pos >= html.length){
+    return html;
+  }
+
+  id = CreateNewId();
+  html = html.splice(pos, 0, '<button id="' + id + '_Button" class="hiddenMewButton btn" onClick="MewExpandToggle(' + "'" + id + "'" + ');">more...</button><span class="hiddenMew" id="' + id + '">');
+  html += '</span>';
+
+  return html;
+}
+
 // /timeline/<<user_name>>.json から取得した一つのobject(tweet) をHTMLにします。
 // テンプレート(jsrender)を使った版のtweetレンダラ
 function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
@@ -556,7 +602,8 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			"id": target_tweet.id
 			, "user_id": target_tweet.user_name
 			, "user_icon_url": icon_url
-			, "tweet_body": replaced_text
+			//, "tweet_body": replaced_text
+			, "tweet_body": AddOverFlowHtml(replaced_text)
 			, "time": target_tweet.time
 			, "is_display_footer": !is_not_need_reply_button
 			, "is_own_tweeted": is_own_tweeted
@@ -573,7 +620,8 @@ function RenderTweetToHTML(target_tweet, is_not_need_reply_button){
 			"id": target_tweet.id
 			, "user_id": target_tweet.user_name
 			, "user_icon_url": icon_url
-			, "tweet_body": replaced_text
+			//, "tweet_body": replaced_text
+			, "tweet_body": AddOverFlowHtml(replaced_text)
 			, "time": target_tweet.time
 			, "is_display_footer": !is_not_need_reply_button
 			, "is_own_tweeted": is_own_tweeted
