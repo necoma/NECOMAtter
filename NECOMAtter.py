@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # coding: UTF-8
 
+
 # ユーザにツイートさせるようなtwitterもどきの事をさせる時の
 # DB を叩くフロントエンドクラスです
 
@@ -381,8 +382,7 @@ class NECOMAtter():
         query = ""
         query += "START user = node(%d) " % user_id
         query += ", query_user = node(%d) " % query_user_id
-        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
-        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
         query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         query += "WITH tweet, tweet_r, user, list_owner, list "
         query += ", query_user "
@@ -478,8 +478,7 @@ class NECOMAtter():
         # クエリを作ります
         query = ""
         query += "START query_user = node(%d) " % query_user_node._id
-        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) "
-        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH  (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) -[tweet_r:TWEET|RETWEET]-> (tweet_retweet_node) "
         query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         query += "WITH tweet, tweet_r, tweet_retweet_node, list_owner, list "
         query += ", query_user "
@@ -833,8 +832,7 @@ class NECOMAtter():
         query = ""
         query += "start tag_node=node:tag(tag=\"%s\") " % tag_string.replace('"', '_')
         query += ", query_user = node(%d) " % query_user_node._id
-        query += "MATCH (tweet) -[:TAG]-> tag_node "
-        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) -[:TAG]-> tag_node "
         query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         query += "WITH tweet, list, list_owner "
         if since_time is not None:
@@ -975,8 +973,7 @@ class NECOMAtter():
         query = ""
         query += "START original_tweet=node(%d) " % tweet_id
         query += ", query_user = node(%d) " % query_user_node._id
-        query += "MATCH original_tweet -[:REPLY*1..]-> tweet "
-        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) <-[:REPLY*1..]- original_tweet "
         query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         query += "WITH original_tweet, tweet, list, list_owner "
         query += "OPTIONAL MATCH tweet -[:TWEET]-> user "
@@ -1004,8 +1001,7 @@ class NECOMAtter():
         query = ""
         query += "START original_tweet=node(%d) " % tweet_id
         query += ", query_user = node(%d) " % query_user_node._id
-        query += "MATCH original_tweet <-[:REPLY*1..]- tweet "
-        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) -[:REPLY*1..]-> original_tweet "
         query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         query += "WITH original_tweet, tweet, list, list_owner "
         if since_time is not None:
@@ -1075,8 +1071,7 @@ class NECOMAtter():
         owner_node_id = owner_node._id
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
-        query += "MATCH list_node -[:OWNER]-> list_owner_node "
-        query += "MATCH list_node <-[:LIST]- owner_node "
+        query += "MATCH owner_node -[:LIST]-> list_node -[:OWNER]-> list_owner_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\"" % list_name
         query += "RETURN list_node "
@@ -1142,8 +1137,7 @@ class NECOMAtter():
         owner_node_id = owner_node._id
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
-        query += "MATCH list_node -[:OWNER]-> list_owner_node "
-        query += "MATCH list_node <-[:LIST]- owner_node "
+        query += "MATCH owner_node -[:LIST]-> list_node -[:OWNER]-> list_owner_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\"" % list_name
         query += "RETURN list_node "
@@ -1336,8 +1330,7 @@ class NECOMAtter():
         owner_node_id = owner_node._id
         query = ""
         query += "START owner_node=node(%d) " % owner_node_id
-        query += "MATCH list_node <-[:LIST]- owner_node "
-        query += "MATCH list_node -[:OWNER]-> list_owner_node "
+        query += "MATCH list_owner_node <-[:OWNER]- list_node <-[:LIST]- owner_node "
         query += "WHERE list_owner_node = owner_node " # owner_node のものだけをリストします
         query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node, list_node.description "
         query += "ORDER BY list_node.time ASC "
@@ -1376,8 +1369,7 @@ class NECOMAtter():
         query = ""
         query += "START owner_node=node(%d) " % (owner_node_id, )
         query += ", query_user_node=node(%d) " % (query_user_node_id, )
-        query += "MATCH list_node <-[:LIST]- owner_node "
-        query += "MATCH list_node -[:OWNER]-> list_owner_node "
+        query += "MATCH list_owner_node <-[:OWNER]- list_node <-[:LIST]- owner_node "
         query += "OPTIONAL MATCH list_node -[permit_r:PERMIT]-> permit_node "
         query += "WHERE permit_r = NULL OR permit_node = query_user_node " # TODO: XXXX これは動きません。常に true になるようです
         query += "RETURN list_node.name, list_node.time, list_owner_node.name, list_node, list_node.description "
@@ -1489,8 +1481,7 @@ class NECOMAtter():
         query += "START owner_node=node(%d) " % owner_node_id
         query += ", query_user_node=node(%d) " % query_user_node_id
         query += "MATCH (followed_node) <-[follow_r:FOLLOW]- list_node <-[:LIST]- owner_node "
-        query += "MATCH list_node -[:OWNER]-> list_owner_node "
-        query += "MATCH list_node <-[:LIST]- query_user_node "
+        query += "MATCH query_user_node -[:LIST]-> list_node -[:OWNER]-> list_owner_node "
         query += "WHERE list_owner_node = owner_node "
         query += "AND list_node.name = \"%s\" " % list_name
         query += "RETURN followed_node.name "
@@ -1933,7 +1924,6 @@ class NECOMAtter():
 
     # まとめのtweetリストを取得する
     def GetNECOMAtomeTweetListByID(self, matome_id, query_user_node, limit=None, since_time=None):
-        user_node_id = 0
         if query_user_node is None:
             logging.error("query_user_node is undefined.")
             return []
@@ -1941,8 +1931,7 @@ class NECOMAtter():
         query = ""
         query += "START matome_node=node(%d) " % matome_id
         query += ", query_user=node(%d) " % query_user_node_id
-        query += "MATCH tweet <-[matome_r:NECOMAtome]- (matome_node) "
-        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) <-[matome_r:NECOMAtome]- (matome_node) "
         query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         if since_time is not None:
             query += "WHERE tweet.time < %f " % since_time
@@ -2023,8 +2012,7 @@ class NECOMAtter():
         # クエリを作ります
         query = ""
         query += "START query_user = node(%d) " % query_user_id
-        query += "MATCH (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
-        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) "
+        query += "MATCH (query_user)<-[:FOLLOW]-(list)<-[:PERMIT]- (tweet) -[tweet_r:TWEET|RETWEET]-> (user) "
         query += "OPTIONAL MATCH (list_owner)<-[:OWNER]-(list) "
         query += "WITH tweet, tweet_r, user "
         query += ", query_user, list, list_owner "
