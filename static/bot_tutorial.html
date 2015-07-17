@@ -31,7 +31,7 @@ In many cases, STREAM BOT will have the function of the POST.
 		<li>POST data: JSON
 		<code>
 			{
-				"user": "user name string",
+				"user_name": "user name string",
 				"api_key": "API-KEY string",
 				"text": "mew text"
 				"reply_to": number of mew_id // can be omitted
@@ -54,7 +54,7 @@ In many cases, STREAM BOT will have the function of the POST.
 		<li>POST data: JSON
 		<code>
 			{
-				"user": "user name string",
+				"user_name": "user name string",
 				"api_key": "API-KEY string",
 				"regexp": "regular expression", 
 				"description": "BOT description text"
@@ -64,7 +64,7 @@ In many cases, STREAM BOT will have the function of the POST.
 </div>
 <h4>example:</h4>
 <div class="memo">
-<code>curl -H "content-type: application/json" -d '{"user_name": "YOUR ACCOUNT NAME", "api_key": “YOUR APKEY", "regexp": "reguler expression string", "description": "BOT description"}' https://necomatter.necoma-project.jp/stream/regexp.json</code>
+<code>curl -H "content-type: application/json" -d '{"user_name": "YOUR ACCOUNT NAME", "api_key": "YOUR APKEY", "regexp": "reguler expression string", "description": "BOT description"}' https://necomatter.necoma-project.jp/stream/regexp.json</code>
 </div>
 </body>
 </html>
