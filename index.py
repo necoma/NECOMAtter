@@ -569,6 +569,8 @@ def streamed_response():
     description = None
     if 'description' in request.json:
         description = request.json['description']
+    if description is None or description == "":
+        description = "unknown description"
     queue = gevent.queue.Queue()
     regist_id = watchDogManager.RegisterWatcher_RegexpMatch(regexp, queue, user_name, description)
     print "accept streaming client. user: %s" % user_name.encode('utf-8')
