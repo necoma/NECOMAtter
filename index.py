@@ -81,7 +81,7 @@ class StreamingWatcherManager():
             match_result = re_prog.findall(tweet_text)
             if not match_result:
                 continue
-            print "streaming hit for %s (%s)" % (regexp_watcher['user_name'], regexp_watcher['description'])
+            print "streaming hit for %s (%s)" % (regexp_watcher['user_name'].encode('utf-8'), regexp_watcher['description'].encode('utf-8'))
             queue.put_nowait((tweet_dic, match_result))
 
     def GetWatcherListNum(self):
@@ -571,7 +571,7 @@ def streamed_response():
         description = request.json['description']
     queue = gevent.queue.Queue()
     regist_id = watchDogManager.RegisterWatcher_RegexpMatch(regexp, queue, user_name, description)
-    print "accept streaming client. user: %s" % user_name
+    print "accept streaming client. user: %s" % user_name.encode('utf-8')
     def generate():
         while True:
             try:
