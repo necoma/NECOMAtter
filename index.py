@@ -67,7 +67,7 @@ class StreamingWatcherManager():
     def SendHeartbeat(self):
         for regexp_watcher in self.regexp_watcher_list.values():
             queue = regexp_watcher['queue']
-            #print "send heartbeat to %s (%s)" % (regexp_watcher['user_name'], regexp_watcher['description'])
+            #print "send heartbeat to %s (%s)" % (regexp_watcher['user_name'].decode('utf-8'), regexp_watcher['description'].decode('utf-8'))
             queue.put_nowait((None, None))
 
     def UpdateTweet(self, tweet_text, tweet_dic):
@@ -81,7 +81,7 @@ class StreamingWatcherManager():
             match_result = re_prog.findall(tweet_text)
             if not match_result:
                 continue
-            print "streaming hit for %s (%s)" % (regexp_watcher['user_name'].encode('utf-8'), regexp_watcher['description'].encode('utf-8'))
+            #print "streaming hit for %s (%s)" % (regexp_watcher['user_name'].decode('utf-8'), regexp_watcher['description'].decode('utf-8'))
             queue.put_nowait((tweet_dic, match_result))
 
     def GetWatcherListNum(self):
