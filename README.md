@@ -19,9 +19,9 @@ This is NECOMAtter server.
 NECOMAtter server and neo4j ansible playbook is alive on [ansible-playbook](./ansible-playbook)
 maybe
 
-% printf "[default]\nlocalhost" > hosts
-% sudo ansible-playbook -i hosts -c local neo4j-playbook.yml
-% sudo ansible-playbook -i hosts -c local NECOMAtter-playbook.yml
+  % printf "[default]\nlocalhost" > hosts  
+  % sudo ansible-playbook -i hosts -c local neo4j-playbook.yml  
+  % sudo ansible-playbook -i hosts -c local NECOMAtter-playbook.yml
 
 # create BOTs
 
